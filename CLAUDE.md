@@ -342,11 +342,13 @@ closet's dashboard in an iframe.
   `http://localhost:8300/extension/...` instead.
 - The extension calls the controller cross-origin (CORS is open); the
   controller API URL is persisted per-browser and editable on the page.
-- **Using it from your own Rancher instance**: developer-load
-  `http://localhost:8300/extension/magic-closet-<v>/magic-closet-<v>.umd.min.js`
-  and set the controller URL to `http://localhost:8300` — browsers exempt
-  localhost from mixed-content blocking, so an https Rancher can call it. For
-  a Rancher on another machine, the API would need to be served over https.
+- **Using it from your own Rancher instance**: developer-load the
+  GitHub Pages build (published by `.github/workflows/pages.yml` on every
+  push): https://codyrancher.github.io/magic-closet/ lists the bundle URL.
+  Then set the controller URL on the page to `http://localhost:8300` —
+  browsers exempt localhost from mixed-content blocking, so an https Rancher
+  can call it. (Local alternative:
+  `http://localhost:8300/extension/magic-closet-<v>/...umd.min.js`.)
 
 ## Networking between containers
 
