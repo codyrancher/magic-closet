@@ -53,7 +53,13 @@ jobs:
           for d in assets charts extensions; do
             [ -d "rancher-extension/$d" ] && cp -r "rancher-extension/$d" site/
           done
-          [ -f rancher-extension/index.yaml ] && cp rancher-extension/index.yaml site/
+          # publish-pkgs writes the freshly merged index to assets/index.yaml;
+          # the root index.yaml it leaves behind is the previous (wget'd) one
+          if [ -f rancher-extension/assets/index.yaml ]; then
+            cp rancher-extension/assets/index.yaml site/index.yaml
+          elif [ -f rancher-extension/index.yaml ]; then
+            cp rancher-extension/index.yaml site/index.yaml
+          fi
           cp api/src/logo.svg site/logo.svg
           touch site/.nojekyll
           {
