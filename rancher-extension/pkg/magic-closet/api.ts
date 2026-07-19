@@ -25,7 +25,10 @@ export function getApiUrl(): string {
 export async function resolveApiUrl(): Promise<string> {
   const stored = window.localStorage.getItem(STORAGE_KEY);
 
-  if (stored) {
+  // A stored value that is just the unconfigured default (e.g. saved by
+  // accident before the controller was reachable) shouldn't shadow the
+  // Rancher-wide Setting
+  if (stored && stored !== defaultApiUrl()) {
     cachedUrl = stored;
 
     return stored;
