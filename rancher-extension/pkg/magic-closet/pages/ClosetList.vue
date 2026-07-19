@@ -1,5 +1,5 @@
 <script>
-import { apiFetch, closetUrl, getApiUrl, setApiUrl } from '../api';
+import { apiFetch, closetUrl, getApiUrl, resolveApiUrl, setApiUrl } from '../api';
 
 export default {
   name: 'ClosetList',
@@ -17,7 +17,9 @@ export default {
     };
   },
 
-  created() {
+  async created() {
+    await resolveApiUrl();
+    this.apiUrl = getApiUrl();
     this.load();
     this.timer = setInterval(this.load, 8000);
   },
@@ -62,8 +64,8 @@ export default {
       }
     },
 
-    saveApiUrl() {
-      setApiUrl(this.apiUrl);
+    async saveApiUrl() {
+      await setApiUrl(this.apiUrl);
       this.load();
     },
 

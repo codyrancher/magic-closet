@@ -3,6 +3,9 @@
 // rancher-browser sidecar (https://rancher) the API is on the compose
 // network, otherwise assume the standard host port.
 const STORAGE_KEY = 'magic-closet-api-url';
+const SETTING_URL = '/v1/management.cattle.io.settings/magic-closet-controller';
+
+let cachedUrl: string | null = null;
 
 export function defaultApiUrl(): string {
   if (window.location.hostname === 'rancher') {
@@ -13,11 +16,77 @@ export function defaultApiUrl(): string {
 }
 
 export function getApiUrl(): string {
-  return window.localStorage.getItem(STORAGE_KEY) || defaultApiUrl();
+  return cachedUrl || window.localStorage.getItem(STORAGE_KEY) || defaultApiUrl();
 }
 
-export function setApiUrl(url: string): void {
+// Priority: personal localStorage override > the Rancher-wide
+// "magic-closet-controller" Setting > a guess. Call once before using the
+// api; result is cached for the synchronous helpers.
+export async function resolveApiUrl(): Promise<string> {
+  const stored = window.localStorage.getItem(STORAGE_KEY);
+
+  if (stored) {
+    cachedUrl = stored;
+
+    return stored;
+  }
+
+  try {
+    const resp = await fetch(SETTING_URL);
+
+    if (resp.ok) {
+      const setting = await resp.json();
+
+      if (setting.value) {
+        cachedUrl = setting.value;
+
+        return setting.value;
+      }
+    }
+  } catch { /* no setting — fall through */ }
+
+  cachedUrl = defaultApiUrl();
+
+  return cachedUrl;
+}
+
+function csrfHeader(): Record<string, string> {
+  const match = document.cookie.match(/(?:^|;\s*)CSRF=([^;]*)/);
+
+  return { 'X-Api-Csrf': match ? decodeURIComponent(match[1]) : 'CSRF' };
+}
+
+// Persists locally and — best effort — into the Rancher-wide Setting so
+// every user/browser of this Rancher gets it automatically.
+export async function setApiUrl(url: string): Promise<void> {
   window.localStorage.setItem(STORAGE_KEY, url);
+  cachedUrl = url;
+
+  try {
+    const resp = await fetch(SETTING_URL);
+
+    if (resp.ok) {
+      const setting = await resp.json();
+
+      setting.value = url;
+      await fetch(SETTING_URL, {
+        method:  'PUT',
+        headers: { 'Content-Type': 'application/json', ...csrfHeader() },
+        body:    JSON.stringify(setting),
+      });
+    } else {
+      await fetch('/v1/management.cattle.io.settings', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', ...csrfHeader() },
+        body:    JSON.stringify({
+          type:     'management.cattle.io.setting',
+          metadata: { name: 'magic-closet-controller' },
+          value:    url,
+          default:  '',
+        }),
+      });
+    }
+  } catch { /* setting write is optional */ }
 }
 
 // A closet's own API/dashboard: same host as the controller, its own port.

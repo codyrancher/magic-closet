@@ -1,5 +1,5 @@
 <script>
-import { apiFetch, closetUrl, getApiUrl } from '../api';
+import { apiFetch, closetUrl, getApiUrl, resolveApiUrl } from '../api';
 
 export default {
   name: 'ClosetDetail',
@@ -9,6 +9,7 @@ export default {
   },
 
   async created() {
+    await resolveApiUrl();
     const name = this.$route.params.closet;
 
     try {
