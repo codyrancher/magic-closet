@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <!-- closet -->
-  <rect x="8" y="10" width="38" height="44" rx="4" fill="#251e24" stroke="#b068a0" stroke-width="3"/>
+  <rect x="8" y="10" width="38" height="44" rx="4" fill="none" stroke="#b068a0" stroke-width="3"/>
   <path d="M27 11.5 V52.5" stroke="#b068a0" stroke-width="2.5"/>
   <rect x="21.5" y="27" width="3" height="9" rx="1.5" fill="#c880b8"/>
   <rect x="29.5" y="27" width="3" height="9" rx="1.5" fill="#c880b8"/>
