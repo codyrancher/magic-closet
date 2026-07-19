@@ -50,7 +50,8 @@ Edit `sidecars/<name>/compose.yml`. It's a normal compose file; the only
 conventions are:
 
 1. `profiles: ["<name>"]` — keeps the sidecar optional (profile = dir name).
-2. `container_name: magic-closet-<name>` — the API finds containers by this.
+2. No `container_name` — compose names containers per project, and the API
+   finds them via compose labels (required for multiple closets).
 3. Paths are relative to the **repo root** (the include uses
    `project_directory: .`), e.g. `./workspace`, `./tools`, `./sidecars/<name>/...`.
 4. Tunables are exposed as env vars with defaults (`${RANCHER_TAG:-head}`) and
@@ -60,9 +61,8 @@ conventions are:
 A directory under `sidecars/` **without** a `compose.yml` is a group; its
 subdirectories are sidecars (e.g. `sidecars/auth/keycloak`,
 `sidecars/auth/openldap`). The dashboard renders each group as a titled
-section; the API reports the group on each sidecar. Profile and container
-names stay flat (`keycloak`, `magic-closet-keycloak`) — the group is purely
-organizational.
+section; the API reports the group on each sidecar. Profile and service
+names stay flat (`keycloak`) — the group is purely organizational.
 
 ### Add a new sidecar
 1. `mkdir sidecars/<name>` (or `sidecars/<group>/<name>`) with a `compose.yml`
