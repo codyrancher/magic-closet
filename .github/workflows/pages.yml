@@ -46,6 +46,7 @@ jobs:
             [ -d "rancher-extension/$d" ] && cp -r "rancher-extension/$d" site/
           done
           [ -f rancher-extension/index.yaml ] && cp rancher-extension/index.yaml site/
+          cp api/src/logo.svg site/logo.svg
           {
             echo '<!doctype html><meta charset="utf-8"><title>magic-closet extension</title>'
             echo '<h1>magic-closet Rancher extension</h1>'

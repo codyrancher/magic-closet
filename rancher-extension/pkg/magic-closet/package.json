@@ -1,10 +1,13 @@
 {
   "name": "magic-closet",
-  "description": "magic-closet plugin",
+  "description": "Provision and manage magic closet dev environments from Rancher",
   "version": "0.1.0",
   "private": false,
+  "icon": "https://codyrancher.github.io/magic-closet/logo.svg",
+  "homepage": "https://github.com/codyrancher/magic-closet",
   "rancher": {
     "annotations": {
+      "catalog.cattle.io/display-name": "Magic Closet",
       "catalog.cattle.io/rancher-version": ">= 2.10.0",
       "catalog.cattle.io/ui-extensions-version": ">= 3.0.0 < 4.0.0"
     }
