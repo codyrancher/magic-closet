@@ -6,9 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
@@ -34,41 +32,51 @@ jobs:
         working-directory: rancher-extension
         run: yarn build-pkg magic-closet
 
+      - name: Fetch previous catalog (preserves older versions)
+        run: |
+          mkdir site
+          # publish-pkgs requires a local gh-pages ref to exist
+          if git fetch origin gh-pages; then
+            git branch -f gh-pages FETCH_HEAD
+            git archive FETCH_HEAD | tar -x -C site
+          else
+            git branch gh-pages
+          fi
+
       - name: Build extension catalog (Helm repo for Rancher's extension repositories)
         working-directory: rancher-extension
-        run: yarn publish-pkgs
+        run: yarn publish-pkgs -s ${{ github.repository }} -b gh-pages
 
       - name: Assemble site
         run: |
-          mkdir -p site
           cp -r rancher-extension/dist-pkg/* site/
           for d in assets charts extensions; do
             [ -d "rancher-extension/$d" ] && cp -r "rancher-extension/$d" site/
           done
           [ -f rancher-extension/index.yaml ] && cp rancher-extension/index.yaml site/
           cp api/src/logo.svg site/logo.svg
+          touch site/.nojekyll
           {
             echo '<!doctype html><meta charset="utf-8"><title>magic-closet extension</title>'
             echo '<h1>magic-closet Rancher extension</h1>'
             echo '<p><b>Extension repository</b> (Rancher &rarr; Extensions &rarr; &#8942; &rarr; Manage Repositories &rarr; Create):</p>'
             echo '<pre>https://codyrancher.github.io/magic-closet/</pre>'
             echo '<p>Or Developer Load a bundle directly:</p><ul>'
-            (cd site && find . -name '*.umd.min.js' | sed 's|^\./||' | sort | while read -r f; do
+            (cd site && find . -name '*.umd.min.js' -not -path './extensions/*' | sed 's|^\./||' | sort | while read -r f; do
               echo "<li><a href=\"$f\">$f</a></li>"
             done)
             echo '</ul>'
           } > site/index.html
 
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Publish to gh-pages branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd site
+          git init -q
+          git checkout -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Publish extension catalog"
+          git push -f -q "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
