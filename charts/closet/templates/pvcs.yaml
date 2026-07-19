@@ -1,9 +1,13 @@
+{{- if eq .Values.storage.mode "pvc" }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: workspace
 spec:
   accessModes: ["ReadWriteOnce"]
+  {{- if .Values.storage.className }}
+  storageClassName: {{ .Values.storage.className }}
+  {{- end }}
   resources:
     requests:
       storage: {{ .Values.storage.workspace }}
@@ -27,3 +31,4 @@ spec:
   resources:
     requests:
       storage: {{ .Values.storage.rancher }}
+{{- end }}

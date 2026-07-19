@@ -28,9 +28,21 @@ spec:
             - { name: claude-data, mountPath: /claude-data }
       volumes:
         - name: workspace
+{{- if eq .Values.storage.mode "pvc" }}
           persistentVolumeClaim: { claimName: workspace }
+{{- else }}
+          hostPath:
+            path: /var/lib/magic-closet/{{ .Release.Namespace }}/workspace
+            type: DirectoryOrCreate
+{{- end }}
         - name: claude-data
+{{- if eq .Values.storage.mode "pvc" }}
           persistentVolumeClaim: { claimName: claude-data }
+{{- else }}
+          hostPath:
+            path: /var/lib/magic-closet/{{ .Release.Namespace }}/claude-data
+            type: DirectoryOrCreate
+{{- end }}
 ---
 apiVersion: v1
 kind: Service

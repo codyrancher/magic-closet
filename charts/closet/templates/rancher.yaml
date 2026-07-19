@@ -29,7 +29,13 @@ spec:
             - { name: rancher-data, mountPath: /var/lib/rancher }
       volumes:
         - name: rancher-data
+{{- if eq .Values.storage.mode "pvc" }}
           persistentVolumeClaim: { claimName: rancher-data }
+{{- else }}
+          hostPath:
+            path: /var/lib/magic-closet/{{ .Release.Namespace }}/rancher-data
+            type: DirectoryOrCreate
+{{- end }}
 ---
 apiVersion: v1
 kind: Service

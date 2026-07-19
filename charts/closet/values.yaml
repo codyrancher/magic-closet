@@ -33,6 +33,12 @@ config:
   AWS_DEFAULT_REGION: "us-west-2"
 
 storage:
+  # hostPath: single-node friendly (works without any StorageClass; data
+  # lives on the node under /var/lib/magic-closet/<namespace>).
+  # pvc: use PersistentVolumeClaims (requires a default StorageClass or
+  # storage.className).
+  mode: hostPath
+  className: ""
   workspace: 5Gi
   rancher: 5Gi
 
