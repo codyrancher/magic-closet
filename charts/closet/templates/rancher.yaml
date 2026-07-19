@@ -12,6 +12,10 @@ spec:
     metadata:
       labels: { app: rancher }
     spec:
+      # Without this, rancher sees the mounted SA token, assumes it's an
+      # in-cluster HA install, and crash-loops on RBAC instead of starting
+      # its own embedded k3s
+      automountServiceAccountToken: false
       containers:
         - name: rancher
           image: {{ .Values.images.rancher }}
