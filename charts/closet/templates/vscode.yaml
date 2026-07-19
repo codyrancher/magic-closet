@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vscode
+  labels: { app: vscode }
+spec:
+  replicas: {{ ternary 1 0 .Values.sidecars.vscode }}
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: vscode }
+  template:
+    metadata:
+      labels: { app: vscode }
+    spec:
+      containers:
+        - name: vscode
+          image: {{ .Values.images.vscode }}
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef: { name: closet-secrets }
+            - configMapRef: { name: closet-config }
+          env:
+            - { name: MC_API_URL, value: "http://api:8080" }
+          ports:
+            - containerPort: 9000
+          volumeMounts:
+            - { name: workspace, mountPath: /workspace }
+            - { name: claude-data, mountPath: /claude-data }
+      volumes:
+        - name: workspace
+          persistentVolumeClaim: { claimName: workspace }
+        - name: claude-data
+          persistentVolumeClaim: { claimName: claude-data }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vscode
+spec:
+  selector: { app: vscode }
+  ports:
+    - { name: http, port: 9000, targetPort: 9000 }

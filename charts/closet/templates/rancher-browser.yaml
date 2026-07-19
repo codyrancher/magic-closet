@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rancher-browser
+  labels: { app: rancher-browser }
+spec:
+  replicas: {{ ternary 1 0 .Values.sidecars.rancherBrowser }}
+  selector:
+    matchLabels: { app: rancher-browser }
+  template:
+    metadata:
+      labels: { app: rancher-browser }
+    spec:
+      containers:
+        - name: chromium
+          image: {{ .Values.images.rancherBrowser }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: PUID, value: "1000" }
+            - { name: PGID, value: "1000" }
+            - { name: CUSTOM_PORT, value: "3000" }
+            - { name: CHROME_CLI, value: "https://rancher --no-first-run --start-maximized --disable-infobars --allow-insecure-localhost --ignore-certificate-errors --remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 --allow-running-insecure-content" }
+          ports:
+            - containerPort: 3000
+            - containerPort: 3001
+            - containerPort: 9222
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rancher-browser
+spec:
+  selector: { app: rancher-browser }
+  ports:
+    - { name: http, port: 3000, targetPort: 3000 }
+    - { name: https, port: 3001, targetPort: 3001 }
+    - { name: cdp, port: 9222, targetPort: 9222 }

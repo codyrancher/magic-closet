@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>magic closet</title>
-<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <style>
   /* Design tokens shared with the claude-harness portal (theme.css) */
   :root {
@@ -412,7 +412,7 @@
 <body>
   <header>
     <div class="header-inner">
-      <img class="logo" src="/logo.svg" alt="">
+      <img class="logo" src="logo.svg" alt="">
       <h1>magic closet</h1>
     </div>
   </header>
@@ -437,7 +437,7 @@ async function loadOptions(sidecar, paramId) {
   if (optCache.has(key)) return;
   optCache.set(key, []); // reserve so we only fetch once
   try {
-    const resp = await fetch(`/sidecars/${sidecar}/params/${paramId}/options`);
+    const resp = await fetch(`sidecars/${sidecar}/params/${paramId}/options`);
     const data = await resp.json();
     optCache.set(key, data.options || []);
     safeRender();
@@ -619,7 +619,7 @@ function render(sidecars) {
     startBtn.className = 'btn-start';
     startBtn.textContent = running ? 'Restart' : 'Start';
     startBtn.disabled = isBusy;
-    startBtn.onclick = () => act(s.name, 'starting', `/sidecars/${s.name}/start`, 'POST', {
+    startBtn.onclick = () => act(s.name, 'starting', `sidecars/${s.name}/start`, 'POST', {
       params: Object.fromEntries(Object.entries(inputs).map(([id, el]) =>
         [id, el.type === 'checkbox' ? (el.checked ? 'true' : '') : el.value])),
     });
@@ -630,14 +630,14 @@ function render(sidecars) {
       stopBtn.className = 'btn-stop';
       stopBtn.textContent = 'Stop';
       stopBtn.disabled = isBusy || !running;
-      stopBtn.onclick = () => act(s.name, 'stopping', `/sidecars/${s.name}/stop`, 'POST');
+      stopBtn.onclick = () => act(s.name, 'stopping', `sidecars/${s.name}/stop`, 'POST');
       actions.appendChild(stopBtn);
 
       const delBtn = document.createElement('button');
       delBtn.className = 'btn-delete';
       delBtn.textContent = 'Delete';
       delBtn.disabled = isBusy;
-      delBtn.onclick = () => act(s.name, 'deleting', `/sidecars/${s.name}`, 'DELETE');
+      delBtn.onclick = () => act(s.name, 'deleting', `sidecars/${s.name}`, 'DELETE');
       actions.appendChild(delBtn);
     }
 
@@ -648,7 +648,7 @@ function render(sidecars) {
 
 async function refresh() {
   try {
-    const resp = await fetch('/sidecars');
+    const resp = await fetch('sidecars');
     const data = await resp.json();
     lastSidecars = data.sidecars || [];
     rancherInfo = data.rancher || { running: false, authProvider: null };
@@ -700,7 +700,7 @@ function makeAuthApply(s) {
       : s.status !== 'running' ? `${s.name} is not running` : '';
   };
   select.addEventListener('change', syncBtn);
-  btn.onclick = () => act(s.name, 'applying', '/auth/apply', 'POST', { provider: select.value });
+  btn.onclick = () => act(s.name, 'applying', 'auth/apply', 'POST', { provider: select.value });
   syncBtn();
   row.appendChild(btn);
   return row;

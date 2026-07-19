@@ -24,7 +24,9 @@ const path = require('path');
 const { execFileSync, execFile } = require('child_process');
 
 const MC_ROOT = process.env.MC_ROOT || process.cwd();
-const SIDECARS_DIR = path.join(MC_ROOT, 'sidecars');
+const SIDECARS_DIR = fs.existsSync(path.join(MC_ROOT, 'sidecars'))
+  ? path.join(MC_ROOT, 'sidecars')
+  : path.join(__dirname, '..', 'sidecars');
 // Which closet this api instance manages: compose project + env file.
 // The default deployment is project "magic-closet" with ./.env; provisioned
 // closets get mc-<name> with .state/closets/<name>.env.
@@ -33,9 +35,76 @@ const MC_ENV_FILE = process.env.MC_ENV_FILE || '.env';
 const ENV_FILE = path.isAbsolute(MC_ENV_FILE) ? MC_ENV_FILE : path.join(MC_ROOT, MC_ENV_FILE);
 const PORT = 8080;
 
+// ---------- kubernetes mode ----------
+//
+// When running inside a cluster (the "closet" Helm chart), sidecars are
+// Deployments in this namespace: start/stop = scale 1/0, params live in the
+// closet-config ConfigMap, secrets arrive via the pod environment. Compose
+// mode is unchanged.
+
+const SA_DIR = '/var/run/secrets/kubernetes.io/serviceaccount';
+const K8S = fs.existsSync(path.join(SA_DIR, 'token')) ? {
+  base: `https://${process.env.KUBERNETES_SERVICE_HOST}:${process.env.KUBERNETES_SERVICE_PORT || 443}`,
+  token: fs.readFileSync(path.join(SA_DIR, 'token'), 'utf-8').trim(),
+  ns: fs.readFileSync(path.join(SA_DIR, 'namespace'), 'utf-8').trim(),
+} : null;
+
+function k8sApi(pathname, { method = 'GET', body, contentType } = {}) {
+  return new Promise((resolve) => {
+    const req = require('https').request(`${K8S.base}${pathname}`, {
+      method,
+      rejectUnauthorized: false,
+      timeout: 15000,
+      headers: {
+        Authorization: `Bearer ${K8S.token}`,
+        'Content-Type': contentType || 'application/json',
+      },
+    }, (res) => {
+      let data = '';
+      res.on('data', (c) => { data += c; });
+      res.on('end', () => {
+        let json = null;
+        try { json = JSON.parse(data); } catch { /* non-JSON */ }
+        resolve({ status: res.statusCode, json });
+      });
+    });
+    req.on('error', () => resolve({ status: 0, json: null }));
+    req.on('timeout', () => { req.destroy(); resolve({ status: 0, json: null }); });
+    if (body) req.write(typeof body === 'string' ? body : JSON.stringify(body));
+    req.end();
+  });
+}
+
+// Synchronous callers read these caches; refreshed every 5s
+let k8sDeployCache = new Map(); // name -> { desired, ready, uid }
+let k8sConfigCache = {};        // closet-config ConfigMap data
+
+async function refreshK8sCache() {
+  const deps = await k8sApi(`/apis/apps/v1/namespaces/${K8S.ns}/deployments`);
+  if (deps.json?.items) {
+    const m = new Map();
+    for (const d of deps.json.items) {
+      m.set(d.metadata.name, {
+        desired: d.spec.replicas ?? 0,
+        ready: d.status?.readyReplicas || 0,
+        uid: d.metadata.uid,
+      });
+    }
+    k8sDeployCache = m;
+  }
+  const cm = await k8sApi(`/api/v1/namespaces/${K8S.ns}/configmaps/closet-config`);
+  if (cm.json?.data) k8sConfigCache = cm.json.data;
+}
+if (K8S) {
+  refreshK8sCache();
+  setInterval(refreshK8sCache, 5000);
+  console.log(`kubernetes mode: namespace ${K8S.ns}`);
+}
+
 // Containers are found via compose labels (no fixed container names — they
 // would collide across closet instances)
 function containerIdOf(service, project = MC_PROJECT) {
+  if (K8S) return k8sDeployCache.get(service)?.uid || null;
   try {
     const out = execFileSync('docker', ['ps', '-aq',
       '--filter', `label=com.docker.compose.project=${project}`,
@@ -94,6 +163,12 @@ function getSidecarDef(name) {
 }
 
 function containerStatus(name) {
+  if (K8S) {
+    const d = k8sDeployCache.get(name);
+    if (!d) return { status: 'not_created', health: null };
+    if (d.desired === 0) return { status: 'exited', health: null };
+    return d.ready > 0 ? { status: 'running', health: null } : { status: 'running', health: 'starting' };
+  }
   const id = containerIdOf(name);
   if (!id) return { status: 'not_created', health: null };
   try {
@@ -140,6 +215,7 @@ function generatePassword(length = 15) {
 }
 
 function ensureGeneratedSecrets() {
+  if (K8S) return; // the closet chart generates secrets at install time
   const env = readEnvValues();
   const updates = {};
   for (const def of listSidecarDefs()) {
@@ -307,6 +383,7 @@ async function handleParamOptions(name, paramId, res) {
 // ---------- .env persistence ----------
 
 function readEnvValues() {
+  if (K8S) return { ...process.env, ...k8sConfigCache };
   const values = {};
   try {
     for (const line of fs.readFileSync(ENV_FILE, 'utf-8').split('\n')) {
@@ -324,6 +401,15 @@ function readEnvValues() {
 
 // Persist param values into .env so later `docker compose up` runs keep them.
 function writeEnvValues(updates) {
+  if (K8S) {
+    Object.assign(k8sConfigCache, updates);
+    k8sApi(`/api/v1/namespaces/${K8S.ns}/configmaps/closet-config`, {
+      method: 'PATCH',
+      contentType: 'application/strategic-merge-patch+json',
+      body: { data: updates },
+    });
+    return;
+  }
   let lines = [];
   try { lines = fs.readFileSync(ENV_FILE, 'utf-8').split('\n'); } catch { /* create fresh */ }
   for (const [key, value] of Object.entries(updates)) {
@@ -1014,6 +1100,7 @@ async function connectRancherToFreeIpa() {
 }
 
 async function bootstrapFreeIpa() {
+  if (K8S) return;
   const containerId = containerIdOf('freeipa');
   if (!containerId) return;
   if (freeipaBootstrap.state === 'running') return;
@@ -1142,6 +1229,7 @@ async function connectRancherToSambaAd() {
 }
 
 async function bootstrapSambaAd() {
+  if (K8S) return;
   const containerId = containerIdOf('samba-ad');
   if (!containerId) return;
   if (sambaAdBootstrap.state === 'running') return;
@@ -1207,6 +1295,7 @@ async function bootstrapSambaAd() {
 let cloneRunning = false;
 
 function ensureWorkspaceClone() {
+  if (K8S) return;
   const env = readEnvValues();
   const url = env.GITHUB_URL;
   if (!url || cloneRunning) return;
@@ -1404,7 +1493,7 @@ function readEnvFile(file) {
 }
 
 function listProvisionedClosets() {
-  if (!fs.existsSync(CLOSETS_DIR)) return [];
+  if (K8S || !fs.existsSync(CLOSETS_DIR)) return [];
   return fs.readdirSync(CLOSETS_DIR).filter(f => f.endsWith('.env')).map(f => {
     const name = f.slice(0, -4);
     const env = readEnvFile(path.join(CLOSETS_DIR, f));
@@ -1453,6 +1542,7 @@ function hostGatewayIp() {
 }
 
 function handleClosetCreate(body, res) {
+  if (K8S) return sendJson(res, 501, { error: 'in-cluster closets are created via the Rancher extension (helm chart install)' });
   const name = (body.name || '').trim();
   if (!/^[a-z][a-z0-9-]{0,20}$/.test(name)) {
     return sendJson(res, 400, { error: 'name must be lowercase alphanumeric/dashes, starting with a letter' });
@@ -1506,6 +1596,7 @@ function handleClosetCreate(body, res) {
 }
 
 function handleClosetDelete(name, res) {
+  if (K8S) return sendJson(res, 501, { error: 'in-cluster closets are deleted via the Rancher extension (helm uninstall)' });
   const closet = listProvisionedClosets().find(c => c.name === name);
   if (!closet) return sendJson(res, 404, { error: `unknown closet: ${name}` });
   const envFile = path.join(CLOSETS_DIR, `${name}.env`);
@@ -1562,6 +1653,29 @@ async function handleStart(name, body, res) {
   if (Object.keys(updates).length) writeEnvValues(updates);
   ensureWorkspaceClone();
 
+  if (K8S) {
+    k8sApi(`/apis/apps/v1/namespaces/${K8S.ns}/deployments/${name}`, {
+      method: 'PATCH',
+      contentType: 'application/strategic-merge-patch+json',
+      body: {
+        spec: {
+          replicas: 1,
+          template: { metadata: { annotations: { 'magic-closet/restarted-at': new Date().toISOString() } } },
+        },
+      },
+    }).then(({ status }) => {
+      if (status >= 200 && status < 300) {
+        if (name === 'rancher' && rancherBootstrap.state !== 'running') { rancherBootstrap = { state: 'idle', containerId: null }; bootstrapRancher(); }
+        if (name === 'keycloak' && keycloakBootstrap.state !== 'running') { keycloakBootstrap = { state: 'idle', containerId: null }; bootstrapKeycloak(); }
+        if (name === 'openldap' && openldapBootstrap.state !== 'running') { openldapBootstrap = { state: 'idle', containerId: null }; bootstrapOpenLdap(); }
+        sendJson(res, 200, { status: 'started', sidecar: name, params: updates });
+      } else {
+        sendJson(res, 500, { error: `scale failed (HTTP ${status})` });
+      }
+    });
+    return;
+  }
+
   const args = ['--profile', name, 'up', '-d'];
   if (body.wait) args.push('--wait');
   args.push(name);
@@ -1595,6 +1709,14 @@ async function handleStart(name, body, res) {
 
 function handleStop(name, res) {
   if (!getSidecarDef(name)) return sendJson(res, 404, { error: `unknown sidecar: ${name}` });
+  if (K8S) {
+    k8sApi(`/apis/apps/v1/namespaces/${K8S.ns}/deployments/${name}`, {
+      method: 'PATCH', contentType: 'application/strategic-merge-patch+json', body: { spec: { replicas: 0 } },
+    }).then(({ status }) => {
+      sendJson(res, status < 300 ? 200 : 500, { status: status < 300 ? 'stopped' : 'error', sidecar: name });
+    });
+    return;
+  }
   compose(['--profile', name, 'stop', name], (err, stdout, stderr) => {
     if (err) return sendJson(res, 500, { error: 'compose stop failed', detail: stderr.trim() });
     sendJson(res, 200, { status: 'stopped', sidecar: name });
@@ -1603,6 +1725,7 @@ function handleStop(name, res) {
 
 function handleDelete(name, res) {
   if (!getSidecarDef(name)) return sendJson(res, 404, { error: `unknown sidecar: ${name}` });
+  if (K8S) return handleStop(name, res); // in-cluster: delete == scale to 0
   compose(['--profile', name, 'rm', '-sf', name], (err, stdout, stderr) => {
     if (err) return sendJson(res, 500, { error: 'compose rm failed', detail: stderr.trim() });
     sendJson(res, 200, { status: 'deleted', sidecar: name });
@@ -1610,6 +1733,7 @@ function handleDelete(name, res) {
 }
 
 function handleExec(body, res) {
+  if (K8S) return sendJson(res, 501, { error: 'project exec is not supported in kubernetes mode yet' });
   if (!body.command) return sendJson(res, 400, { error: 'missing "command"' });
   const projectId = containerIdOf('project');
   if (!projectId) return sendJson(res, 409, { error: 'project container is not running' });

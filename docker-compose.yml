@@ -49,7 +49,9 @@ services:
   # Sidecar control plane: start/stop/delete sidecars over HTTP.
   api:
     image: magic-closet-api
-    build: ./api
+    build:
+      context: .
+      dockerfile: api/Dockerfile
     environment:
       # Host path of this repo — needed so compose commands issued through the
       # host docker socket resolve bind mounts correctly.

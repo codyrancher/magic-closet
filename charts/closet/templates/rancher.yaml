@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rancher
+  labels: { app: rancher }
+spec:
+  replicas: {{ ternary 1 0 .Values.sidecars.rancher }}
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: rancher }
+  template:
+    metadata:
+      labels: { app: rancher }
+    spec:
+      containers:
+        - name: rancher
+          image: {{ .Values.images.rancher }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          env:
+            - name: CATTLE_BOOTSTRAP_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: closet-secrets, key: RANCHER_BOOTSTRAP_PASSWORD }
+          ports:
+            - containerPort: 80
+            - containerPort: 443
+          volumeMounts:
+            - { name: rancher-data, mountPath: /var/lib/rancher }
+      volumes:
+        - name: rancher-data
+          persistentVolumeClaim: { claimName: rancher-data }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rancher
+spec:
+  selector: { app: rancher }
+  ports:
+    - { name: http, port: 80, targetPort: 80 }
+    - { name: https, port: 443, targetPort: 443 }

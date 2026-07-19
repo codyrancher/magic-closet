@@ -1,0 +1,45 @@
+images:
+  api: ghcr.io/codyrancher/magic-closet-api:latest
+  project: ghcr.io/codyrancher/magic-closet-project:latest
+  vscode: ghcr.io/codyrancher/magic-closet-vscode:latest
+  rancher: rancher/rancher:head
+  keycloak: quay.io/keycloak/keycloak:latest
+  openldap: osixia/openldap:1.5.0
+  rancherBrowser: lscr.io/linuxserver/chromium:latest
+  figma: acuvity/mcp-server-figma:latest
+
+# Which sidecars start enabled (deployments always exist; these set the
+# initial replica count — the closet api scales them after install)
+sidecars:
+  vscode: true
+  rancher: true
+  keycloak: true
+  rancherBrowser: false
+  openldap: false
+  figma: false
+
+# Params (the closet-config ConfigMap; editable from the closet dashboard)
+config:
+  RANCHER_AUTH_PROVIDER: "keycloak"
+  NODE_VERSION: "24"
+  GH_TOKEN: ""
+  GITHUB_URL: ""
+  RANCHER_PRIME: ""
+  FIGMA_API_KEY: ""
+  APPCO_EMAIL: ""
+  APPCO_TOKEN: ""
+  AWS_ACCESS_KEY: ""
+  AWS_SECRET_KEY: ""
+  AWS_DEFAULT_REGION: "us-west-2"
+
+storage:
+  workspace: 5Gi
+  rancher: 5Gi
+
+expose:
+  # Extra NodePort services (api, vscode, rancher, keycloak, rancher-browser)
+  nodePort: false
+  # Host-based ingress: <service>.<host>
+  ingress:
+    enabled: false
+    host: ""

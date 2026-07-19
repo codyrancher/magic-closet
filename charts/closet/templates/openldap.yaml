@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openldap
+  labels: { app: openldap }
+spec:
+  replicas: {{ ternary 1 0 .Values.sidecars.openldap }}
+  selector:
+    matchLabels: { app: openldap }
+  template:
+    metadata:
+      labels: { app: openldap }
+    spec:
+      containers:
+        - name: openldap
+          image: {{ .Values.images.openldap }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: LDAP_ORGANISATION, value: magic-closet }
+            - { name: LDAP_DOMAIN, value: magic-closet.local }
+            - { name: LDAP_TLS, value: "false" }
+            - name: LDAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: closet-secrets, key: OPENLDAP_ADMIN_PASSWORD }
+          ports:
+            - containerPort: 389
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openldap
+spec:
+  selector: { app: openldap }
+  ports:
+    - { name: ldap, port: 389, targetPort: 389 }

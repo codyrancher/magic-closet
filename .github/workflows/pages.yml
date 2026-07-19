@@ -47,6 +47,11 @@ jobs:
         working-directory: rancher-extension
         run: yarn publish-pkgs -s ${{ github.repository }} -b gh-pages
 
+      - name: Package closet chart into the catalog
+        run: |
+          helm package charts/closet -d rancher-extension/assets/closet
+          helm repo index rancher-extension/assets --url assets/ --merge rancher-extension/assets/index.yaml
+
       - name: Assemble site
         run: |
           cp -r rancher-extension/dist-pkg/* site/
