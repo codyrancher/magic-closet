@@ -34,6 +34,24 @@ export async function resolveApiUrl(): Promise<string> {
     return stored;
   }
 
+  // Baked in at install time: helm value plugin.metadata.controller on this
+  // extension's own UIPlugin resource (readable by every dashboard user)
+  try {
+    const resp = await fetch('/v1/catalog.cattle.io.uiplugins');
+
+    if (resp.ok) {
+      const list = await resp.json();
+      const mine = (list.data || []).find((u: any) => u.spec?.plugin?.name === 'magic-closet');
+      const controller = mine?.spec?.plugin?.metadata?.controller;
+
+      if (controller) {
+        cachedUrl = controller;
+
+        return controller;
+      }
+    }
+  } catch { /* not installed via chart — fall through */ }
+
   try {
     const resp = await fetch(SETTING_URL);
 

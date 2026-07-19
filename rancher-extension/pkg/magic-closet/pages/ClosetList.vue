@@ -11,9 +11,6 @@ export default {
       gateway: null,
       error:   null,
       apiUrl:  getApiUrl(),
-      adding:  false,
-      newName: '',
-      busy:    false,
     };
   },
 
@@ -93,19 +90,6 @@ export default {
       });
     },
 
-    async add() {
-      this.busy = true;
-      try {
-        await apiFetch('/closets', { method: 'POST', body: JSON.stringify({ name: this.newName }) });
-        this.adding = false;
-        this.newName = '';
-        this.load();
-      } catch (e) {
-        this.error = e.message;
-      }
-      this.busy = false;
-    },
-
     async remove(closet) {
       try {
         await apiFetch(`/closets/${ encodeURIComponent(closet.name) }`, { method: 'DELETE' });
@@ -122,7 +106,7 @@ export default {
   <div class="closet-list">
     <header class="header">
       <h1>Magic Closet</h1>
-      <button class="btn role-primary" @click="adding = !adding">
+      <button class="btn role-primary" @click="$router.push({ name: 'c-cluster-magicCloset-create', params: { cluster: $route.params.cluster } })">
         Create Closet
       </button>
     </header>
@@ -134,14 +118,6 @@ export default {
         <input v-model="apiUrl" />
         <button class="btn role-secondary btn-sm" @click="saveApiUrl">Save</button>
       </div>
-    </div>
-
-    <div v-if="adding" class="add-form">
-      <input v-model="newName" placeholder="closet name (e.g. pr-18387)" />
-      <button class="btn role-primary btn-sm" :disabled="!newName || busy" @click="add">
-        Create
-      </button>
-      <span class="hint">Provisions a new magic-closet instance on the host (own ports, sidecars, workspace)</span>
     </div>
 
     <table class="closets">
@@ -185,22 +161,6 @@ export default {
       gap: 8px;
       align-items: center;
       margin-top: 8px;
-    }
-  }
-
-  .add-form {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    margin-bottom: 15px;
-
-    input {
-      max-width: 320px;
-    }
-
-    .hint {
-      opacity: 0.7;
-      font-size: 12px;
     }
   }
 

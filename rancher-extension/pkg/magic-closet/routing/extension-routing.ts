@@ -1,5 +1,6 @@
 import ClosetList from '../pages/ClosetList.vue';
 import ClosetDetail from '../pages/ClosetDetail.vue';
+import CreateCloset from '../pages/CreateCloset.vue';
 import { PRODUCT_NAME } from '../product';
 
 const routes = [
@@ -7,6 +8,12 @@ const routes = [
     name:      `c-cluster-${ PRODUCT_NAME }`,
     path:      `/c/:cluster/${ PRODUCT_NAME }`,
     component: ClosetList,
+    meta:      { product: PRODUCT_NAME, pkg: PRODUCT_NAME },
+  },
+  {
+    name:      `c-cluster-${ PRODUCT_NAME }-create`,
+    path:      `/c/:cluster/${ PRODUCT_NAME }/create`,
+    component: CreateCloset,
     meta:      { product: PRODUCT_NAME, pkg: PRODUCT_NAME },
   },
   {
