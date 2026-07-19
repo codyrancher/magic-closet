@@ -164,8 +164,11 @@ GET    /browser/queue           tabs still waiting for the browser
   sidecar itself; others follow on their next `docker compose up -d`.
 - `"wait": true` blocks until the container is healthy (uses the compose
   healthcheck if the sidecar defines one).
-- From the host: `http://localhost:${API_PORT}` (default 8300). From any
-  container: `http://api:8080`.
+- From the host: `http://localhost:${API_PORT}` (default 8300) or
+  `https://localhost:${API_HTTPS_PORT}` (default 8301, self-signed — for
+  https dashboards that would otherwise hit mixed-content blocking; every
+  provisioned closet gets its own https port at base+1). From any container:
+  `http://api:8080` / `https://api:8443`.
 
 ### The `mc` CLI
 `tools/` is mounted into every container at `/opt/magic-closet/tools` (and on
