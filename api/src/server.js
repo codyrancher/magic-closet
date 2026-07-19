@@ -383,7 +383,15 @@ async function handleParamOptions(name, paramId, res) {
 // ---------- .env persistence ----------
 
 function readEnvValues() {
-  if (K8S) return { ...process.env, ...k8sConfigCache };
+  if (K8S) {
+    // Drop kubernetes service-link vars (FOO_PORT=tcp://ip:port) that would
+    // shadow our params
+    const env = {};
+    for (const [k, v] of Object.entries(process.env)) {
+      if (!String(v).startsWith('tcp://')) env[k] = v;
+    }
+    return { ...env, ...k8sConfigCache };
+  }
   const values = {};
   try {
     for (const line of fs.readFileSync(ENV_FILE, 'utf-8').split('\n')) {
@@ -1426,7 +1434,7 @@ function handleList(res) {
       ...s,
       status: state.status,
       health: state.health,
-      hostPort: s.port ? env[s.port] || null : null,
+      hostPort: (!K8S && s.port) ? env[s.port] || null : null,
       params: s.params.map(p => ({ ...p, value: env[p.env] ?? p.default })),
       ...(s.name === 'rancher' ? { bootstrap: rancherBootstrap.state } : {}),
       ...(s.name === 'keycloak' ? { bootstrap: keycloakBootstrap.state } : {}),
