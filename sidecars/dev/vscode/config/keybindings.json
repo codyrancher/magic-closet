@@ -1,0 +1,6 @@
+[
+    {
+        "key": "ctrl+shift+`",
+        "command": "claude-vscode.editor.openLast"
+    }
+]

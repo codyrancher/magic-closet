@@ -1,0 +1,16 @@
+{
+    "workbench.welcomePage.walkthroughMetadata": "[{\"id\":\"ms-vscode.vscode-welcome\",\"stepIds\":[\"pickColorTheme\",\"settingsSync\",\"commandPaletteTask\",\"terminal\"]}]",
+    "workbench.activity.showAccounts": false,
+    "workbench.welcomePage.hiddenCategories": "[\"Setup\",\"Beginner\",\"Intermediate\",\"Advanced\"]",
+    "workbench.welcomePage.viewRatio": 0.5,
+    "security.workspace.trust.banner": "never",
+    "claude.welcomePageShown": true,
+    "claude.hasShownWelcome": true,
+    "workbench.panel.pinnedPanels": "[]",
+    "workbench.panel.defaultLocation": "right",
+    "memento/gettingStartedService": "{\"ms-vscode.vscode-welcome\":{\"stepIds\":[\"pickColorTheme\",\"settingsSync\",\"commandPaletteTask\",\"terminal\",\"settings\",\"extensions\"]}}",
+    "gettingStartedService.walkthroughHasBeenShown": "true",
+    "workbench.welcomePageHasBeenShown": true,
+    "trustedDomains/trustedDomains": "[\"*\"]",
+    "workbench.auxiliaryBar.visible": true
+}

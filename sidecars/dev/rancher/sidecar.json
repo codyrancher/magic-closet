@@ -1,0 +1,35 @@
+{
+  "name": "rancher",
+  "description": "Rancher server.",
+  "port": "RANCHER_PORT",
+  "scheme": "https",
+  "params": [
+    {
+      "id": "tag",
+      "env": "RANCHER_TAG",
+      "default": "head",
+      "description": "rancher/rancher image tag (e.g. head, v2.11-head)",
+      "options": {
+        "source": "dockerhub",
+        "repo": "rancher/rancher",
+        "filter": "head",
+        "pattern": "^v2\\.\\d+-head$",
+        "nextMinor": true,
+        "prepend": ["head"]
+      }
+    },
+    {
+      "id": "prime",
+      "env": "RANCHER_PRIME",
+      "type": "boolean",
+      "default": "",
+      "description": "Rancher Prime (RANCHER_VERSION_TYPE=prime, SUSE branding); applies on restart"
+    }
+  ],
+  "secrets": [
+    "RANCHER_BOOTSTRAP_PASSWORD",
+    "RANCHER_USER1_PASSWORD",
+    "RANCHER_USER2_PASSWORD",
+    "RANCHER_USER3_PASSWORD"
+  ]
+}

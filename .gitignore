@@ -1,0 +1,7 @@
+.env
+workspace/*
+!workspace/.gitkeep
+tools/bin/claude
+tools/bin/gh
+.state/
+workspaces/

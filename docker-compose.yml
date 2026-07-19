@@ -1,0 +1,69 @@
+name: magic-closet
+
+# Each sidecar lives in its own directory under sidecars/ and ships its own
+# compose fragment. Adding a sidecar = create the directory + list it here.
+include:
+  - path: sidecars/dev/vscode/compose.yml
+    project_directory: .
+  - path: sidecars/dev/rancher-browser/compose.yml
+    project_directory: .
+  - path: sidecars/dev/rancher/compose.yml
+    project_directory: .
+  - path: sidecars/design/figma/compose.yml
+    project_directory: .
+  - path: sidecars/auth/keycloak/compose.yml
+    project_directory: .
+  - path: sidecars/auth/openldap/compose.yml
+    project_directory: .
+  - path: sidecars/auth/freeipa/compose.yml
+    project_directory: .
+  - path: sidecars/auth/samba-ad/compose.yml
+    project_directory: .
+
+services:
+  # Main container: holds the source code, node, and the CLI toolchain.
+  # Everything else is an optional sidecar.
+  project:
+    image: magic-closet-project
+    build: ./project
+    # All params/secrets live in .env and are injected into every container,
+    # so any argument passed to one sidecar is visible to all of them.
+    env_file:
+      - path: ${MC_ENV_FILE:-./.env}
+        required: false
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - MC_API_URL=http://api:8080
+    ports:
+      # Dev server (vite etc.) — run it on 0.0.0.0:8005 inside the container
+      - "${DEV_PORT:-8305}:8005"
+    volumes:
+      - ${MC_WORKSPACE:-./workspace}:/workspace
+      - ./tools:/opt/magic-closet/tools
+      - claude-data:/claude-data
+      # Rancher UI extension source — built with the project container's node
+      - ./rancher-extension:/rancher-extension
+    restart: unless-stopped
+
+  # Sidecar control plane: start/stop/delete sidecars over HTTP.
+  api:
+    image: magic-closet-api
+    build: ./api
+    environment:
+      # Host path of this repo — needed so compose commands issued through the
+      # host docker socket resolve bind mounts correctly.
+      - MC_ROOT=${PWD}
+      # Which closet this api manages (compose project + env file)
+      - MC_PROJECT=${MC_PROJECT:-magic-closet}
+      - MC_ENV_FILE=${MC_ENV_FILE:-.env}
+    working_dir: ${PWD}
+    ports:
+      - "${API_PORT:-8300}:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PWD}:${PWD}
+    restart: unless-stopped
+
+volumes:
+  claude-data:

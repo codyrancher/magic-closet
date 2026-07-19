@@ -1,0 +1,111 @@
+#command-menu {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #1b1c21;
+  border-top: 1px solid #4a4b52;
+  z-index: 999999;
+  font-size: 13px;
+  color: #ccc;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  transform: translateY(100%);
+  transition: transform 0.2s ease;
+  max-height: 350px;
+  display: flex;
+  flex-direction: column;
+}
+
+#command-menu.visible {
+  transform: translateY(0);
+}
+
+#command-menu .cm-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  border-bottom: 1px solid #333;
+}
+
+#command-menu .cm-title {
+  font-weight: 600;
+  color: #eee;
+  margin-right: 12px;
+}
+
+#command-menu .cm-hint {
+  color: #666;
+  font-size: 11px;
+}
+
+#command-menu .cm-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+#command-menu .cm-close:hover {
+  color: #eee;
+}
+
+#command-menu .cm-items {
+  overflow-y: auto;
+  flex: 1;
+}
+
+#command-menu .cm-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+#command-menu .cm-item:hover {
+  background: #2b2c31;
+}
+
+#command-menu .cm-icon {
+  font-size: 18px;
+  margin-right: 12px;
+  width: 24px;
+  text-align: center;
+}
+
+#command-menu .cm-text {
+  display: flex;
+  flex-direction: column;
+}
+
+#command-menu .cm-label {
+  color: #eee;
+  font-weight: 500;
+}
+
+#command-menu .cm-desc {
+  color: #888;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+#command-menu .cm-status {
+  padding: 8px 16px;
+  border-top: 1px solid #333;
+  font-size: 12px;
+}
+
+#command-menu .cm-status.pending {
+  color: #f0c674;
+}
+
+#command-menu .cm-status.success {
+  color: #6abf69;
+}
+
+#command-menu .cm-status.error {
+  color: #e06c75;
+}

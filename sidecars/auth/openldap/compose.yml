@@ -1,0 +1,33 @@
+# OpenLDAP directory server (auth group). The api bootstraps users user1-3
+# (same passwords as the Rancher local users) and — when
+# RANCHER_AUTH_PROVIDER=openldap — connects Rancher's OpenLDAP auth to it.
+# Base DN: dc=magic-closet,dc=local; admin: cn=admin,dc=magic-closet,dc=local.
+services:
+  openldap:
+    image: osixia/openldap:1.5.0
+    profiles: ["openldap"]
+    env_file:
+      - path: ${MC_ENV_FILE:-./.env}
+        required: false
+    environment:
+      - LDAP_ORGANISATION=magic-closet
+      - LDAP_DOMAIN=magic-closet.local
+      - LDAP_ADMIN_PASSWORD=${OPENLDAP_ADMIN_PASSWORD:-}
+      - LDAP_TLS=false
+    ports:
+      - "${OPENLDAP_PORT:-8340}:389"
+    volumes:
+      - ./tools:/opt/magic-closet/tools:ro
+      - openldap-data:/var/lib/ldap
+      - openldap-config:/etc/ldap/slapd.d
+    healthcheck:
+      test: ["CMD", "ldapsearch", "-x", "-H", "ldap://localhost", "-b", "", "-s", "base"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  openldap-data:
+  openldap-config:

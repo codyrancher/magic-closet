@@ -1,0 +1,63 @@
+name: Build extension to GitHub Pages
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: corepack enable
+
+      - name: Install
+        working-directory: rancher-extension
+        run: yarn install --frozen-lockfile
+
+      - name: Build extension package
+        working-directory: rancher-extension
+        run: yarn build-pkg magic-closet
+
+      - name: Assemble site
+        run: |
+          mkdir -p site
+          cp -r rancher-extension/dist-pkg/* site/
+          {
+            echo '<!doctype html><meta charset="utf-8"><title>magic-closet extension</title>'
+            echo '<h1>magic-closet Rancher extension</h1>'
+            echo '<p>Developer Load one of these in Rancher (Extensions &rarr; &#8942; &rarr; Developer Load):</p><ul>'
+            (cd site && find . -name '*.umd.min.js' | sed 's|^\./||' | sort | while read -r f; do
+              echo "<li><a href=\"$f\">$f</a></li>"
+            done)
+            echo '</ul>'
+          } > site/index.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

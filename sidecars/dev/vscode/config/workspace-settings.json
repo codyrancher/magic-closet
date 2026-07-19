@@ -1,0 +1,14 @@
+{
+    "workbench.startupEditor": "none",
+    "workbench.welcomePage.walkthroughs.openOnInstall": false,
+    "claudeCode.allowDangerouslySkipPermissions": true,
+    "claudeCode.initialPermissionMode": "bypassPermissions",
+    "workbench.auxiliaryBar.visible": true,
+    "vue.server.hybridMode": true,
+    "vue.splitEditors.layout.left": [],
+    "vue.splitEditors.layout.right": [],
+    "vue.doctor.status": false,
+    "git.openAfterClone": "never",
+    "scm.defaultViewMode": "tree",
+    "workbench.secondarySideBar.visible": true
+}

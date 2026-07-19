@@ -1,0 +1,32 @@
+# Rancher server. Reachable as https://rancher from other services and
+# https://localhost:${RANCHER_PORT} from the host.
+services:
+  rancher:
+    image: rancher/rancher:${RANCHER_TAG:-head}
+    profiles: ["rancher"]
+    privileged: true
+    env_file:
+      - path: ${MC_ENV_FILE:-./.env}
+        required: false
+    environment:
+      # Auto-generated into .env by setup.sh / the api — never set by hand
+      - CATTLE_BOOTSTRAP_PASSWORD=${RANCHER_BOOTSTRAP_PASSWORD:-}
+      # Rancher Prime: when RANCHER_PRIME is non-empty these become
+      # prime/suse; empty otherwise
+      - RANCHER_VERSION_TYPE=${RANCHER_PRIME:+prime}
+      - CATTLE_BASE_UI_BRAND=${RANCHER_PRIME:+suse}
+    ports:
+      - "${RANCHER_PORT:-8444}:443"
+    volumes:
+      - rancher-data:/var/lib/rancher
+      - ./tools:/opt/magic-closet/tools:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsk", "https://localhost/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 60s
+    restart: unless-stopped
+
+volumes:
+  rancher-data:

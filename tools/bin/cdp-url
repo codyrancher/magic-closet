@@ -1,0 +1,11 @@
+#!/bin/sh
+# Print the Chromium CDP endpoint of the browser sidecar, usable from any
+# container: cdp-url  ->  http://172.x.x.x:9222
+# (IP instead of hostname because Chrome rejects non-localhost Host headers.)
+host="${1:-rancher-browser}"
+ip=$(getent hosts "$host" | awk '{print $1; exit}')
+if [ -z "$ip" ]; then
+  echo "cdp-url: cannot resolve $host — is the browser sidecar running?" >&2
+  exit 1
+fi
+echo "http://$ip:9222"

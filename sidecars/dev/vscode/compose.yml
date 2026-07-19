@@ -1,0 +1,37 @@
+# VS Code in the browser (openvscode-server). Edits the same ./workspace the
+# project container runs; use `mc run "<cmd>"` in its terminal to execute
+# commands inside the project container.
+services:
+  vscode:
+    image: magic-closet-vscode
+    build: ./sidecars/dev/vscode
+    profiles: ["vscode"]
+    env_file:
+      - path: ${MC_ENV_FILE:-./.env}
+        required: false
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - MC_API_URL=http://api:8080
+      - NODE_VERSION=${NODE_VERSION:-24}
+      - GH_TOKEN=${GH_TOKEN:-}
+    ports:
+      - "${VSCODE_PORT:-8310}:9000"
+    volumes:
+      - ${MC_WORKSPACE:-./workspace}:/workspace
+      - ./tools:/opt/magic-closet/tools:ro
+      - vscode-data:/data
+      # Shared Claude credentials — same volume as the project container, so
+      # the Claude extension is logged in with the same session
+      - claude-data:/claude-data
+      # Rancher UI extension source — built here (node 24 via fnm)
+      - ./rancher-extension:/rancher-extension
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+volumes:
+  vscode-data:

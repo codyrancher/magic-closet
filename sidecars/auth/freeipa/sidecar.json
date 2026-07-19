@@ -1,0 +1,7 @@
+{
+  "name": "freeipa",
+  "description": "EXPERIMENTAL: FreeIPA identity server (slow, flaky install in docker).",
+  "rancherAuth": { "modes": [{ "value": "freeipa", "label": "FreeIPA" }] },
+  "params": [],
+  "secrets": ["FREEIPA_ADMIN_PASSWORD"]
+}

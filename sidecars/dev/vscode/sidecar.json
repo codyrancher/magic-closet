@@ -1,0 +1,32 @@
+{
+  "name": "vscode",
+  "description": "VS Code in the browser, editing /workspace.",
+  "port": "VSCODE_PORT",
+  "params": [
+    {
+      "id": "githubUrl",
+      "env": "GITHUB_URL",
+      "default": "",
+      "description": "GitHub PR or issue URL — PRs are cloned with the PR branch checked out, issues clone master on a new issue-N branch, into /workspace/dashboard"
+    },
+    {
+      "id": "nodeVersion",
+      "env": "NODE_VERSION",
+      "description": "Node.js version for the terminal (installed via fnm); defaults to what rancher/dashboard:master uses",
+      "defaultFromOptions": true,
+      "options": {
+        "source": "github-node-engines",
+        "repo": "rancher/dashboard",
+        "mainBranch": "master",
+        "branchPrefix": "release-2.",
+        "limit": 6
+      }
+    },
+    {
+      "id": "ghToken",
+      "env": "GH_TOKEN",
+      "default": "",
+      "description": "GitHub token for the gh CLI (also wired into git via gh auth setup-git)"
+    }
+  ]
+}

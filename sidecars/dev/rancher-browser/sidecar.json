@@ -1,0 +1,43 @@
+{
+  "name": "rancher-browser",
+  "description": "Chromium with Rancher quick-login and automation.",
+  "port": "RANCHER_BROWSER_PORT",
+  "scheme": "https",
+  "params": [
+    {
+      "id": "appcoEmail",
+      "env": "APPCO_EMAIL",
+      "default": "",
+      "group": "AppCo",
+      "description": "AppCo email for the command menu's OCI chart repository command"
+    },
+    {
+      "id": "appcoToken",
+      "env": "APPCO_TOKEN",
+      "default": "",
+      "group": "AppCo",
+      "description": "AppCo access token for the command menu's OCI chart repository command"
+    },
+    {
+      "id": "awsAccessKey",
+      "env": "AWS_ACCESS_KEY",
+      "default": "",
+      "group": "AWS",
+      "description": "AWS access key — the rancher bootstrap creates the aws-credential cloud credential from it (used by the EC2 cluster command)"
+    },
+    {
+      "id": "awsSecretKey",
+      "env": "AWS_SECRET_KEY",
+      "default": "",
+      "group": "AWS",
+      "description": "AWS secret key for the aws-credential cloud credential"
+    },
+    {
+      "id": "awsRegion",
+      "env": "AWS_DEFAULT_REGION",
+      "default": "us-west-2",
+      "group": "AWS",
+      "description": "Default region for the AWS cloud credential"
+    }
+  ]
+}

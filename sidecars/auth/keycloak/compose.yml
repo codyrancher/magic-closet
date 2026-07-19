@@ -1,0 +1,35 @@
+# Keycloak OIDC provider (dev mode, http). The api bootstraps it once it's
+# up: realm "rancher", an OIDC client for Rancher, users user1-3 (same
+# passwords as the Rancher local users), then connects Rancher's Keycloak
+# (OIDC) auth provider to it. Reachable as http://keycloak:8080 from other
+# services (issuer) and http://localhost:${KEYCLOAK_PORT} from the host.
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    profiles: ["keycloak"]
+    command: ["start-dev"]
+    env_file:
+      - path: ${MC_ENV_FILE:-./.env}
+        required: false
+    environment:
+      # Both spellings: KC_BOOTSTRAP_* is Keycloak 26+, KEYCLOAK_* is older
+      - KC_BOOTSTRAP_ADMIN_USERNAME=admin
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-}
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-}
+    ports:
+      - "${KEYCLOAK_PORT:-8330}:8080"
+    volumes:
+      - ./tools:/opt/magic-closet/tools:ro
+      - keycloak-data:/opt/keycloak/data
+    healthcheck:
+      # The keycloak image ships no curl/wget; a TCP connect is enough here
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  keycloak-data:

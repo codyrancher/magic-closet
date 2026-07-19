@@ -1,0 +1,16 @@
+# Figma MCP server. No host port — reached from the project container as
+# http://figma over the compose network.
+services:
+  figma:
+    image: acuvity/mcp-server-figma:latest
+    profiles: ["figma"]
+    env_file:
+      - path: ${MC_ENV_FILE:-./.env}
+        required: false
+    environment:
+      - FIGMA_API_KEY=${FIGMA_API_KEY:-}
+    ports:
+      - "${FIGMA_PORT:-8360}:8000"
+    volumes:
+      - ./tools:/opt/magic-closet/tools:ro
+    restart: unless-stopped

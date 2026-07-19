@@ -1,0 +1,13 @@
+{
+  "name": "figma",
+  "description": "Figma MCP server.",
+  "port": "FIGMA_PORT",
+  "params": [
+    {
+      "id": "apiKey",
+      "env": "FIGMA_API_KEY",
+      "default": "",
+      "description": "Figma personal access token"
+    }
+  ]
+}

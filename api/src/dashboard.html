@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>magic closet</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+  /* Design tokens shared with the claude-harness portal (theme.css) */
+  :root {
+    --color-bg-primary: #1a1418;
+    --color-bg-secondary: #251e24;
+    --color-bg-tertiary: #2d252c;
+    --color-bg-element: #3a2e38;
+    --color-bg-element-hover: #4a3e48;
+
+    --color-text-primary: #ece4e8;
+    --color-text-bright: #fff;
+    --color-text-hover: #d4c8d0;
+    --color-text-muted: #a08898;
+
+    --color-border-dark: #1a1216;
+    --color-border-medium: #4a3e48;
+
+    --color-status-default: #6a5868;
+    --color-status-running: #5ba8a0;
+    --color-status-stopped: #e88060;
+
+    --color-accent: #b068a0;
+    --color-accent-hover: #c880b8;
+    --color-warning: #e88060;
+    --color-warning-hover: #f09878;
+    --color-error: #e85858;
+
+    --color-shadow-medium: rgba(0, 0, 0, 0.4);
+
+    --size-status-indicator: 8px;
+    --size-header-height: 40px;
+
+    --font-size-xs: 12px;
+    --font-size-sm: 13px;
+    --font-size-md: 14px;
+    --font-size-lg: 16px;
+
+    --spacing-xxs: 2px;
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 12px;
+    --spacing-lg: 16px;
+    --spacing-xl: 20px;
+    --spacing-xxl: 24px;
+
+    --radius-xs: 3px;
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --radius-full: 50%;
+
+    --border-width-sm: 1px;
+    --transition-fast: 0.15s;
+
+    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-family);
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-md);
+    min-height: 100vh;
+  }
+
+  header {
+    /* 1.5x the standard 40px header, with title/logo scaled to match */
+    height: calc(var(--size-header-height) * 1.5);
+    background: var(--color-bg-secondary);
+    border-bottom: var(--border-width-sm) solid var(--color-border-dark);
+  }
+
+  /* Same centered column as <main>, so the title lines up with the cards */
+  .header-inner {
+    max-width: 960px;
+    height: 100%;
+    margin: 0 auto;
+    padding: 0 var(--spacing-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+  }
+
+  header .logo {
+    width: 33px;
+    height: 33px;
+  }
+
+  header h1 {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--color-text-bright);
+  }
+
+
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: var(--spacing-xxl) var(--spacing-lg);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--spacing-lg);
+  }
+
+  .group-title {
+    grid-column: 1 / -1;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: var(--border-width-sm) solid var(--color-border-medium);
+    padding-bottom: var(--spacing-xs);
+    margin-top: var(--spacing-sm);
+  }
+
+  .card {
+    background: var(--color-bg-secondary);
+    border: var(--border-width-sm) solid var(--color-border-medium);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    transition: border-color var(--transition-fast);
+  }
+
+  .card:hover { border-color: var(--color-accent); }
+
+  .card-head {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  .status-dot {
+    width: var(--size-status-indicator);
+    height: var(--size-status-indicator);
+    border-radius: var(--radius-full);
+    background: var(--color-status-default);
+    flex-shrink: 0;
+    position: relative;
+    cursor: default;
+  }
+
+  /* Status popover — shown when hovering the dot */
+  .status-tip {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-bg-tertiary);
+    border: var(--border-width-sm) solid var(--color-border-medium);
+    border-radius: var(--radius-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    box-shadow: 0 4px 12px var(--color-shadow-medium);
+    z-index: 20;
+  }
+  .status-dot:hover .status-tip { display: block; }
+  .status-dot.running { background: var(--color-status-running); }
+  .status-dot.stopped { background: var(--color-status-stopped); }
+  .status-dot.busy {
+    background: var(--color-accent);
+    animation: pulse 1s ease-in-out infinite;
+  }
+  @keyframes pulse { 50% { opacity: 0.3; } }
+
+  .card-name {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-text-bright);
+    flex: 1;
+  }
+
+  .card-desc {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    line-height: 1.4;
+    flex: 1;
+  }
+
+  .card-link {
+    font-size: var(--font-size-sm);
+    color: var(--color-status-running);
+    text-decoration: none;
+  }
+  .card-link:hover { text-decoration: underline; }
+
+  .params {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .param {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  .param label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    width: 40%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .param input {
+    flex: 1;
+    min-width: 0;
+    background: var(--color-bg-primary);
+    border: var(--border-width-sm) solid var(--color-border-medium);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    font-family: var(--font-family);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    transition: border-color var(--transition-fast);
+  }
+  .param input:focus { outline: none; border-color: var(--color-accent); }
+
+  /* Boolean params render as a toggle switch */
+  .param input[type="checkbox"] {
+    appearance: none;
+    flex: none;
+    width: 34px;
+    height: 18px;
+    border-radius: 9px;
+    background: var(--color-bg-element);
+    border: var(--border-width-sm) solid var(--color-border-medium);
+    position: relative;
+    cursor: pointer;
+    padding: 0;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+  }
+  .param input[type="checkbox"]::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: var(--radius-full);
+    background: var(--color-text-muted);
+    transition: left var(--transition-fast), background var(--transition-fast);
+  }
+  .param input[type="checkbox"]:checked {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+  }
+  .param input[type="checkbox"]:checked::after {
+    left: 18px;
+    background: var(--color-text-bright);
+  }
+
+  .combo { position: relative; flex: 1; min-width: 0; display: flex; }
+  .combo input { width: 100%; }
+
+  .combo-list {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    right: 0;
+    background: var(--color-bg-tertiary);
+    border: var(--border-width-sm) solid var(--color-border-medium);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 4px 12px var(--color-shadow-medium);
+    max-height: 180px;
+    overflow-y: auto;
+    z-index: 10;
+  }
+
+  .combo-item {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    color: var(--color-text-primary);
+  }
+  .combo-item:hover { background: var(--color-bg-element-hover); }
+  .combo-item.selected { color: var(--color-accent); }
+
+  .accordion {
+    border: var(--border-width-sm) solid var(--color-border-medium);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+
+  .accordion summary {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    user-select: none;
+    transition: color var(--transition-fast), background var(--transition-fast);
+  }
+  .accordion summary:hover { color: var(--color-text-hover); background: var(--color-bg-tertiary); }
+  .accordion[open] summary {
+    color: var(--color-text-primary);
+    border-bottom: var(--border-width-sm) solid var(--color-border-dark);
+  }
+
+  .accordion-body {
+    padding: var(--spacing-sm);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  /* "Apply to Rancher" row on auth sidecar cards */
+  .auth-apply {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  .auth-apply label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
+
+  .auth-apply select {
+    flex: 1;
+    min-width: 0;
+    background: var(--color-bg-primary);
+    border: var(--border-width-sm) solid var(--color-border-medium);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    font-family: var(--font-family);
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+  .auth-apply select:focus { outline: none; border-color: var(--color-accent); }
+
+  .actions {
+    display: flex;
+    gap: var(--spacing-sm);
+  }
+
+  button {
+    font-family: var(--font-family);
+    font-size: var(--font-size-sm);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: var(--spacing-xs) var(--spacing-md);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+  }
+  button:disabled { opacity: 0.5; cursor: default; }
+
+  .btn-start {
+    background: var(--color-accent);
+    color: var(--color-text-bright);
+  }
+  .btn-start:hover:not(:disabled) { background: var(--color-accent-hover); }
+
+  .btn-stop {
+    background: var(--color-bg-element);
+    color: var(--color-text-primary);
+  }
+  .btn-stop:hover:not(:disabled) { background: var(--color-bg-element-hover); color: var(--color-text-bright); }
+
+  .btn-delete {
+    background: none;
+    color: var(--color-text-muted);
+    margin-left: auto;
+  }
+  .btn-delete:hover:not(:disabled) { background: var(--color-bg-element-hover); color: var(--color-error); }
+
+  .toast {
+    position: fixed;
+    bottom: var(--spacing-xl);
+    right: var(--spacing-xl);
+    background: var(--color-bg-tertiary);
+    border: var(--border-width-sm) solid var(--color-border-medium);
+    border-left: 3px solid var(--color-error);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md) var(--spacing-lg);
+    font-size: var(--font-size-sm);
+    box-shadow: 0 4px 12px var(--color-shadow-medium);
+    max-width: 400px;
+    display: none;
+  }
+  .toast.show { display: block; }
+
+  .empty {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    padding: var(--spacing-xxl);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <img class="logo" src="/logo.svg" alt="">
+      <h1>magic closet</h1>
+    </div>
+  </header>
+  <main>
+    <div class="grid" id="grid"><div class="empty">Loading…</div></div>
+  </main>
+  <div class="toast" id="toast"></div>
+
+<script>
+const grid = document.getElementById('grid');
+const toast = document.getElementById('toast');
+// Sidecars with an in-flight action: name -> label shown while busy
+const busy = new Map();
+let toastTimer = null;
+let lastSidecars = [];
+let rancherInfo = { running: false, authProvider: null };
+// "sidecar/param" -> suggested values (params that declare an options source)
+const optCache = new Map();
+
+async function loadOptions(sidecar, paramId) {
+  const key = `${sidecar}/${paramId}`;
+  if (optCache.has(key)) return;
+  optCache.set(key, []); // reserve so we only fetch once
+  try {
+    const resp = await fetch(`/sidecars/${sidecar}/params/${paramId}/options`);
+    const data = await resp.json();
+    optCache.set(key, data.options || []);
+    safeRender();
+  } catch { /* keep the plain input */ }
+}
+
+function showError(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 6000);
+}
+
+// ---- Reusable components ----
+
+// Accordion sections that are open, preserved across re-renders
+const openSections = new Set();
+
+// Collapsible section: makeAccordion('browser', 'AWS', [row, row, ...])
+function makeAccordion(scope, title, children) {
+  const key = `${scope}/${title}`;
+  const details = document.createElement('details');
+  details.className = 'accordion';
+  details.open = openSections.has(key);
+  const summary = document.createElement('summary');
+  summary.textContent = title;
+  details.appendChild(summary);
+  const body = document.createElement('div');
+  body.className = 'accordion-body';
+  children.forEach(c => body.appendChild(c));
+  details.appendChild(body);
+  details.addEventListener('toggle', () => {
+    if (details.open) openSections.add(key); else openSections.delete(key);
+  });
+  return details;
+}
+
+// Taggable dropdown around an input: full suggestion list on focus, free
+// text allowed (a native <datalist> prefix-filters by the current value,
+// which hides every option once a value is set)
+function makeCombo(sidecarName, param, input) {
+  const key = `${sidecarName}/${param.id}`;
+  const wrap = document.createElement('div');
+  wrap.className = 'combo';
+  const list = document.createElement('div');
+  list.className = 'combo-list';
+  list.style.display = 'none';
+  const openList = () => {
+    const options = optCache.get(key) || [];
+    if (!options.length) return;
+    list.innerHTML = '';
+    for (const o of options) {
+      const item = document.createElement('div');
+      item.className = 'combo-item' + (o.value === input.value ? ' selected' : '');
+      item.textContent = o.label || o.value;
+      item.addEventListener('mousedown', ev => {
+        ev.preventDefault();
+        input.value = o.value;
+        list.style.display = 'none';
+      });
+      list.appendChild(item);
+    }
+    list.style.display = 'block';
+  };
+  input.addEventListener('focus', openList);
+  input.addEventListener('click', openList);
+  input.addEventListener('blur', () => { list.style.display = 'none'; });
+  input.addEventListener('keydown', ev => { if (ev.key === 'Escape') list.style.display = 'none'; });
+  wrap.appendChild(input);
+  wrap.appendChild(list);
+  if (!(optCache.get(key) || []).length) loadOptions(sidecarName, param.id);
+  return wrap;
+}
+
+// Label + input (or combo) row for one param; registers the input in
+// `inputs` so the start action can collect values
+function makeParamRow(sidecarName, param, inputs) {
+  const row = document.createElement('div');
+  row.className = 'param';
+  const label = document.createElement('label');
+  label.textContent = param.id;
+  label.title = param.description || param.id;
+  const input = document.createElement('input');
+  if (param.type === 'boolean') {
+    input.type = 'checkbox';
+    input.checked = param.value === 'true';
+  } else {
+    input.value = param.value ?? '';
+    input.placeholder = param.default || '';
+  }
+  inputs[param.id] = input;
+  row.appendChild(label);
+  row.appendChild(param.options && param.type !== 'boolean'
+    ? makeCombo(sidecarName, param, input) : input);
+  return row;
+}
+
+function statusInfo(s) {
+  if (s.status === 'running') {
+    const label = s.health && s.health !== 'healthy' ? `running (${s.health})` : 'running';
+    return { cls: 'running', label };
+  }
+  if (s.status === 'not_created') return { cls: '', label: 'not created' };
+  return { cls: 'stopped', label: s.status };
+}
+
+function render(sidecars) {
+  grid.innerHTML = '';
+  if (!sidecars.length) {
+    grid.innerHTML = '<div class="empty">No sidecars found in sidecars/</div>';
+    return;
+  }
+  // Ungrouped sidecars first, then one titled section per group (the list
+  // arrives sorted: ungrouped, then by group name)
+  let currentGroup = null;
+  for (const s of sidecars) {
+    if (s.group && s.group !== currentGroup) {
+      currentGroup = s.group;
+      const title = document.createElement('div');
+      title.className = 'group-title';
+      title.textContent = s.group;
+      grid.appendChild(title);
+    }
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    const info = busy.has(s.name)
+      ? { cls: 'busy', label: busy.get(s.name) }
+      : statusInfo(s);
+
+    const head = document.createElement('div');
+    head.className = 'card-head';
+    head.innerHTML = `
+      <span class="status-dot ${info.cls}"><span class="status-tip"></span></span>
+      <span class="card-name"></span>`;
+    head.querySelector('.card-name').textContent = s.name;
+    head.querySelector('.status-tip').textContent = info.label;
+    card.appendChild(head);
+
+    const desc = document.createElement('div');
+    desc.className = 'card-desc';
+    desc.textContent = s.description || '';
+    card.appendChild(desc);
+
+    if (s.hostPort && s.status === 'running') {
+      const a = document.createElement('a');
+      a.className = 'card-link';
+      const scheme = s.scheme || 'http';
+      a.href = `${scheme}://${location.hostname}:${s.hostPort}`;
+      a.target = '_blank';
+      a.textContent = `${scheme}://${location.hostname}:${s.hostPort}`;
+      card.appendChild(a);
+    }
+
+    const inputs = {};
+    if (s.params.length) {
+      const params = document.createElement('div');
+      params.className = 'params';
+      // Ungrouped params render flat; each group becomes an accordion section
+      for (const p of s.params.filter(p => !p.group)) {
+        params.appendChild(makeParamRow(s.name, p, inputs));
+      }
+      for (const group of [...new Set(s.params.filter(p => p.group).map(p => p.group))]) {
+        const rows = s.params.filter(p => p.group === group)
+          .map(p => makeParamRow(s.name, p, inputs));
+        params.appendChild(makeAccordion(s.name, group, rows));
+      }
+      card.appendChild(params);
+    }
+
+    if (s.rancherAuth) card.appendChild(makeAuthApply(s));
+
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+    const isBusy = busy.has(s.name);
+    const running = s.status === 'running';
+
+    const startBtn = document.createElement('button');
+    startBtn.className = 'btn-start';
+    startBtn.textContent = running ? 'Restart' : 'Start';
+    startBtn.disabled = isBusy;
+    startBtn.onclick = () => act(s.name, 'starting', `/sidecars/${s.name}/start`, 'POST', {
+      params: Object.fromEntries(Object.entries(inputs).map(([id, el]) =>
+        [id, el.type === 'checkbox' ? (el.checked ? 'true' : '') : el.value])),
+    });
+    actions.appendChild(startBtn);
+
+    if (running || s.status === 'exited' || s.status === 'created') {
+      const stopBtn = document.createElement('button');
+      stopBtn.className = 'btn-stop';
+      stopBtn.textContent = 'Stop';
+      stopBtn.disabled = isBusy || !running;
+      stopBtn.onclick = () => act(s.name, 'stopping', `/sidecars/${s.name}/stop`, 'POST');
+      actions.appendChild(stopBtn);
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn-delete';
+      delBtn.textContent = 'Delete';
+      delBtn.disabled = isBusy;
+      delBtn.onclick = () => act(s.name, 'deleting', `/sidecars/${s.name}`, 'DELETE');
+      actions.appendChild(delBtn);
+    }
+
+    card.appendChild(actions);
+    grid.appendChild(card);
+  }
+}
+
+async function refresh() {
+  try {
+    const resp = await fetch('/sidecars');
+    const data = await resp.json();
+    lastSidecars = data.sidecars || [];
+    rancherInfo = data.rancher || { running: false, authProvider: null };
+    safeRender();
+  } catch (err) {
+    showError(`Failed to load sidecars: ${err.message}`);
+  }
+}
+
+// Don't rebuild the grid mid-interaction — it would wipe what's being typed
+// and close open dropdowns
+function safeRender() {
+  const active = document.activeElement;
+  if (active && ['INPUT', 'SELECT'].includes(active.tagName) && grid.contains(active)) return;
+  render(lastSidecars);
+}
+
+// "Apply to Rancher" row for auth sidecars: mode dropdown (when the sidecar
+// maps to several Rancher providers) + Apply button. Only actionable while
+// rancher and the sidecar itself are running.
+function makeAuthApply(s) {
+  const modes = s.rancherAuth.modes || [];
+  const row = document.createElement('div');
+  row.className = 'auth-apply';
+
+  const label = document.createElement('label');
+  label.textContent = 'rancher auth';
+  row.appendChild(label);
+
+  const select = document.createElement('select');
+  for (const m of modes) {
+    const opt = document.createElement('option');
+    opt.value = m.value;
+    opt.textContent = m.label;
+    select.appendChild(opt);
+  }
+  const activeMode = modes.find(m => m.value === rancherInfo.authProvider);
+  if (activeMode) select.value = activeMode.value;
+  row.appendChild(select);
+
+  const btn = document.createElement('button');
+  btn.className = 'btn-start';
+  const syncBtn = () => {
+    const isApplied = select.value === rancherInfo.authProvider;
+    btn.textContent = isApplied ? 'Applied' : 'Apply';
+    btn.disabled = isApplied || busy.has(s.name) ||
+      !rancherInfo.running || s.status !== 'running';
+    btn.title = !rancherInfo.running ? 'rancher is not running'
+      : s.status !== 'running' ? `${s.name} is not running` : '';
+  };
+  select.addEventListener('change', syncBtn);
+  btn.onclick = () => act(s.name, 'applying', '/auth/apply', 'POST', { provider: select.value });
+  syncBtn();
+  row.appendChild(btn);
+  return row;
+}
+
+async function act(name, label, url, method, body) {
+  busy.set(name, label);
+  await refresh();
+  try {
+    const resp = await fetch(url, {
+      method,
+      headers: body ? { 'Content-Type': 'application/json' } : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await resp.json();
+    if (!resp.ok) showError(data.detail || data.error || `${label} ${name} failed`);
+  } catch (err) {
+    showError(`${label} ${name} failed: ${err.message}`);
+  } finally {
+    busy.delete(name);
+    refresh();
+  }
+}
+
+refresh();
+setInterval(() => { if (!busy.size) refresh(); }, 4000);
+</script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+#!/bin/sh
+# magic-closet CLI — thin wrapper over the control API.
+# Works from any container that mounts /opt/magic-closet/tools (and from the
+# host with MC_API_URL=http://localhost:8200).
+#
+#   mc list                          show sidecars, status, params
+#   mc start <name> [k=v ...] [--wait]
+#   mc stop <name>
+#   mc rm <name>
+#   mc run <command...>              run a command inside the project container
+#   mc open <url>                    open a tab in the browser sidecar (queued if not ready)
+
+API="${MC_API_URL:-http://api:8080}"
+
+usage() {
+  sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
+  exit 1
+}
+
+json_escape() {
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+cmd="$1"
+[ -n "$cmd" ] || usage
+shift
+
+case "$cmd" in
+  list)
+    curl -fsS "$API/sidecars"
+    ;;
+  start)
+    name="$1"; [ -n "$name" ] || usage
+    shift
+    body="{"
+    sep=""
+    wait_flag="false"
+    for arg in "$@"; do
+      case "$arg" in
+        --wait) wait_flag="true" ;;
+        *=*)
+          key="${arg%%=*}"
+          val="$(json_escape "${arg#*=}")"
+          body="$body$sep\"$key\":\"$val\""
+          sep=","
+          ;;
+        *) echo "unrecognized argument: $arg" >&2; usage ;;
+      esac
+    done
+    body="$body$sep\"wait\":$wait_flag}"
+    curl -fsS -X POST -H 'Content-Type: application/json' -d "$body" "$API/sidecars/$name/start"
+    ;;
+  stop)
+    name="$1"; [ -n "$name" ] || usage
+    curl -fsS -X POST "$API/sidecars/$name/stop"
+    ;;
+  rm)
+    name="$1"; [ -n "$name" ] || usage
+    curl -fsS -X DELETE "$API/sidecars/$name"
+    ;;
+  run)
+    [ -n "$1" ] || usage
+    escaped="$(json_escape "$*")"
+    curl -fsS -X POST -H 'Content-Type: application/json' \
+      -d "{\"command\":\"$escaped\"}" "$API/project/exec"
+    ;;
+  open)
+    [ -n "$1" ] || usage
+    escaped="$(json_escape "$1")"
+    curl -sS -X POST -H 'Content-Type: application/json' \
+      -d "{\"url\":\"$escaped\"}" "$API/browser/open"
+    ;;
+  *)
+    usage
+    ;;
+esac

@@ -1,0 +1,55 @@
+#autofill-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #1b1c21;
+  border-top: 1px solid #4a4b52;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  z-index: 999999;
+  font-size: 13px;
+  color: #ccc;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  transform: translateY(100%);
+  transition: transform 0.2s ease;
+}
+
+#autofill-bar.visible {
+  transform: translateY(0);
+}
+
+#autofill-bar span {
+  margin-right: 8px;
+  white-space: nowrap;
+}
+
+#autofill-select {
+  background: #2b2c31;
+  color: #eee;
+  border: 1px solid #4a4b52;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+  cursor: pointer;
+  min-width: 180px;
+}
+
+#autofill-select:hover {
+  border-color: #6a6b72;
+}
+
+#autofill-bar .close-btn {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+#autofill-bar .close-btn:hover {
+  color: #eee;
+}

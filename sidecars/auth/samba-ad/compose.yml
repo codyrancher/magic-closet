@@ -1,0 +1,37 @@
+# Samba Active Directory domain controller (auth group) — a real
+# AD-compatible directory for Rancher's ActiveDirectory auth provider.
+# Realm SAMBA.MAGIC-CLOSET.LOCAL (NetBIOS SAMBA), admin "Administrator" /
+# SAMBA_ADMIN_PASSWORD. INSECURELDAP allows the plain-LDAP simple binds
+# Rancher uses; NOCOMPLEXITY so generated user passwords always pass.
+services:
+  samba-ad:
+    image: nowsci/samba-domain:latest
+    profiles: ["samba-ad"]
+    hostname: dc.samba.magic-closet.local
+    privileged: true
+    env_file:
+      - path: ${MC_ENV_FILE:-./.env}
+        required: false
+    environment:
+      - DOMAIN=SAMBA.MAGIC-CLOSET.LOCAL
+      - DOMAINPASS=${SAMBA_ADMIN_PASSWORD:-}
+      - INSECURELDAP=true
+      - NOCOMPLEXITY=true
+      - DNSFORWARDER=NONE
+    ports:
+      - "${SAMBA_LDAP_PORT:-8350}:389"
+    volumes:
+      - ./tools:/opt/magic-closet/tools:ro
+      - samba-ad-data:/var/lib/samba
+      - samba-ad-config:/etc/samba/external
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/389"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  samba-ad-data:
+  samba-ad-config:

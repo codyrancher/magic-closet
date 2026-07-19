@@ -1,0 +1,35 @@
+#!/usr/bin/with-contenv bash
+# One-shot init: patch the Selkies viewer page so navigation gestures act on
+# the REMOTE chromium instead of the viewer page itself:
+#   - overscroll-behavior: none  -> two-finger swipe doesn't navigate away
+#   - history trap               -> browser Back keeps you on the viewer
+#   - preventDefault on mouse back/forward buttons and Alt+Left/Right ->
+#     the outer browser doesn't navigate; Selkies still forwards the events
+#     to the remote session (capture-phase, no stopPropagation)
+INDEX=/usr/share/selkies/web/index.html
+MARKER="magic-closet-viewer-patch"
+
+if [ -f "$INDEX" ] && ! grep -q "$MARKER" "$INDEX"; then
+  cat > /tmp/viewer-patch.html <<'EOF'
+<!-- magic-closet-viewer-patch -->
+<style>html,body{overscroll-behavior-x:none;overscroll-behavior-y:contain;}</style>
+<script>
+(function(){
+  history.pushState(null,'',location.href);
+  addEventListener('popstate',function(){history.pushState(null,'',location.href);});
+  var stopNav=function(e){if(e.button===3||e.button===4){e.preventDefault();}};
+  addEventListener('mousedown',stopNav,true);
+  addEventListener('mouseup',stopNav,true);
+  addEventListener('auxclick',stopNav,true);
+  addEventListener('keydown',function(e){
+    if(e.altKey&&(e.key==='ArrowLeft'||e.key==='ArrowRight')){e.preventDefault();}
+    if(e.key==='Backspace'&&!/INPUT|TEXTAREA/.test(document.activeElement&&document.activeElement.tagName||'')){/* let selkies forward it */}
+  },true);
+})();
+</script>
+EOF
+  sed -i "s|</head>|$(sed 's/[&|]/\\&/g' /tmp/viewer-patch.html | tr -d '\n')</head>|" "$INDEX"
+  echo "viewer-init: patched $INDEX"
+else
+  echo "viewer-init: already patched or index missing"
+fi

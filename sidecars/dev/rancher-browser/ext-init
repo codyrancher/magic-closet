@@ -1,0 +1,34 @@
+#!/usr/bin/with-contenv bash
+# One-shot init (runs before chromium launches): materialize the autofill /
+# command-menu extension with credentials from the magic-closet env. The
+# static files are mounted read-only; the rendered copy lives in
+# /opt/autofill-ext, which CHROME_CLI loads via --load-extension.
+SRC=/opt/magic-closet/browser-ext
+DEST=/opt/autofill-ext
+
+mkdir -p "$DEST"
+cp "$SRC"/manifest.json "$SRC"/*.js "$SRC"/*.css "$DEST"/
+
+# Generated passwords never contain quotes or backslashes, so plain
+# interpolation into JS string literals is safe here
+cat > "$DEST/config.js" <<EOF
+// Generated at container start from the magic-closet env
+var MC_CONFIG = {
+  creds: [
+    { label: 'Admin', username: 'admin', password: '${RANCHER_BOOTSTRAP_PASSWORD}' },
+    { label: 'User 1', username: 'user1', password: '${RANCHER_USER1_PASSWORD}' },
+    { label: 'User 2', username: 'user2', password: '${RANCHER_USER2_PASSWORD}' },
+    { label: 'User 3', username: 'user3', password: '${RANCHER_USER3_PASSWORD}' },
+  ],
+  keycloakCreds: [
+    { label: 'Keycloak Admin', username: 'admin', password: '${KEYCLOAK_ADMIN_PASSWORD}' },
+    { label: 'User 1', username: 'user1', password: '${RANCHER_USER1_PASSWORD}' },
+    { label: 'User 2', username: 'user2', password: '${RANCHER_USER2_PASSWORD}' },
+    { label: 'User 3', username: 'user3', password: '${RANCHER_USER3_PASSWORD}' },
+  ],
+  appco: { email: '${APPCO_EMAIL}', token: '${APPCO_TOKEN}' },
+};
+EOF
+
+chmod -R a+rX "$DEST"
+echo "ext-init: extension rendered to $DEST"

@@ -1,0 +1,7 @@
+{
+  "name": "samba-ad",
+  "description": "Samba Active Directory domain controller with users user1-3.",
+  "rancherAuth": { "modes": [{ "value": "samba-ad", "label": "ActiveDirectory" }] },
+  "params": [],
+  "secrets": ["SAMBA_ADMIN_PASSWORD"]
+}

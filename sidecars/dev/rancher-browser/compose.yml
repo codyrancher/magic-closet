@@ -1,0 +1,36 @@
+# Chromium pointed at the Rancher sidecar (linuxserver/chromium), with the
+# Quick Login / command-menu extension. Reaches other services by name
+# (e.g. https://rancher). CDP for automation is at $(cdp-url) from any
+# container.
+services:
+  rancher-browser:
+    image: lscr.io/linuxserver/chromium:latest
+    profiles: ["rancher-browser"]
+    shm_size: 1gb
+    security_opt:
+      - seccomp:unconfined
+    env_file:
+      - path: ${MC_ENV_FILE:-./.env}
+        required: false
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - CUSTOM_PORT=3000
+      - SELKIES_JPEG_QUALITY=100
+      - SELKIES_H264_FULLCOLOR=true
+      - CHROME_CLI=${RANCHER_BROWSER_START_URL:-https://rancher} --no-first-run --start-maximized --disable-infobars --allow-insecure-localhost --ignore-certificate-errors --remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 --load-extension=/opt/autofill-ext --allow-running-insecure-content
+    ports:
+      # 3001 is the image's built-in self-signed HTTPS listener — the Selkies
+      # UI requires a secure context when accessed from another machine.
+      - "${RANCHER_BROWSER_PORT:-8320}:3001"
+    volumes:
+      - ./tools:/opt/magic-closet/tools:ro
+      - ./sidecars/dev/rancher-browser/cdp-proxy:/custom-services.d/cdp-proxy:ro
+      - ./sidecars/dev/rancher-browser/extension:/opt/magic-closet/browser-ext:ro
+      - ./sidecars/dev/rancher-browser/ext-init:/custom-cont-init.d/ext-init:ro
+      - ./sidecars/dev/rancher-browser/viewer-init:/custom-cont-init.d/viewer-init:ro
+      - rancher-browser-profile:/config
+    restart: unless-stopped
+
+volumes:
+  rancher-browser-profile:
