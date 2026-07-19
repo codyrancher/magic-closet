@@ -34,14 +34,24 @@ jobs:
         working-directory: rancher-extension
         run: yarn build-pkg magic-closet
 
+      - name: Build extension catalog (Helm repo for Rancher's extension repositories)
+        working-directory: rancher-extension
+        run: yarn publish-pkgs
+
       - name: Assemble site
         run: |
           mkdir -p site
           cp -r rancher-extension/dist-pkg/* site/
+          for d in assets charts extensions; do
+            [ -d "rancher-extension/$d" ] && cp -r "rancher-extension/$d" site/
+          done
+          [ -f rancher-extension/index.yaml ] && cp rancher-extension/index.yaml site/
           {
             echo '<!doctype html><meta charset="utf-8"><title>magic-closet extension</title>'
             echo '<h1>magic-closet Rancher extension</h1>'
-            echo '<p>Developer Load one of these in Rancher (Extensions &rarr; &#8942; &rarr; Developer Load):</p><ul>'
+            echo '<p><b>Extension repository</b> (Rancher &rarr; Extensions &rarr; &#8942; &rarr; Manage Repositories &rarr; Create):</p>'
+            echo '<pre>https://codyrancher.github.io/magic-closet/</pre>'
+            echo '<p>Or Developer Load a bundle directly:</p><ul>'
             (cd site && find . -name '*.umd.min.js' | sed 's|^\./||' | sort | while read -r f; do
               echo "<li><a href=\"$f\">$f</a></li>"
             done)
