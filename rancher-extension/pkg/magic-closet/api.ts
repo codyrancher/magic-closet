@@ -25,13 +25,17 @@ export function setApiUrl(url: string): void {
 // through the rancher-browser), other closets' host ports are only reachable
 // via the docker bridge gateway.
 export function closetUrl(closet: any, hostGateway?: string): string {
-  let host = new URL(getApiUrl()).hostname;
+  const controller = new URL(getApiUrl());
+  let host = controller.hostname;
 
   if (host === 'api' && hostGateway) {
     host = hostGateway;
   }
 
-  return `http://${ host }:${ closet.apiPort }`;
+  const secure = controller.protocol === 'https:';
+  const port = secure ? (closet.apiHttpsPort || closet.apiPort) : closet.apiPort;
+
+  return `${ secure ? 'https' : 'http' }://${ host }:${ port }`;
 }
 
 export async function apiFetch(pathname: string, init?: RequestInit): Promise<any> {

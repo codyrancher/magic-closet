@@ -1378,6 +1378,7 @@ const CLOSETS_DIR = path.join(MC_ROOT, '.state', 'closets');
 // Port offsets within a closet's 100-port block
 const CLOSET_PORTS = {
   API_PORT:             0,
+  API_HTTPS_PORT:       1,
   DEV_PORT:             5,
   VSCODE_PORT:          10,
   RANCHER_BROWSER_PORT: 20,
@@ -1411,6 +1412,7 @@ function listProvisionedClosets() {
       name,
       project: env.MC_PROJECT || `mc-${name}`,
       apiPort: Number(env.API_PORT) || null,
+      apiHttpsPort: Number(env.API_HTTPS_PORT) || null,
       portBase: Number(env.MC_PORT_BASE) || null,
     };
   });
@@ -1419,10 +1421,12 @@ function listProvisionedClosets() {
 function handleClosetsList(res) {
   const defs = listSidecarDefs();
   const running = defs.filter(d => containerStatus(d.name).status === 'running').length;
+  const env = readEnvValues();
   const local = {
     name: MC_PROJECT,
     local: true,
-    apiPort: Number(readEnvValues().API_PORT) || 8300,
+    apiPort: Number(env.API_PORT) || 8300,
+    apiHttpsPort: Number(env.API_HTTPS_PORT) || 8301,
     sidecars: { running, total: defs.length },
     authProvider: selectedAuthProvider(),
   };
@@ -1629,7 +1633,7 @@ async function handleBrowserOpen(body, res) {
 
 // ---------- router ----------
 
-const server = http.createServer(async (req, res) => {
+const handler = (async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   const parts = url.pathname.split('/').filter(Boolean);
 
@@ -1716,6 +1720,32 @@ if (containerStatus('freeipa').status === 'running') bootstrapFreeIpa();
 if (containerStatus('samba-ad').status === 'running') bootstrapSambaAd();
 ensureWorkspaceClone();
 
-server.listen(PORT, () => {
+http.createServer(handler).listen(PORT, () => {
   console.log(`magic-closet api listening on :${PORT} (root: ${MC_ROOT})`);
 });
+
+// HTTPS with a self-signed cert (generated once into .state/api-tls) — an
+// https dashboard (e.g. Rancher hosting the extension) cannot call a plain
+// http API without mixed-content blocking. Browsers must trust or ignore the
+// cert (the browser sidecars run with --ignore-certificate-errors).
+function ensureApiTls() {
+  const dir = path.join(MC_ROOT, '.state', 'api-tls');
+  const keyPath = path.join(dir, 'key.pem');
+  const crtPath = path.join(dir, 'crt.pem');
+  if (!fs.existsSync(keyPath) || !fs.existsSync(crtPath)) {
+    fs.mkdirSync(dir, { recursive: true });
+    execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+      '-keyout', keyPath, '-out', crtPath, '-days', '3650', '-subj', '/CN=magic-closet-api'],
+      { stdio: 'ignore' });
+    console.log('generated api TLS cert (.state/api-tls)');
+  }
+  return { key: fs.readFileSync(keyPath), cert: fs.readFileSync(crtPath) };
+}
+
+try {
+  https.createServer(ensureApiTls(), handler).listen(8443, () => {
+    console.log('magic-closet api also listening on :8443 (https, self-signed)');
+  });
+} catch (err) {
+  console.error(`https listener failed: ${err.message}`);
+}
