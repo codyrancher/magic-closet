@@ -1,8 +1,20 @@
 <script>
 import { createCloset, setCluster } from '../api';
+import { PRODUCT_NAME, CLOSET_TYPE } from '../product';
 
 export default {
-  name: 'CreateCloset',
+  name: 'ClosetCreate',
+
+  props: {
+    value: {
+      type:    Object,
+      default: () => ({}),
+    },
+    mode: {
+      type:    String,
+      default: 'create',
+    },
+  },
 
   data() {
     return {
@@ -38,11 +50,18 @@ export default {
       this.error = null;
       try {
         await createCloset(this.name, this.sidecars);
-        this.$router.push({ name: 'c-cluster-magicCloset', params: { cluster: this.$route.params.cluster } });
+        this.done();
       } catch (e) {
         this.error = e.message;
         this.busy = false;
       }
+    },
+
+    done() {
+      this.$router.push({
+        name:   `c-cluster-${ PRODUCT_NAME }-resource`,
+        params: { cluster: this.$route.params.cluster, product: PRODUCT_NAME, resource: CLOSET_TYPE },
+      });
     },
   },
 };
@@ -50,7 +69,6 @@ export default {
 
 <template>
   <div class="closet-create">
-    <h1>Create Closet</h1>
     <p class="hint">
       Installs a closet into this cluster (namespace <code>closet-&lt;name&gt;</code>):
       a project workspace plus the sidecars you pick, managed by the closet's
@@ -75,7 +93,7 @@ export default {
     </div>
 
     <div class="actions">
-      <button class="btn role-secondary" @click="$router.back()">Cancel</button>
+      <button class="btn role-secondary" @click="done">Cancel</button>
       <button class="btn role-primary" :disabled="!name || busy" @click="create">
         {{ busy ? 'Creating…' : 'Create' }}
       </button>

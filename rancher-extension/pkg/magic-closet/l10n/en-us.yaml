@@ -1,2 +1,7 @@
 product:
   magicCloset: Magic Closet
+typeLabel:
+  magic-closet.closet: |-
+    {count, plural,
+      one { Closet }
+      other { Closets }}
