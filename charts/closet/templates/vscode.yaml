@@ -32,7 +32,7 @@ spec:
           persistentVolumeClaim: { claimName: workspace }
 {{- else }}
           hostPath:
-            path: /var/lib/magic-closet/{{ .Release.Namespace }}/workspace
+            path: {{ .Values.storage.hostPathBase }}/{{ .Release.Namespace }}/workspace
             type: DirectoryOrCreate
 {{- end }}
         - name: claude-data
@@ -40,7 +40,7 @@ spec:
           persistentVolumeClaim: { claimName: claude-data }
 {{- else }}
           hostPath:
-            path: /var/lib/magic-closet/{{ .Release.Namespace }}/claude-data
+            path: {{ .Values.storage.hostPathBase }}/{{ .Release.Namespace }}/claude-data
             type: DirectoryOrCreate
 {{- end }}
 ---

@@ -38,6 +38,11 @@ storage:
   # pvc: use PersistentVolumeClaims (requires a default StorageClass or
   # storage.className).
   mode: hostPath
+  # Base dir on the node for hostPath volumes. Default lives under k3s's own
+  # data dir so that when the "node" is itself a container (rancher's embedded
+  # k3s), the data lands on its persistent volume — a real filesystem, which
+  # the nested rancher sidecar needs (overlayfs can't nest for its containerd)
+  hostPathBase: /var/lib/rancher/magic-closet
   className: ""
   workspace: 5Gi
   rancher: 5Gi

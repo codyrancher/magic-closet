@@ -37,7 +37,7 @@ spec:
           persistentVolumeClaim: { claimName: rancher-data }
 {{- else }}
           hostPath:
-            path: /var/lib/magic-closet/{{ .Release.Namespace }}/rancher-data
+            path: {{ .Values.storage.hostPathBase }}/{{ .Release.Namespace }}/rancher-data
             type: DirectoryOrCreate
 {{- end }}
 ---
