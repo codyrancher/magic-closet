@@ -78,6 +78,7 @@ function k8sApi(pathname, { method = 'GET', body, contentType } = {}) {
 // Synchronous callers read these caches; refreshed every 5s
 let k8sDeployCache = new Map(); // name -> { desired, ready, uid }
 let k8sConfigCache = {};        // closet-config ConfigMap data
+let k8sNodePortCache = new Map(); // sidecar name -> assigned nodePort
 
 async function refreshK8sCache() {
   const deps = await k8sApi(`/apis/apps/v1/namespaces/${K8S.ns}/deployments`);
@@ -94,6 +95,16 @@ async function refreshK8sCache() {
   }
   const cm = await k8sApi(`/api/v1/namespaces/${K8S.ns}/configmaps/closet-config`);
   if (cm.json?.data) k8sConfigCache = cm.json.data;
+  const svcs = await k8sApi(`/api/v1/namespaces/${K8S.ns}/services`);
+  if (svcs.json?.items) {
+    const np = new Map();
+    for (const svc of svcs.json.items) {
+      if (svc.spec?.type !== 'NodePort' || !svc.metadata.name.endsWith('-external')) continue;
+      const port = svc.spec.ports?.find(p => p.nodePort);
+      if (port) np.set(svc.metadata.name.replace(/-external$/, ''), port.nodePort);
+    }
+    k8sNodePortCache = np;
+  }
 }
 if (K8S) {
   refreshK8sCache();
@@ -1426,15 +1437,25 @@ function readBody(req) {
 
 // ---------- handlers ----------
 
-// In-cluster UI endpoints per sidecar (scheme + service port) — the
-// dashboard turns these into Rancher service-proxy links
+// In-cluster UI endpoints per sidecar (scheme + service port). `prefer`
+// picks the link the dashboard shows: 'proxy' (Rancher service proxy,
+// same-origin — for apps that tolerate a path prefix) or 'external'
+// (node-IP NodePort — for apps that generate absolute URLs).
 const K8S_PROXY_PORTS = {
-  vscode: { scheme: 'http', port: 9000 },
-  rancher: { scheme: 'https', port: 443 },
-  keycloak: { scheme: 'http', port: 8080 },
-  'rancher-browser': { scheme: 'https', port: 3001 },
-  figma: { scheme: 'http', port: 8000 },
+  vscode: { scheme: 'http', port: 9000, prefer: 'proxy' },
+  rancher: { scheme: 'https', port: 443, prefer: 'external' },
+  keycloak: { scheme: 'http', port: 8080, prefer: 'external' },
+  'rancher-browser': { scheme: 'https', port: 3001, prefer: 'external' },
+  figma: { scheme: 'http', port: 8000, prefer: 'proxy' },
 };
+
+function k8sExternalUrl(name) {
+  const spec = K8S_PROXY_PORTS[name];
+  const nodePort = k8sNodePortCache.get(name);
+  const nodeIp = process.env.NODE_IP;
+  if (!spec || !nodePort || !nodeIp) return null;
+  return `${spec.scheme}://${nodeIp}:${nodePort}`;
+}
 
 function handleList(res) {
   const env = readEnvValues();
@@ -1446,6 +1467,7 @@ function handleList(res) {
       health: state.health,
       hostPort: (!K8S && s.port) ? env[s.port] || null : null,
       proxy: K8S ? K8S_PROXY_PORTS[s.name] || null : null,
+      external: K8S ? k8sExternalUrl(s.name) : null,
       params: s.params.map(p => ({ ...p, value: env[p.env] ?? p.default })),
       ...(s.name === 'rancher' ? { bootstrap: rancherBootstrap.state } : {}),
       ...(s.name === 'keycloak' ? { bootstrap: keycloakBootstrap.state } : {}),

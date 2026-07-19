@@ -43,8 +43,10 @@ storage:
   rancher: 5Gi
 
 expose:
-  # Extra NodePort services (api, vscode, rancher, keycloak, rancher-browser)
-  nodePort: false
+  # NodePort services (api, vscode, rancher, keycloak, rancher-browser) —
+  # on by default so sidecars whose UIs break behind the path-prefixed
+  # service proxy (rancher, keycloak) get direct node-IP links
+  nodePort: true
   # Host-based ingress: <service>.<host>
   ingress:
     enabled: false

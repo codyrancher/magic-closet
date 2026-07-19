@@ -590,14 +590,17 @@ function render(sidecars) {
       a.target = '_blank';
       a.textContent = `${scheme}://${location.hostname}:${s.hostPort}`;
       card.appendChild(a);
-    } else if (s.proxy && s.status === 'running') {
-      // In-cluster: sibling service through the same Rancher service proxy
-      // this dashboard is being served from
+    } else if ((s.proxy || s.external) && s.status === 'running') {
+      // In-cluster: either the Rancher service proxy this dashboard is
+      // served from (same-origin, path-prefixed) or the node-IP NodePort —
+      // per-sidecar preference from the api, falling back to what exists
+      const proxyHref = s.proxy ? `../../${s.proxy.scheme}:${s.name}:${s.proxy.port}/proxy/` : null;
+      const useExternal = s.external && (!s.proxy || s.proxy.prefer === 'external');
       const a = document.createElement('a');
       a.className = 'card-link';
-      a.href = `../../${s.proxy.scheme}:${s.name}:${s.proxy.port}/proxy/`;
+      a.href = useExternal ? s.external : proxyHref;
       a.target = '_blank';
-      a.textContent = `open ${s.name}`;
+      a.textContent = useExternal ? s.external : `open ${s.name}`;
       card.appendChild(a);
     }
 

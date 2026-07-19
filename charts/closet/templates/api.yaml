@@ -20,6 +20,10 @@ spec:
           envFrom:
             - secretRef: { name: closet-secrets }
             - configMapRef: { name: closet-config }
+          env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef: { fieldPath: status.hostIP }
           ports:
             - containerPort: 8080
             - containerPort: 8443
