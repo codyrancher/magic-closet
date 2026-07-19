@@ -2,7 +2,7 @@ apiVersion: v2
 name: closet
 description: A magic closet dev environment — project container plus optional sidecars, managed by its own in-cluster api/dashboard.
 type: application
-version: 0.1.1
+version: 0.1.2
 appVersion: "0.1.0"
 icon: https://codyrancher.github.io/magic-closet/logo.svg
 home: https://github.com/codyrancher/magic-closet

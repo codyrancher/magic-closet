@@ -1426,6 +1426,16 @@ function readBody(req) {
 
 // ---------- handlers ----------
 
+// In-cluster UI endpoints per sidecar (scheme + service port) — the
+// dashboard turns these into Rancher service-proxy links
+const K8S_PROXY_PORTS = {
+  vscode: { scheme: 'http', port: 9000 },
+  rancher: { scheme: 'https', port: 443 },
+  keycloak: { scheme: 'http', port: 8080 },
+  'rancher-browser': { scheme: 'https', port: 3001 },
+  figma: { scheme: 'http', port: 8000 },
+};
+
 function handleList(res) {
   const env = readEnvValues();
   const sidecars = listSidecarDefs().map(s => {
@@ -1435,6 +1445,7 @@ function handleList(res) {
       status: state.status,
       health: state.health,
       hostPort: (!K8S && s.port) ? env[s.port] || null : null,
+      proxy: K8S ? K8S_PROXY_PORTS[s.name] || null : null,
       params: s.params.map(p => ({ ...p, value: env[p.env] ?? p.default })),
       ...(s.name === 'rancher' ? { bootstrap: rancherBootstrap.state } : {}),
       ...(s.name === 'keycloak' ? { bootstrap: keycloakBootstrap.state } : {}),

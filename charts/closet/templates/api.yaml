@@ -15,7 +15,7 @@ spec:
       containers:
         - name: api
           image: {{ .Values.images.api }}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           workingDir: /app
           envFrom:
             - secretRef: { name: closet-secrets }

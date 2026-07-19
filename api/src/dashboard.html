@@ -590,6 +590,15 @@ function render(sidecars) {
       a.target = '_blank';
       a.textContent = `${scheme}://${location.hostname}:${s.hostPort}`;
       card.appendChild(a);
+    } else if (s.proxy && s.status === 'running') {
+      // In-cluster: sibling service through the same Rancher service proxy
+      // this dashboard is being served from
+      const a = document.createElement('a');
+      a.className = 'card-link';
+      a.href = `../../${s.proxy.scheme}:${s.name}:${s.proxy.port}/proxy/`;
+      a.target = '_blank';
+      a.textContent = `open ${s.name}`;
+      card.appendChild(a);
     }
 
     const inputs = {};
