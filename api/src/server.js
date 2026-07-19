@@ -1442,7 +1442,10 @@ function readBody(req) {
 // same-origin — for apps that tolerate a path prefix) or 'external'
 // (node-IP NodePort — for apps that generate absolute URLs).
 const K8S_PROXY_PORTS = {
-  vscode: { scheme: 'http', port: 9000, prefer: 'proxy' },
+  // vscode needs 'external': its assets load through the service proxy but
+  // the workbench WebSocket dies there (1006) — the apiserver service proxy
+  // doesn't pass WebSocket upgrades
+  vscode: { scheme: 'http', port: 9000, prefer: 'external' },
   rancher: { scheme: 'https', port: 443, prefer: 'external' },
   keycloak: { scheme: 'http', port: 8080, prefer: 'external' },
   'rancher-browser': { scheme: 'https', port: 3001, prefer: 'external' },
