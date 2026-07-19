@@ -1,15 +1,35 @@
 <script>
-import { apiFetch, resolveApiUrl } from '../api';
+import { createCloset, setCluster } from '../api';
 
 export default {
   name: 'CreateCloset',
 
   data() {
-    return { name: '', busy: false, error: null };
+    return {
+      name:     '',
+      busy:     false,
+      error:    null,
+      sidecars: {
+        vscode:         true,
+        rancher:        true,
+        keycloak:       true,
+        rancherBrowser: false,
+        openldap:       false,
+        figma:          false,
+      },
+      labels: {
+        vscode:         'VS Code',
+        rancher:        'Rancher server',
+        keycloak:       'Keycloak (OIDC)',
+        rancherBrowser: 'Chromium browser',
+        openldap:       'OpenLDAP',
+        figma:          'Figma MCP',
+      },
+    };
   },
 
-  async created() {
-    await resolveApiUrl();
+  created() {
+    setCluster(this.$route.params.cluster);
   },
 
   methods: {
@@ -17,7 +37,7 @@ export default {
       this.busy = true;
       this.error = null;
       try {
-        await apiFetch('/closets', { method: 'POST', body: JSON.stringify({ name: this.name }) });
+        await createCloset(this.name, this.sidecars);
         this.$router.push({ name: 'c-cluster-magicCloset', params: { cluster: this.$route.params.cluster } });
       } catch (e) {
         this.error = e.message;
@@ -32,9 +52,9 @@ export default {
   <div class="closet-create">
     <h1>Create Closet</h1>
     <p class="hint">
-      Provisions a new magic-closet instance on the controller host — its own
-      port block, sidecars, workspace, and generated credentials. The closet
-      appears in the list while it provisions.
+      Installs a closet into this cluster (namespace <code>closet-&lt;name&gt;</code>):
+      a project workspace plus the sidecars you pick, managed by the closet's
+      own dashboard.
     </p>
 
     <div v-if="error" class="banner error">{{ error }}</div>
@@ -42,6 +62,16 @@ export default {
     <div class="form">
       <label>Name</label>
       <input v-model="name" placeholder="e.g. pr-18387" @keyup.enter="create" />
+    </div>
+
+    <div class="form">
+      <label>Sidecars</label>
+      <div class="checks">
+        <label v-for="(on, key) in sidecars" :key="key" class="check">
+          <input v-model="sidecars[key]" type="checkbox" />
+          {{ labels[key] }}
+        </label>
+      </div>
     </div>
 
     <div class="actions">
@@ -76,9 +106,21 @@ export default {
     gap: 6px;
     margin-bottom: 20px;
 
-    label {
+    > label {
       opacity: 0.8;
       font-size: 13px;
+    }
+
+    .checks {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+
+      .check {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
     }
   }
 

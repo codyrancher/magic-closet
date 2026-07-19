@@ -1,73 +1,15 @@
-// Where the magic-closet control API lives. Persisted per-browser; the
-// default guesses based on how the dashboard is being accessed: through the
-// rancher-browser sidecar (https://rancher) the API is on the compose
-// network, otherwise assume the standard host port.
-const STORAGE_KEY = 'magic-closet-api-url';
-const SETTING_URL = '/v1/management.cattle.io.settings/magic-closet-controller';
+// Rancher-native closet management: a closet is an install of the "closet"
+// Helm chart in a closet-<name> namespace. Everything goes through the
+// Rancher API same-origin — no external controller, no extra config.
 
-let cachedUrl: string | null = null;
+let clusterId = 'local';
 
-export function defaultApiUrl(): string {
-  if (window.location.hostname === 'rancher') {
-    return 'http://api:8080';
-  }
-
-  return `http://${ window.location.hostname }:8300`;
+export function setCluster(cluster: string): void {
+  clusterId = cluster || 'local';
 }
 
-export function getApiUrl(): string {
-  return cachedUrl || window.localStorage.getItem(STORAGE_KEY) || defaultApiUrl();
-}
-
-// Priority: personal localStorage override > the Rancher-wide
-// "magic-closet-controller" Setting > a guess. Call once before using the
-// api; result is cached for the synchronous helpers.
-export async function resolveApiUrl(): Promise<string> {
-  const stored = window.localStorage.getItem(STORAGE_KEY);
-
-  // A stored value that is just the unconfigured default (e.g. saved by
-  // accident before the controller was reachable) shouldn't shadow the
-  // Rancher-wide Setting
-  if (stored && stored !== defaultApiUrl()) {
-    cachedUrl = stored;
-
-    return stored;
-  }
-
-  // Baked in at install time: helm value plugin.metadata.controller on this
-  // extension's own UIPlugin resource (readable by every dashboard user)
-  try {
-    const resp = await fetch('/v1/uiplugins');
-
-    if (resp.ok) {
-      const index = await resp.json();
-      const controller = index.entries?.['magic-closet']?.metadata?.controller;
-
-      if (controller) {
-        cachedUrl = controller;
-
-        return controller;
-      }
-    }
-  } catch { /* not installed via chart — fall through */ }
-
-  try {
-    const resp = await fetch(SETTING_URL);
-
-    if (resp.ok) {
-      const setting = await resp.json();
-
-      if (setting.value) {
-        cachedUrl = setting.value;
-
-        return setting.value;
-      }
-    }
-  } catch { /* no setting — fall through */ }
-
-  cachedUrl = defaultApiUrl();
-
-  return cachedUrl;
+function base(): string {
+  return `/k8s/clusters/${ clusterId }`;
 }
 
 function csrfHeader(): Record<string, string> {
@@ -76,67 +18,92 @@ function csrfHeader(): Record<string, string> {
   return { 'X-Api-Csrf': match ? decodeURIComponent(match[1]) : 'CSRF' };
 }
 
-// Persists locally and — best effort — into the Rancher-wide Setting so
-// every user/browser of this Rancher gets it automatically.
-export async function setApiUrl(url: string): Promise<void> {
-  window.localStorage.setItem(STORAGE_KEY, url);
-  cachedUrl = url;
-
-  try {
-    const resp = await fetch(SETTING_URL);
-
-    if (resp.ok) {
-      const setting = await resp.json();
-
-      setting.value = url;
-      await fetch(SETTING_URL, {
-        method:  'PUT',
-        headers: { 'Content-Type': 'application/json', ...csrfHeader() },
-        body:    JSON.stringify(setting),
-      });
-    } else {
-      await fetch('/v1/management.cattle.io.settings', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json', ...csrfHeader() },
-        body:    JSON.stringify({
-          type:     'management.cattle.io.setting',
-          metadata: { name: 'magic-closet-controller' },
-          value:    url,
-          default:  '',
-        }),
-      });
-    }
-  } catch { /* setting write is optional */ }
-}
-
-// A closet's own API/dashboard: same host as the controller, its own port.
-// When the controller is reached via its compose-internal name (viewing
-// through the rancher-browser), other closets' host ports are only reachable
-// via the docker bridge gateway.
-export function closetUrl(closet: any, hostGateway?: string): string {
-  const controller = new URL(getApiUrl());
-  let host = controller.hostname;
-
-  if (host === 'api' && hostGateway) {
-    host = hostGateway;
-  }
-
-  const secure = controller.protocol === 'https:';
-  const port = secure ? (closet.apiHttpsPort || closet.apiPort) : closet.apiPort;
-
-  return `${ secure ? 'https' : 'http' }://${ host }:${ port }`;
-}
-
-export async function apiFetch(pathname: string, init?: RequestInit): Promise<any> {
-  const resp = await fetch(`${ getApiUrl() }${ pathname }`, {
+export async function rancherFetch(path: string, init?: RequestInit): Promise<any> {
+  const write = init?.method && init.method !== 'GET';
+  const resp = await fetch(path, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
+    headers: {
+      'Content-Type': 'application/json',
+      Accept:         'application/json',
+      ...(write ? csrfHeader() : {}),
+      ...(init?.headers || {}),
+    },
   });
   const data = await resp.json().catch(() => ({}));
 
   if (!resp.ok) {
-    throw new Error(data.error || `${ resp.status }`);
+    throw new Error(data.message || data.error || `HTTP ${ resp.status }`);
   }
 
   return data;
+}
+
+// Same-origin service-proxy path to a closet's own api/dashboard
+export function closetApiBase(namespace: string): string {
+  return `${ base() }/api/v1/namespaces/${ namespace }/services/http:api:8080/proxy`;
+}
+
+export async function listClosets(): Promise<any[]> {
+  const data = await rancherFetch(`${ base() }/v1/catalog.cattle.io.apps`);
+
+  return (data.data || [])
+    .filter((a: any) => a.spec?.chart?.metadata?.name === 'closet')
+    .map((a: any) => ({
+      name:      a.spec?.name || a.metadata?.name,
+      namespace: a.metadata?.namespace,
+      state:     a.metadata?.state?.name || a.status?.summary?.state || '—',
+      version:   a.spec?.chart?.metadata?.version,
+    }));
+}
+
+export async function findClosetChart(): Promise<{ repo: string; version: string }> {
+  const repos = await rancherFetch(`${ base() }/v1/catalog.cattle.io.clusterrepos`);
+
+  for (const r of repos.data || []) {
+    try {
+      const idx = await rancherFetch(`${ base() }/v1/catalog.cattle.io.clusterrepos/${ r.metadata.name }?link=index`);
+      const versions = idx.entries?.closet;
+
+      if (versions?.length) {
+        return { repo: r.metadata.name, version: versions[0].version };
+      }
+    } catch { /* skip unreadable repo */ }
+  }
+  throw new Error('No repository provides the "closet" chart — add https://codyrancher.github.io/magic-closet/ in Apps → Repositories');
+}
+
+export async function createCloset(name: string, sidecars: Record<string, boolean>): Promise<void> {
+  const { repo, version } = await findClosetChart();
+  const namespace = `closet-${ name }`;
+
+  try {
+    await rancherFetch(`${ base() }/v1/namespaces`, {
+      method: 'POST',
+      body:   JSON.stringify({ type: 'namespace', metadata: { name: namespace } }),
+    });
+  } catch { /* already exists */ }
+
+  await rancherFetch(`${ base() }/v1/catalog.cattle.io.clusterrepos/${ repo }?action=install`, {
+    method: 'POST',
+    body:   JSON.stringify({
+      namespace,
+      charts: [{
+        chartName:   'closet',
+        version,
+        releaseName: name,
+        annotations: {
+          'catalog.cattle.io/ui-source-repo-type': 'cluster',
+          'catalog.cattle.io/ui-source-repo':      repo,
+        },
+        values: { sidecars },
+      }],
+    }),
+  });
+}
+
+export async function deleteCloset(closet: any): Promise<void> {
+  await rancherFetch(`${ base() }/v1/catalog.cattle.io.apps/${ closet.namespace }/${ closet.name }?action=uninstall`, {
+    method: 'POST',
+    body:   '{}',
+  });
 }

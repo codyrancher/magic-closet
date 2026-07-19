@@ -1,5 +1,5 @@
 <script>
-import { apiFetch, closetUrl, getApiUrl, resolveApiUrl } from '../api';
+import { closetApiBase, listClosets, setCluster } from '../api';
 
 export default {
   name: 'ClosetDetail',
@@ -9,20 +9,18 @@ export default {
   },
 
   async created() {
-    await resolveApiUrl();
+    setCluster(this.$route.params.cluster);
     const name = this.$route.params.closet;
 
     try {
-      const data = await apiFetch('/closets');
-      const gateway = data.hostGateway || null;
-      const closet = (data.closets || []).find((c) => c.name === name);
+      const closets = await listClosets();
+      const closet = closets.find((c) => c.name === name);
 
       if (!closet) {
         this.error = `Unknown closet: ${ name }`;
       } else {
-        // Every closet's api serves its dashboard; the controller's own url
-        // for the local closet, host:apiPort for provisioned ones
-        this.url = closet.local ? getApiUrl() : closetUrl(closet, gateway);
+        // The closet's dashboard, same-origin through Rancher's service proxy
+        this.url = `${ closetApiBase(closet.namespace) }/`;
       }
     } catch (e) {
       this.error = e.message;
