@@ -1,5 +1,5 @@
 typeLabel:
   magic-closet.closet: |-
     {count, plural,
-      one { Closet }
-      other { Closets }}
+      one { Magic Closet }
+      other { Magic Closets }}

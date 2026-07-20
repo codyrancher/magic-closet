@@ -1,0 +1,28 @@
+{{- if ne .Values.storage.mode "pvc" }}
+# Namespace deletion can't remove node-local hostPath data — this pre-delete
+# hook wipes the closet's directory when the release is uninstalled
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: closet-cleanup
+  annotations:
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: cleanup
+          image: busybox
+          command: ["sh", "-c", "rm -rf /base/{{ .Release.Namespace }}"]
+          volumeMounts:
+            - { name: base, mountPath: /base }
+      volumes:
+        - name: base
+          hostPath:
+            path: {{ .Values.storage.hostPathBase }}
+            type: DirectoryOrCreate
+{{- end }}

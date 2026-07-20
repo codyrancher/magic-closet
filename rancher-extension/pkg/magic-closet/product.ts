@@ -16,7 +16,7 @@ export function init($plugin: IPlugin, store: any) {
   } = dsl;
 
   spoofedType({
-    label:             'Closets',
+    label:             'Magic Closets',
     type:              CLOSET_TYPE,
     product:           EXPLORER,
     collectionMethods: ['POST'],

@@ -280,6 +280,15 @@ export default {
   </div>
 </template>
 
+<style lang="scss">
+/* Global on purpose (scoped styles can't reach the masthead rendered above
+   this component): the :has() guard limits it to closet detail pages */
+main:has(.closet-dashboard) .metadata-section,
+.dashboard-root:has(.closet-dashboard) .metadata-section {
+  display: none;
+}
+</style>
+
 <style lang="scss" scoped>
 .closet-dashboard {
   padding: 10px 0 40px 0;
