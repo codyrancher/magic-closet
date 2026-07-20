@@ -155,15 +155,17 @@ export default {
           variant="medium"
         >
           <template #item-card-header-title>
-            <h3 class="item-card-header-title medium">
-              {{ s.name }}
-            </h3>
-            <BadgeState
-              :color="badgeColor(s)"
-              :label="statusLabel(s)"
-              :title="badgeTitle(s)"
-              class="status-badge"
-            />
+            <div class="title-row">
+              <h3 class="item-card-header-title medium">
+                {{ s.name }}
+              </h3>
+              <BadgeState
+                :color="badgeColor(s)"
+                :label="statusLabel(s)"
+                :title="badgeTitle(s)"
+                class="status-badge"
+              />
+            </div>
           </template>
 
           <template #item-card-sub-header>
@@ -237,6 +239,17 @@ main:has(.closet-dashboard) .metadata-section,
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 16px;
+  }
+
+  // Same alignment as the masthead TitleBar: title and badge on one
+  // vertically-centered row
+  .title-row {
+    display: flex;
+    align-items: center;
+
+    h3 {
+      margin: 0;
+    }
   }
 
   .status-badge {
