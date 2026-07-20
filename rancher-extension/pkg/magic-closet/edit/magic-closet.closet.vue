@@ -50,10 +50,27 @@ export default {
       this.error = null;
       try {
         await createCloset(this.name, this.sidecars);
+        this.refreshUntilListed(this.name);
         this.done();
       } catch (e) {
         this.error = e.message;
         this.busy = false;
+      }
+    },
+
+    // The helm app record can lag a few seconds behind the install call, and
+    // the spoofed type is served from cache — force-refetch until the new
+    // closet shows up so the list updates without a page reload
+    async refreshUntilListed(name) {
+      const store = this.$store;
+
+      for (let i = 0; i < 15; i++) {
+        const all = await store.dispatch('cluster/findAll', { type: CLOSET_TYPE, opt: { force: true } });
+
+        if ((all || []).some((c) => c.metadata?.name === name)) {
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 2000));
       }
     },
 
