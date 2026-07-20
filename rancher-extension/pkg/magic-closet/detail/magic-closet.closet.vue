@@ -93,6 +93,12 @@ export default {
       return map[s.status] || 'bg-info';
     },
 
+    statusLabel(s) {
+      const t = (s.status || '').replace(/_/g, ' ');
+
+      return t.charAt(0).toUpperCase() + t.slice(1);
+    },
+
     badgeTitle(s) {
       return [s.health, s.bootstrap ? `bootstrap: ${ s.bootstrap }` : null].filter(Boolean).join(' · ');
     },
@@ -155,7 +161,7 @@ export default {
             </h3>
             <BadgeState
               :color="badgeColor(s)"
-              :label="s.status"
+              :label="statusLabel(s)"
               :title="badgeTitle(s)"
               class="status-badge"
             />
