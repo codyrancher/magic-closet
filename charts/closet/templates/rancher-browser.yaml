@@ -11,6 +11,43 @@ spec:
     metadata:
       labels: { app: rancher-browser }
     spec:
+      # Renders the Quick Login / command-menu extension (files ship in the
+      # api image) with credentials from the closet env — the k8s twin of the
+      # compose sidecar's ext-init script
+      initContainers:
+        - name: ext-init
+          image: {{ .Values.images.api }}
+          imagePullPolicy: Always
+          envFrom:
+            - secretRef: { name: closet-secrets }
+            - configMapRef: { name: closet-config }
+          command:
+            - /bin/sh
+            - -c
+            - |
+              SRC=/app/sidecars/dev/rancher-browser/extension
+              cp "$SRC"/manifest.json "$SRC"/*.js "$SRC"/*.css /ext/
+              cat > /ext/config.js <<EOF
+              // Generated at pod start from the closet env
+              var MC_CONFIG = {
+                creds: [
+                  { label: 'Admin', username: 'admin', password: '${RANCHER_BOOTSTRAP_PASSWORD}' },
+                  { label: 'User 1', username: 'user1', password: '${RANCHER_USER1_PASSWORD}' },
+                  { label: 'User 2', username: 'user2', password: '${RANCHER_USER2_PASSWORD}' },
+                  { label: 'User 3', username: 'user3', password: '${RANCHER_USER3_PASSWORD}' },
+                ],
+                keycloakCreds: [
+                  { label: 'Keycloak Admin', username: 'admin', password: '${KEYCLOAK_ADMIN_PASSWORD}' },
+                  { label: 'User 1', username: 'user1', password: '${RANCHER_USER1_PASSWORD}' },
+                  { label: 'User 2', username: 'user2', password: '${RANCHER_USER2_PASSWORD}' },
+                  { label: 'User 3', username: 'user3', password: '${RANCHER_USER3_PASSWORD}' },
+                ],
+                appco: { email: '${APPCO_EMAIL}', token: '${APPCO_TOKEN}' },
+              };
+              EOF
+              chmod -R a+rX /ext
+          volumeMounts:
+            - { name: autofill-ext, mountPath: /ext }
       containers:
         - name: chromium
           image: {{ .Values.images.rancherBrowser }}
@@ -19,11 +56,16 @@ spec:
             - { name: PUID, value: "1000" }
             - { name: PGID, value: "1000" }
             - { name: CUSTOM_PORT, value: "3000" }
-            - { name: CHROME_CLI, value: "https://rancher --no-first-run --start-maximized --disable-infobars --allow-insecure-localhost --ignore-certificate-errors --remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 --allow-running-insecure-content" }
+            - { name: CHROME_CLI, value: "https://rancher --no-first-run --start-maximized --disable-infobars --allow-insecure-localhost --ignore-certificate-errors --remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 --load-extension=/opt/autofill-ext --allow-running-insecure-content" }
           ports:
             - containerPort: 3000
             - containerPort: 3001
             - containerPort: 9222
+          volumeMounts:
+            - { name: autofill-ext, mountPath: /opt/autofill-ext }
+      volumes:
+        - name: autofill-ext
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
