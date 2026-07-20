@@ -27,6 +27,9 @@ spec:
             - |
               SRC=/app/sidecars/dev/rancher-browser/extension
               cp "$SRC"/manifest.json "$SRC"/*.js "$SRC"/*.css /ext/
+              cp /app/sidecars/dev/rancher-browser/cdp-proxy /svc/cdp-proxy
+              cp /app/sidecars/dev/rancher-browser/viewer-init /init/viewer-init
+              chmod +x /svc/cdp-proxy /init/viewer-init
               cat > /ext/config.js <<EOF
               // Generated at pod start from the closet env
               var MC_CONFIG = {
@@ -48,6 +51,8 @@ spec:
               chmod -R a+rX /ext
           volumeMounts:
             - { name: autofill-ext, mountPath: /ext }
+            - { name: custom-services, mountPath: /svc }
+            - { name: custom-init, mountPath: /init }
       containers:
         - name: chromium
           image: {{ .Values.images.rancherBrowser }}
@@ -63,8 +68,14 @@ spec:
             - containerPort: 9222
           volumeMounts:
             - { name: autofill-ext, mountPath: /opt/autofill-ext }
+            - { name: custom-services, mountPath: /custom-services.d }
+            - { name: custom-init, mountPath: /custom-cont-init.d }
       volumes:
         - name: autofill-ext
+          emptyDir: {}
+        - name: custom-services
+          emptyDir: {}
+        - name: custom-init
           emptyDir: {}
 ---
 apiVersion: v1

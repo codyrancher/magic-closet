@@ -124,6 +124,35 @@ export default {
       return (s.params || []).filter((p) => p.value !== undefined && p.value !== null && p.value !== '');
     },
 
+    browserSidecar() {
+      return this.sidecars.find((x) => x.name === 'rancher-browser');
+    },
+
+    canOpenInBrowser(s) {
+      const b = this.browserSidecar();
+
+      return !!(s.internal && s.status === 'running' && s.name !== 'rancher-browser' && b && b.status === 'running');
+    },
+
+    // Queue the sidecar's in-network URL as a tab inside the rancher-browser
+    // sidecar, then bring that browser up in a new tab
+    async openInBrowser(s) {
+      try {
+        await rancherFetch(`${ this.apiBase }/browser/open`, {
+          method: 'POST',
+          body:   JSON.stringify({ url: s.internal }),
+        });
+        const b = this.browserSidecar();
+        const link = b && this.linkFor(b);
+
+        if (link) {
+          window.open(link, '_blank', 'noopener');
+        }
+      } catch (e) {
+        this.error = `browser: ${ e.message }`;
+      }
+    },
+
     authFor(s) {
       if (!s.rancherAuth) {
         return null;
@@ -173,15 +202,25 @@ export default {
               <div class="desc">
                 {{ s.description }}
               </div>
-              <a
-                v-if="linkFor(s)"
-                :href="linkFor(s)"
-                target="_blank"
-                rel="noopener"
-                item-card-action
-              >
-                {{ preferExternal(s) ? s.external : `open ${s.name}` }}
-              </a>
+              <div class="links">
+                <a
+                  v-if="linkFor(s)"
+                  :href="linkFor(s)"
+                  target="_blank"
+                  rel="noopener"
+                  item-card-action
+                >
+                  {{ preferExternal(s) ? s.external : `open ${s.name}` }}
+                </a>
+                <a
+                  v-if="canOpenInBrowser(s)"
+                  href="#"
+                  item-card-action
+                  @click.prevent="openInBrowser(s)"
+                >
+                  open in rancher-browser
+                </a>
+              </div>
               <span v-if="s.unsupported" class="unsupported">{{ s.unsupported }}</span>
             </div>
           </template>
@@ -263,6 +302,12 @@ main:has(.closet-dashboard) .metadata-section,
 
     .desc {
       color: var(--body-text);
+    }
+
+    .links {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
     }
   }
 

@@ -1460,6 +1460,15 @@ const K8S_PROXY_PORTS = {
   figma: { scheme: 'http', port: 8000, prefer: 'proxy' },
 };
 
+// In-network URL of a sidecar (compose service / k8s service DNS) — what the
+// rancher-browser sidecar should browse to
+function internalUrl(name) {
+  const spec = K8S_PROXY_PORTS[name];
+  if (!spec) return null;
+  const defaultPort = (spec.scheme === 'https' && spec.port === 443) || (spec.scheme === 'http' && spec.port === 80);
+  return `${spec.scheme}://${name}${defaultPort ? '' : `:${spec.port}`}`;
+}
+
 function k8sExternalUrl(name) {
   const spec = K8S_PROXY_PORTS[name];
   const nodePort = k8sNodePortCache.get(name);
@@ -1485,6 +1494,7 @@ function handleList(res) {
       hostPort: (!K8S && s.port) ? env[s.port] || null : null,
       proxy: K8S ? K8S_PROXY_PORTS[s.name] || null : null,
       external: K8S ? k8sExternalUrl(s.name) : null,
+      internal: internalUrl(s.name),
       unsupported: (K8S && K8S_UNSUPPORTED[s.name]) || null,
       params: s.params.map(p => ({ ...p, value: env[p.env] ?? p.default })),
       ...(s.name === 'rancher' ? { bootstrap: rancherBootstrap.state } : {}),
