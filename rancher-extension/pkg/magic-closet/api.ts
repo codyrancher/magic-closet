@@ -112,3 +112,43 @@ export async function deleteCloset(closet: any): Promise<void> {
     await rancherFetch(`${ base() }/v1/namespaces/${ closet.namespace }`, { method: 'DELETE' }).catch(() => null);
   }
 }
+
+// ---------- shared secrets (reused across closets) ----------
+
+export const SECRETS_NS = 'magic-closet-secrets';
+
+export async function listSharedSecrets(): Promise<string[]> {
+  try {
+    const data = await rancherFetch(`${ base() }/v1/secrets/${ SECRETS_NS }`);
+
+    return (data.data || []).map((s: any) => s.metadata?.name).filter(Boolean).sort();
+  } catch {
+    return [];
+  }
+}
+
+export async function readSharedSecret(name: string): Promise<string> {
+  const s = await rancherFetch(`${ base() }/v1/secrets/${ SECRETS_NS }/${ name }`);
+  const b64 = s.data?.value || (Object.values(s.data || {})[0] as string) || '';
+
+  return b64 ? atob(b64) : '';
+}
+
+export async function createSharedSecret(name: string, value: string): Promise<void> {
+  try {
+    await rancherFetch(`${ base() }/v1/namespaces`, {
+      method: 'POST',
+      body:   JSON.stringify({ type: 'namespace', metadata: { name: SECRETS_NS } }),
+    });
+  } catch { /* already exists */ }
+
+  await rancherFetch(`${ base() }/v1/secrets`, {
+    method: 'POST',
+    body:   JSON.stringify({
+      type:     'secret',
+      _type:    'Opaque',
+      metadata: { namespace: SECRETS_NS, name },
+      data:     { value: btoa(value) },
+    }),
+  });
+}

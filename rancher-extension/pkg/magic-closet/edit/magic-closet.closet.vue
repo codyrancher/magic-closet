@@ -1,6 +1,9 @@
 <script>
 import { RcButton } from '@components/RcButton';
-import { closetApiBase, createCloset, rancherFetch, setCluster } from '../api';
+import {
+  closetApiBase, createCloset, createSharedSecret, listSharedSecrets,
+  rancherFetch, readSharedSecret, setCluster,
+} from '../api';
 import { EXPLORER, CLOSET_TYPE } from '../product';
 
 const GROUP_ORDER = ['dev', 'auth', 'design'];
@@ -47,11 +50,14 @@ export default {
         figma:          'Figma MCP',
       },
       // edit mode
-      sidecars:     [],
-      enabled:      {},
-      paramEdits:   {},
-      authProvider: '',
-      loaded:       false,
+      sidecars:      [],
+      enabled:       {},
+      paramEdits:    {},
+      authProvider:  '',
+      loaded:        false,
+      sharedSecrets: [],
+      secretSel:     {},
+      newSecret:     { name: '', value: '', busy: false },
     };
   },
 
@@ -119,9 +125,35 @@ export default {
           }
           this.paramEdits[s.name] = edits;
         }
+        this.sharedSecrets = await listSharedSecrets();
         this.loaded = true;
       } catch (e) {
         this.error = e.message;
+      }
+    },
+
+    // Token/secret-style params are backed by shared k8s Secrets (namespace
+    // magic-closet-secrets) so they can be reused between closets
+    isSecretParam(p) {
+      return /(token|secret|key|password)$/i.test(p.id);
+    },
+
+    async addSharedSecret() {
+      const { name, value } = this.newSecret;
+
+      if (!name || !value) {
+        return;
+      }
+      this.newSecret.busy = true;
+      try {
+        await createSharedSecret(name, value);
+        if (!this.sharedSecrets.includes(name)) {
+          this.sharedSecrets = [...this.sharedSecrets, name].sort();
+        }
+        this.newSecret = { name: '', value: '', busy: false };
+      } catch (e) {
+        this.error = `secret: ${ e.message }`;
+        this.newSecret.busy = false;
       }
     },
 
@@ -145,6 +177,20 @@ export default {
       this.busy = true;
       this.error = null;
       const failures = [];
+
+      // Resolve selected shared secrets into param values first
+      for (const [key, secretName] of Object.entries(this.secretSel)) {
+        if (!secretName) {
+          continue;
+        }
+        const [sidecar, paramId] = key.split('::');
+
+        try {
+          this.paramEdits[sidecar][paramId] = await readSharedSecret(secretName);
+        } catch (e) {
+          failures.push(`secret ${ secretName }: ${ e.message }`);
+        }
+      }
 
       for (const s of this.sidecars) {
         if (s.unsupported && s.status === 'not_created') {
@@ -274,6 +320,18 @@ export default {
                 :checked="!!paramEdits[s.name][p.id] && paramEdits[s.name][p.id] !== 'false'"
                 @change="paramEdits[s.name][p.id] = $event.target.checked ? 'true' : ''"
               >
+              <select
+                v-else-if="isSecretParam(p)"
+                :id="`${s.name}-${p.id}`"
+                v-model="secretSel[`${s.name}::${p.id}`]"
+              >
+                <option value="">
+                  {{ paramEdits[s.name][p.id] ? '(keep current value)' : '(none)' }}
+                </option>
+                <option v-for="n in sharedSecrets" :key="n" :value="n">
+                  secret: {{ n }}
+                </option>
+              </select>
               <input
                 v-else
                 :id="`${s.name}-${p.id}`"
@@ -297,6 +355,37 @@ export default {
               {{ m.label }}
             </option>
           </select>
+        </div>
+      </div>
+
+      <div class="edit-group">
+        <h3 class="group-title">
+          shared secrets
+        </h3>
+        <p class="hint">
+          Reusable across closets (stored as Secrets in
+          <code>magic-closet-secrets</code>); pick them from the dropdowns above.
+        </p>
+        <div class="param-row">
+          <label for="new-secret-name">new secret</label>
+          <input
+            id="new-secret-name"
+            v-model="newSecret.name"
+            type="text"
+            placeholder="name (e.g. my-gh-token)"
+          >
+          <input
+            v-model="newSecret.value"
+            type="password"
+            placeholder="value"
+          >
+          <rc-button
+            variant="secondary"
+            :disabled="!newSecret.name || !newSecret.value || newSecret.busy"
+            @click="addSharedSecret"
+          >
+            Add
+          </rc-button>
         </div>
       </div>
 
@@ -419,7 +508,7 @@ export default {
       white-space: nowrap;
     }
 
-    input[type='text'], select {
+    input[type='text'], input[type='password'], select {
       flex: 1;
       min-width: 0;
       background: var(--input-bg);
