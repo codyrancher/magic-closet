@@ -2,6 +2,7 @@
 import { RcButton } from '@components/RcButton';
 import { RcItemCard } from '@components/RcItemCard';
 import { RcSection } from '@components/RcSection';
+import RcIcon from '@components/RcIcon/RcIcon.vue';
 import { ToggleSwitch } from '@components/Form/ToggleSwitch';
 import { LabeledInput } from '@components/Form/LabeledInput';
 import LabeledSelect from '@shell/components/form/LabeledSelect';
@@ -20,7 +21,7 @@ export default {
   name: 'ClosetEdit',
 
   components: {
-    RcButton, RcItemCard, RcSection, ToggleSwitch, LabeledInput, LabeledSelect,
+    RcButton, RcIcon, RcItemCard, RcSection, ToggleSwitch, LabeledInput, LabeledSelect,
   },
 
   props: {
@@ -403,14 +404,14 @@ export default {
                       type="password"
                       :label="`${p.id}: new secret value`"
                     />
-                    <button
-                      class="btn-cancel"
-                      type="button"
+                    <rc-button
+                      variant="ghost"
+                      size="small"
                       aria-label="Cancel"
                       @click="cancelCreateSecret(`${s.name}::${p.id}`)"
                     >
-                      <i class="icon icon-close" />
-                    </button>
+                      <rc-icon type="close" size="small" />
+                    </rc-button>
                   </div>
                   <LabeledSelect
                     v-else-if="isSecretParam(p)"
@@ -601,6 +602,19 @@ export default {
     }
   }
 
+  .secret-create {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+
+    .labeled-input {
+      flex: 1;
+      min-width: 0;
+    }
+  }
+
   .param-row {
     display: flex;
     align-items: center;
@@ -619,31 +633,6 @@ export default {
     .secret-select {
       flex: 1;
       min-width: 0;
-    }
-
-    .secret-create {
-      flex: 1;
-      display: flex;
-      gap: 6px;
-      align-items: center;
-      min-width: 0;
-
-      input {
-        flex: 1;
-        min-width: 0;
-      }
-
-      .btn-cancel {
-        background: none;
-        border: none;
-        color: var(--muted);
-        cursor: pointer;
-        padding: 2px;
-
-        &:hover {
-          color: var(--error);
-        }
-      }
     }
 
     input[type='text'], input[type='password'], select {
