@@ -1,5 +1,7 @@
 <script>
 import { RcItemCard } from '@components/RcItemCard';
+import { RcButton } from '@components/RcButton';
+import { BadgeState } from '@components/BadgeState';
 import { closetApiBase, rancherFetch, setCluster } from '../api';
 
 const GROUP_ORDER = ['dev', 'auth', 'design'];
@@ -7,7 +9,7 @@ const GROUP_ORDER = ['dev', 'auth', 'design'];
 export default {
   name: 'ClosetDetail',
 
-  components: { RcItemCard },
+  components: { RcItemCard, RcButton, BadgeState },
 
   props: {
     value: {
@@ -95,25 +97,30 @@ export default {
     },
 
     cardFor(s) {
-      const status = this.busy[s.name] ? this.busy[s.name] : s.status;
-      const map = {
-        running:     { icon: 'icon-dot', color: 'success' },
-        exited:      { icon: 'icon-dot-open', color: 'warning' },
-        created:     { icon: 'icon-dot-open', color: 'warning' },
-        not_created: { icon: 'icon-dot-open', color: 'none' },
-      };
-      const st = map[status] || { icon: 'icon-refresh', color: 'info' };
-      const tooltip = [status, s.health, s.bootstrap ? `bootstrap: ${ s.bootstrap }` : null]
-        .filter(Boolean).join(' · ');
-
       return {
-        id:     `sidecar-${ s.name }`,
-        header: {
-          title:    { text: s.name },
-          statuses: [{ icon: st.icon, color: st.color, tooltip: { text: tooltip } }],
-        },
+        id:      `sidecar-${ s.name }`,
+        header:  { title: { text: s.name } },
         content: { text: s.description || '' },
       };
+    },
+
+    badgeColor(s) {
+      if (this.busy[s.name]) {
+        return 'bg-info';
+      }
+      const map = {
+        running: 'bg-success', exited: 'bg-warning', created: 'bg-warning', not_created: 'bg-darker',
+      };
+
+      return map[s.status] || 'bg-info';
+    },
+
+    badgeLabel(s) {
+      return this.busy[s.name] || s.status;
+    },
+
+    badgeTitle(s) {
+      return [s.health, s.bootstrap ? `bootstrap: ${ s.bootstrap }` : null].filter(Boolean).join(' · ');
     },
 
     preferExternal(s) {
@@ -201,6 +208,11 @@ export default {
           variant="medium"
         >
           <template #item-card-sub-header>
+            <BadgeState
+              :color="badgeColor(s)"
+              :label="badgeLabel(s)"
+              :title="badgeTitle(s)"
+            />
             <a
               v-if="linkFor(s)"
               :href="linkFor(s)"
@@ -240,37 +252,42 @@ export default {
                     {{ m.label }}
                   </option>
                 </select>
-                <button
-                  class="btn role-secondary btn-sm"
+                <rc-button
+                  size="small"
+                  variant="secondary"
                   :disabled="!canApplyAuth(s)"
                   @click="applyAuth(s)"
                 >
                   {{ authApplied(s) ? 'Applied' : 'Apply' }}
-                </button>
+                </rc-button>
               </div>
 
               <div v-if="!(s.unsupported && s.status === 'not_created')" class="actions">
-                <button
-                  class="btn role-primary btn-sm"
+                <rc-button
+                  size="small"
+                  variant="primary"
                   :disabled="!!busy[s.name]"
                   @click="start(s)"
                 >
                   {{ s.status === 'running' ? 'Restart' : 'Start' }}
-                </button>
-                <button
-                  class="btn role-secondary btn-sm"
+                </rc-button>
+                <rc-button
+                  size="small"
+                  variant="secondary"
                   :disabled="!!busy[s.name] || s.status !== 'running'"
                   @click="stop(s)"
                 >
                   Stop
-                </button>
-                <button
-                  class="btn role-secondary btn-sm delete"
+                </rc-button>
+                <rc-button
+                  size="small"
+                  variant="ghost"
+                  class="bg-error"
+                  left-icon="trash"
+                  aria-label="Delete"
                   :disabled="!!busy[s.name] || s.status === 'not_created'"
                   @click="remove(s)"
-                >
-                  Delete
-                </button>
+                />
               </div>
             </div>
           </template>
@@ -360,10 +377,6 @@ main:has(.closet-dashboard) .metadata-section,
       display: flex;
       gap: 8px;
       margin-top: 4px;
-
-      .delete:not(:disabled) {
-        color: var(--error);
-      }
     }
   }
 }
