@@ -49,14 +49,27 @@ export default {
         openldap:       false,
         figma:          false,
       },
-      createLabels: {
-        vscode:         'VS Code',
-        rancher:        'Rancher server (first start ~10 min)',
-        keycloak:       'Keycloak (OIDC)',
-        rancherBrowser: 'Chromium browser',
-        openldap:       'OpenLDAP',
-        figma:          'Figma MCP',
-      },
+      createGroups: [
+        {
+          name:  'Dev',
+          items: [
+            { key: 'vscode', label: 'VS Code' },
+            { key: 'rancher', label: 'Rancher server (first start ~10 min)' },
+            { key: 'rancherBrowser', label: 'Chromium browser' },
+          ],
+        },
+        {
+          name:  'Auth',
+          items: [
+            { key: 'keycloak', label: 'Keycloak (OIDC)' },
+            { key: 'openldap', label: 'OpenLDAP' },
+          ],
+        },
+        {
+          name:  'Design',
+          items: [{ key: 'figma', label: 'Figma MCP' }],
+        },
+      ],
       // edit mode
       sidecars:      [],
       enabled:       {},
@@ -72,6 +85,10 @@ export default {
   computed: {
     isEdit() {
       return !!this.value?.spec?.namespace;
+    },
+
+    isView() {
+      return this.mode === 'view';
     },
 
     apiBase() {
@@ -369,7 +386,7 @@ export default {
                 <ToggleSwitch
                   class="enable-toggle"
                   :value="!!enabled[s.name]"
-                  :disabled="!!s.unsupported && s.status === 'not_created'"
+                  :disabled="isView || (!!s.unsupported && s.status === 'not_created')"
                   @update:value="enabled[s.name] = $event"
                 />
               </div>
@@ -392,6 +409,7 @@ export default {
                     <ToggleSwitch
                       :id="`${s.name}-${p.id}`"
                       :value="!!paramEdits[s.name][p.id] && paramEdits[s.name][p.id] !== 'false'"
+                      :disabled="isView"
                       @update:value="paramEdits[s.name][p.id] = $event ? 'true' : ''"
                     />
                   </div>
@@ -416,6 +434,7 @@ export default {
                   <LabeledSelect
                     v-else-if="isSecretParam(p)"
                     class="secret-select"
+                    :mode="mode"
                     :label="p.id"
                     :value="secretSel[`${s.name}::${p.id}`] || ''"
                     :options="secretOptions(s, p)"
@@ -425,6 +444,7 @@ export default {
                   <LabeledInput
                     v-else
                     v-model:value="paramEdits[s.name][p.id]"
+                    :mode="mode"
                     :label="p.id"
                     :placeholder="p.default || ''"
                   />
@@ -444,6 +464,7 @@ export default {
         <LabeledSelect
           id="auth-provider"
           class="auth-select"
+          :mode="mode"
           label="provider"
           :value="authProvider"
           :options="authModes"
@@ -452,7 +473,7 @@ export default {
         />
       </RcSection>
 
-      <div class="actions">
+      <div v-if="!isView" class="actions">
         <rc-button variant="secondary" @click="done(true)">
           Cancel
         </rc-button>
@@ -480,15 +501,24 @@ export default {
       <input v-model="name" placeholder="e.g. pr-18387" @keyup.enter="create">
     </div>
 
-    <div class="form">
-      <label>Sidecars</label>
-      <div class="checks">
-        <label v-for="(on, key) in createSidecars" :key="key" class="check">
-          <input v-model="createSidecars[key]" type="checkbox">
-          {{ createLabels[key] }}
-        </label>
+    <RcSection
+      v-for="g in createGroups"
+      :key="g.name"
+      :title="g.name"
+      type="primary"
+      mode="with-header"
+      class="edit-group"
+    >
+      <div class="toggle-rows">
+        <div v-for="item in g.items" :key="item.key" class="toggle-row">
+          <span>{{ item.label }}</span>
+          <ToggleSwitch
+            :value="!!createSidecars[item.key]"
+            @update:value="createSidecars[item.key] = $event"
+          />
+        </div>
       </div>
-    </div>
+    </RcSection>
 
     <div class="actions">
       <rc-button variant="secondary" @click="done()">
@@ -644,6 +674,20 @@ export default {
       border-radius: 4px;
       padding: 4px 8px;
       font-size: 13px;
+    }
+  }
+
+  .toggle-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 440px;
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
     }
   }
 

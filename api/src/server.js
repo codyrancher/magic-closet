@@ -590,7 +590,6 @@ async function bootstrapRancher() {
     await connectRancherToKeycloak();
     await connectRancherToKeycloakSaml();
     await connectRancherToOpenLdap();
-    await connectRancherToFreeIpa();
 
     rancherBootstrap = { state: 'done', containerId };
     console.log('rancher bootstrap: complete');
@@ -657,8 +656,6 @@ const AUTH_PROVIDERS = {
   'keycloak': { resource: 'keyCloakOIDCConfigs', id: 'keycloakoidc' },
   'keycloak-saml': { resource: 'keyCloakConfigs', id: 'keycloak' },
   'openldap': { resource: 'openLdapConfigs', id: 'openldap' },
-  'freeipa': { resource: 'freeIpaConfigs', id: 'freeipa' },
-  'samba-ad': { resource: 'activeDirectoryConfigs', id: 'activedirectory' },
 };
 
 function selectedAuthProvider() {
@@ -1060,254 +1057,6 @@ async function bootstrapKeycloak() {
   }
 }
 
-// ---------- freeipa bootstrap ----------
-//
-// Waits out the (long) ipa-server-install, creates users user1-3 via the ipa
-// CLI inside the container, lifts the forced password expiry as Directory
-// Manager, then — when RANCHER_AUTH_PROVIDER=freeipa — connects Rancher's
-// FreeIPA auth provider. Idempotent.
-
-const IPA_BASE = 'dc=magic-closet,dc=local';
-const IPA_URL = 'ldap://freeipa';
-const IPA_ADMIN_DN = `uid=admin,cn=users,cn=accounts,${IPA_BASE}`;
-let freeipaBootstrap = { state: 'idle', containerId: null };
-
-async function connectRancherToFreeIpa() {
-  if (selectedAuthProvider() !== 'freeipa') return;
-  if (containerStatus('rancher').status !== 'running') return;
-  if (containerStatus('freeipa').status !== 'running') return;
-  const env = readEnvValues();
-  const token = await getRancherAdminToken();
-  if (!token) return console.log('freeipa connect: rancher admin login failed');
-
-  await disableOtherAuthProviders(token, 'freeipa');
-  const current = await rancherApi('/v3/freeIpaConfigs/freeipa', { token });
-  if (current.json?.enabled) return console.log('freeipa connect: already enabled');
-
-  const ldapConfig = {
-    servers: ['freeipa'],
-    port: 389,
-    tls: false,
-    starttls: false,
-    serviceAccountDistinguishedName: IPA_ADMIN_DN,
-    serviceAccountPassword: env.FREEIPA_ADMIN_PASSWORD,
-    userSearchBase: `cn=users,cn=accounts,${IPA_BASE}`,
-    userObjectClass: 'inetorgperson',
-    userLoginAttribute: 'uid',
-    userNameAttribute: 'cn',
-    userMemberAttribute: 'memberOf',
-    groupSearchBase: `cn=groups,cn=accounts,${IPA_BASE}`,
-    groupObjectClass: 'groupofnames',
-    groupNameAttribute: 'cn',
-    groupMemberMappingAttribute: 'member',
-    groupMemberUserAttribute: 'entrydn',
-    groupDNAttribute: 'entrydn',
-    disabledStatusBitmask: 0,
-    nestedGroupMembershipEnabled: false,
-    connectionTimeout: 5000,
-  };
-  const { status } = await rancherApi('/v3/freeIpaConfigs/freeipa', {
-    method: 'PUT', token,
-    body: { ...(current.json || {}), type: 'freeIpaConfig', id: 'freeipa', enabled: true, accessMode: 'unrestricted', ...ldapConfig },
-  });
-  if (status !== 200) return console.log(`freeipa connect: PUT failed (HTTP ${status})`);
-
-  const tryLogin = () => rancherApi('/v3-public/freeIpaProviders/freeipa?action=login', {
-    method: 'POST', body: { username: 'user1', password: readEnvValues().RANCHER_USER1_PASSWORD, responseType: 'token' },
-  });
-  let login = await tryLogin();
-  if (!login.json?.token) {
-    await rancherApi('/v3/freeIpaConfigs/freeipa?action=testAndApply', {
-      method: 'POST', token,
-      body: { ldapConfig, username: 'user1', password: readEnvValues().RANCHER_USER1_PASSWORD, enabled: true },
-    });
-    login = await tryLogin();
-  }
-  console.log(`freeipa connect: rancher FreeIPA ${login.json?.token ? 'enabled (login verified)' : 'enabled but login NOT verified'}`);
-}
-
-async function bootstrapFreeIpa() {
-  if (K8S) return;
-  const containerId = containerIdOf('freeipa');
-  if (!containerId) return;
-  if (freeipaBootstrap.state === 'running') return;
-  if (freeipaBootstrap.state === 'done' && freeipaBootstrap.containerId === containerId) return;
-
-  freeipaBootstrap = { state: 'running', containerId };
-  console.log('freeipa bootstrap: waiting for IPA (first install takes ~10 min)...');
-  try {
-    const env = readEnvValues();
-    const adminPw = env.FREEIPA_ADMIN_PASSWORD;
-    if (!adminPw) throw new Error('FREEIPA_ADMIN_PASSWORD not set');
-
-    // The directory server answers LDAP while ipa-server-install is still
-    // running, so readiness = the full stack: kinit works AND the IPA API
-    // responds to a command
-    let up = false;
-    for (let i = 0; i < 120; i++) {
-      try {
-        execFileSync('docker', ['exec', containerIdOf('freeipa'), 'bash', '-c',
-          `echo '${adminPw}' | kinit admin >/dev/null 2>&1 && ipa user-show admin >/dev/null 2>&1`],
-          { encoding: 'utf-8', stdio: ['ignore', 'ignore', 'ignore'] });
-        up = true;
-        break;
-      } catch { await sleep(10000); }
-    }
-    if (!up) throw new Error('freeipa did not become ready');
-
-    const users = [
-      ['user1', env.RANCHER_USER1_PASSWORD, 'One'],
-      ['user2', env.RANCHER_USER2_PASSWORD, 'Two'],
-      ['user3', env.RANCHER_USER3_PASSWORD, 'Three'],
-    ];
-    for (const [uid, password, last] of users) {
-      if (!password) continue;
-      // Exists already? (bind as admin, look for the entry)
-      try {
-        execFileSync('ldapsearch', ['-x', '-H', IPA_URL, '-D', IPA_ADMIN_DN, '-w', adminPw,
-          '-b', `uid=${uid},cn=users,cn=accounts,${IPA_BASE}`, '-s', 'base', 'dn'],
-          { encoding: 'utf-8', stdio: ['ignore', 'ignore', 'ignore'] });
-        console.log(`freeipa bootstrap: ${uid} exists`);
-        continue;
-      } catch { /* not found — create */ }
-      execFileSync('docker', ['exec', containerIdOf('freeipa'), 'bash', '-c',
-        `echo '${adminPw}' | kinit admin >/dev/null && printf '%s\\n%s\\n' '${password}' '${password}' | ipa user-add ${uid} --first=User --last=${last} --email=${uid}@magic-closet.local --password`],
-        { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] });
-      // FreeIPA marks admin-set passwords expired; lift that as Directory
-      // Manager so LDAP binds work without a password-change dance
-      execFileSync('ldapmodify', ['-x', '-H', IPA_URL, '-D', 'cn=Directory Manager', '-w', adminPw],
-        { input: `dn: uid=${uid},cn=users,cn=accounts,${IPA_BASE}\nchangetype: modify\nreplace: krbPasswordExpiration\nkrbPasswordExpiration: 20380101000000Z\n`, encoding: 'utf-8', stdio: ['pipe', 'ignore', 'pipe'] });
-      console.log(`freeipa bootstrap: ${uid} created`);
-    }
-
-    await connectRancherToFreeIpa();
-
-    freeipaBootstrap = { state: 'done', containerId };
-    console.log('freeipa bootstrap: complete');
-  } catch (err) {
-    freeipaBootstrap = { state: 'failed', containerId };
-    console.error(`freeipa bootstrap: ${err.message}`);
-  }
-}
-
-// ---------- samba-ad bootstrap ----------
-//
-// Creates users user1-3 via samba-tool inside the container (passwords never
-// expire), then — when RANCHER_AUTH_PROVIDER=samba-ad — connects Rancher's
-// ActiveDirectory auth provider. Idempotent.
-
-const AD_BASE = 'DC=samba,DC=magic-closet,DC=local';
-const AD_URL = 'ldap://samba-ad';
-let sambaAdBootstrap = { state: 'idle', containerId: null };
-
-async function connectRancherToSambaAd() {
-  if (selectedAuthProvider() !== 'samba-ad') return;
-  if (containerStatus('rancher').status !== 'running') return;
-  if (containerStatus('samba-ad').status !== 'running') return;
-  const env = readEnvValues();
-  const token = await getRancherAdminToken();
-  if (!token) return console.log('samba-ad connect: rancher admin login failed');
-
-  await disableOtherAuthProviders(token, 'samba-ad');
-  const current = await rancherApi('/v3/activeDirectoryConfigs/activedirectory', { token });
-  if (current.json?.enabled) return console.log('samba-ad connect: already enabled');
-
-  const adConfig = {
-    servers: ['samba-ad'],
-    port: 389,
-    tls: false,
-    starttls: false,
-    defaultLoginDomain: 'SAMBA',
-    serviceAccountUsername: 'Administrator',
-    serviceAccountPassword: env.SAMBA_ADMIN_PASSWORD,
-    userSearchBase: `CN=Users,${AD_BASE}`,
-    userObjectClass: 'person',
-    userLoginAttribute: 'sAMAccountName',
-    userNameAttribute: 'name',
-    userEnabledAttribute: 'userAccountControl',
-    userDisabledBitMask: 2,
-    groupSearchBase: `CN=Users,${AD_BASE}`,
-    groupObjectClass: 'group',
-    groupNameAttribute: 'name',
-    groupDNAttribute: 'distinguishedName',
-    groupMemberUserAttribute: 'distinguishedName',
-    groupMemberMappingAttribute: 'member',
-    nestedGroupMembershipEnabled: false,
-    connectionTimeout: 5000,
-  };
-  const { status } = await rancherApi('/v3/activeDirectoryConfigs/activedirectory', {
-    method: 'PUT', token,
-    body: { ...(current.json || {}), type: 'activeDirectoryConfig', id: 'activedirectory', enabled: true, accessMode: 'unrestricted', ...adConfig },
-  });
-  if (status !== 200) return console.log(`samba-ad connect: PUT failed (HTTP ${status})`);
-
-  const tryLogin = () => rancherApi('/v3-public/activeDirectoryProviders/activedirectory?action=login', {
-    method: 'POST', body: { username: 'user1', password: readEnvValues().RANCHER_USER1_PASSWORD, responseType: 'token' },
-  });
-  let login = await tryLogin();
-  if (!login.json?.token) {
-    await rancherApi('/v3/activeDirectoryConfigs/activedirectory?action=testAndApply', {
-      method: 'POST', token,
-      body: { activeDirectoryConfig: adConfig, username: 'user1', password: readEnvValues().RANCHER_USER1_PASSWORD, enabled: true },
-    });
-    login = await tryLogin();
-  }
-  console.log(`samba-ad connect: rancher AD ${login.json?.token ? 'enabled (login verified)' : 'enabled but login NOT verified'}`);
-}
-
-async function bootstrapSambaAd() {
-  if (K8S) return;
-  const containerId = containerIdOf('samba-ad');
-  if (!containerId) return;
-  if (sambaAdBootstrap.state === 'running') return;
-  if (sambaAdBootstrap.state === 'done' && sambaAdBootstrap.containerId === containerId) return;
-
-  sambaAdBootstrap = { state: 'running', containerId };
-  console.log('samba-ad bootstrap: waiting for LDAP...');
-  try {
-    let up = false;
-    for (let i = 0; i < 60; i++) {
-      try {
-        execFileSync('ldapsearch', ['-x', '-H', AD_URL, '-b', '', '-s', 'base'],
-          { encoding: 'utf-8', stdio: ['ignore', 'ignore', 'ignore'] });
-        up = true;
-        break;
-      } catch { await sleep(5000); }
-    }
-    if (!up) throw new Error('samba-ad did not become ready');
-
-    const env = readEnvValues();
-    const users = [
-      ['user1', env.RANCHER_USER1_PASSWORD, 'One'],
-      ['user2', env.RANCHER_USER2_PASSWORD, 'Two'],
-      ['user3', env.RANCHER_USER3_PASSWORD, 'Three'],
-    ];
-    for (const [uid, password, last] of users) {
-      if (!password) continue;
-      try {
-        execFileSync('docker', ['exec', containerIdOf('samba-ad'), 'samba-tool', 'user', 'show', uid],
-          { encoding: 'utf-8', stdio: ['ignore', 'ignore', 'ignore'] });
-        console.log(`samba-ad bootstrap: ${uid} exists`);
-        continue;
-      } catch { /* not found — create */ }
-      execFileSync('docker', ['exec', containerIdOf('samba-ad'), 'samba-tool', 'user', 'create', uid, password,
-        '--given-name=User', `--surname=${last}`, `--mail-address=${uid}@samba.magic-closet.local`],
-        { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] });
-      execFileSync('docker', ['exec', containerIdOf('samba-ad'), 'samba-tool', 'user', 'setexpiry', uid, '--noexpiry'],
-        { encoding: 'utf-8', stdio: ['ignore', 'ignore', 'ignore'] });
-      console.log(`samba-ad bootstrap: ${uid} created`);
-    }
-
-    await connectRancherToSambaAd();
-
-    sambaAdBootstrap = { state: 'done', containerId };
-    console.log('samba-ad bootstrap: complete');
-  } catch (err) {
-    sambaAdBootstrap = { state: 'failed', containerId };
-    console.error(`samba-ad bootstrap: ${err.message}`);
-  }
-}
-
 // ---------- workspace clone (GITHUB_URL) ----------
 //
 // GITHUB_URL (param on the vscode sidecar, but executed in the project
@@ -1365,8 +1114,6 @@ setInterval(() => {
   if (containerStatus('rancher').status === 'running') bootstrapRancher();
   if (containerStatus('keycloak').status === 'running') bootstrapKeycloak();
   if (containerStatus('openldap').status === 'running') bootstrapOpenLdap();
-  if (containerStatus('freeipa').status === 'running') bootstrapFreeIpa();
-  if (containerStatus('samba-ad').status === 'running') bootstrapSambaAd();
   ensureWorkspaceClone();
 }, 30000);
 
@@ -1485,10 +1232,7 @@ function k8sExternalUrl(name) {
 }
 
 // Sidecars that cannot run as pods (k8s mode only)
-const K8S_UNSUPPORTED = {
-  'samba-ad': 'needs privileged AD provisioning not available in-cluster',
-  freeipa: 'experimental; not available in-cluster',
-};
+const K8S_UNSUPPORTED = {};
 
 function handleList(res) {
   const env = readEnvValues();
@@ -1507,8 +1251,6 @@ function handleList(res) {
       ...(s.name === 'rancher' ? { bootstrap: rancherBootstrap.state } : {}),
       ...(s.name === 'keycloak' ? { bootstrap: keycloakBootstrap.state } : {}),
       ...(s.name === 'openldap' ? { bootstrap: openldapBootstrap.state } : {}),
-      ...(s.name === 'freeipa' ? { bootstrap: freeipaBootstrap.state } : {}),
-      ...(s.name === 'samba-ad' ? { bootstrap: sambaAdBootstrap.state } : {}),
     };
   });
   sendJson(res, 200, {
@@ -1526,8 +1268,6 @@ const AUTH_CONNECTORS = {
   'keycloak': () => connectRancherToKeycloak(),
   'keycloak-saml': () => connectRancherToKeycloakSaml(),
   'openldap': () => connectRancherToOpenLdap(),
-  'freeipa': () => connectRancherToFreeIpa(),
-  'samba-ad': () => connectRancherToSambaAd(),
 };
 
 // ---------- closets (multi-instance provisioning) ----------
@@ -1550,7 +1290,6 @@ const CLOSET_PORTS = {
   KEYCLOAK_PORT:        30,
   OPENLDAP_PORT:        40,
   RANCHER_PORT:         44,
-  SAMBA_LDAP_PORT:      50,
   FIGMA_PORT:           60,
 };
 const CLOSET_BASE_START = 8500;
@@ -1771,14 +1510,6 @@ async function handleStart(name, body, res) {
       if (openldapBootstrap.state !== 'running') openldapBootstrap = { state: 'idle', containerId: null };
       bootstrapOpenLdap();
     }
-    if (name === 'freeipa') {
-      if (freeipaBootstrap.state !== 'running') freeipaBootstrap = { state: 'idle', containerId: null };
-      bootstrapFreeIpa();
-    }
-    if (name === 'samba-ad') {
-      if (sambaAdBootstrap.state !== 'running') sambaAdBootstrap = { state: 'idle', containerId: null };
-      bootstrapSambaAd();
-    }
     sendJson(res, 200, { status: 'started', sidecar: name, params: updates, containerStatus: containerStatus(name) });
   });
 }
@@ -1916,8 +1647,6 @@ ensureDynamicDefaults();
 if (containerStatus('rancher').status === 'running') bootstrapRancher();
 if (containerStatus('keycloak').status === 'running') bootstrapKeycloak();
 if (containerStatus('openldap').status === 'running') bootstrapOpenLdap();
-if (containerStatus('freeipa').status === 'running') bootstrapFreeIpa();
-if (containerStatus('samba-ad').status === 'running') bootstrapSambaAd();
 ensureWorkspaceClone();
 
 http.createServer(handler).listen(PORT, () => {

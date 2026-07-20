@@ -15,10 +15,6 @@ include:
     project_directory: .
   - path: sidecars/auth/openldap/compose.yml
     project_directory: .
-  - path: sidecars/auth/freeipa/compose.yml
-    project_directory: .
-  - path: sidecars/auth/samba-ad/compose.yml
-    project_directory: .
 
 services:
   # Main container: holds the source code, node, and the CLI toolchain.

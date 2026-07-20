@@ -250,19 +250,6 @@ Rancher local users, so the browser extension's quick-login works everywhere.
   `cn=admin,...` / `OPENLDAP_ADMIN_PASSWORD`). Rancher's login form
   authenticates against it directly, and the api verifies an actual LDAP
   login after connecting.
-- **samba-ad** — Samba Active Directory DC (realm `SAMBA.MAGIC-CLOSET.LOCAL`,
-  NetBIOS `SAMBA`, `Administrator` / `SAMBA_ADMIN_PASSWORD`), wired to
-  Rancher's ActiveDirectory provider; the api verifies an AD login after
-  connecting. `INSECURELDAP` allows Rancher's plain-LDAP binds.
-- **freeipa** (EXPERIMENTAL) — FreeIPA server (realm `MAGIC-CLOSET.LOCAL`,
-  admin + Directory Manager password `FREEIPA_ADMIN_PASSWORD`). First start
-  runs `ipa-server-install` (~10 min). Known issue: on this host the install
-  deterministically fails at the on-master client phase ("No valid Negotiate
-  header" — ipa-client-install stops the shared gssproxy while calling the
-  IPA API that needs it; reproduced on almalinux-9 and almalinux-9-4.12.2
-  images, fresh volumes). The bootstrap (users via `ipa` CLI with
-  password-expiry lifted, Rancher connect + verified login) is implemented
-  and will complete automatically on any run where the install succeeds.
 
 Rancher's remaining providers can't be sidecars: GitHub, Google, Entra ID,
 Cognito, Okta, and Ping are external services; AD/ADFS are Windows.
