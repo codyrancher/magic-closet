@@ -261,7 +261,6 @@ export default {
                   </option>
                 </select>
                 <rc-button
-                  size="small"
                   variant="secondary"
                   :disabled="!canApplyAuth(s)"
                   @click="applyAuth(s)"
@@ -272,7 +271,6 @@ export default {
 
               <div v-if="!(s.unsupported && s.status === 'not_created')" class="actions">
                 <rc-button
-                  size="small"
                   variant="primary"
                   :disabled="!!busy[s.name]"
                   @click="start(s)"
@@ -280,7 +278,6 @@ export default {
                   {{ s.status === 'running' ? 'Restart' : 'Start' }}
                 </rc-button>
                 <rc-button
-                  size="small"
                   variant="secondary"
                   :disabled="!!busy[s.name] || s.status !== 'running'"
                   @click="stop(s)"
@@ -288,7 +285,6 @@ export default {
                   Stop
                 </rc-button>
                 <rc-button
-                  size="small"
                   variant="ghost"
                   aria-label="Delete"
                   :disabled="!!busy[s.name] || s.status === 'not_created'"
