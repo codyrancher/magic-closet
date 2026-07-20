@@ -1,5 +1,6 @@
 <script>
 import { RcButton } from '@components/RcButton';
+import LabeledSelect from '@shell/components/form/LabeledSelect';
 import {
   closetApiBase, createCloset, createSharedSecret, listSharedSecrets,
   rancherFetch, readSharedSecret, setCluster,
@@ -14,7 +15,7 @@ const GROUP_ORDER = ['dev', 'auth', 'design'];
 export default {
   name: 'ClosetEdit',
 
-  components: { RcButton },
+  components: { RcButton, LabeledSelect },
 
   props: {
     value: {
@@ -57,7 +58,7 @@ export default {
       loaded:        false,
       sharedSecrets: [],
       secretSel:     {},
-      newSecret:     { name: '', value: '', busy: false },
+      newSecrets:    {},
     };
   },
 
@@ -138,23 +139,31 @@ export default {
       return /(token|secret|key|password)$/i.test(p.id);
     },
 
-    async addSharedSecret() {
-      const { name, value } = this.newSecret;
+    // Same pattern as the namespace picker: a highlighted "create new" entry
+    // at the top of the dropdown that swaps to inline inputs
+    secretOptions(s, p) {
+      const current = this.paramEdits[s.name]?.[p.id];
 
-      if (!name || !value) {
-        return;
+      return [
+        { label: 'Create a new secret…', value: '__create__', kind: 'highlighted' },
+        { label: 'divider', disabled: true, kind: 'divider' },
+        { label: current ? '(keep current value)' : '(none)', value: '' },
+        ...this.sharedSecrets.map((n) => ({ label: n, value: n })),
+      ];
+    },
+
+    onSecretSelect(key, val) {
+      const v = typeof val === 'object' ? val?.value : val;
+
+      this.secretSel[key] = v;
+      if (v === '__create__' && !this.newSecrets[key]) {
+        this.newSecrets[key] = { name: '', value: '' };
       }
-      this.newSecret.busy = true;
-      try {
-        await createSharedSecret(name, value);
-        if (!this.sharedSecrets.includes(name)) {
-          this.sharedSecrets = [...this.sharedSecrets, name].sort();
-        }
-        this.newSecret = { name: '', value: '', busy: false };
-      } catch (e) {
-        this.error = `secret: ${ e.message }`;
-        this.newSecret.busy = false;
-      }
+    },
+
+    cancelCreateSecret(key) {
+      this.secretSel[key] = '';
+      delete this.newSecrets[key];
     },
 
     startBody(s) {
@@ -178,7 +187,8 @@ export default {
       this.error = null;
       const failures = [];
 
-      // Resolve selected shared secrets into param values first
+      // Resolve selected shared secrets into param values first — creating
+      // any new ones typed inline
       for (const [key, secretName] of Object.entries(this.secretSel)) {
         if (!secretName) {
           continue;
@@ -186,7 +196,21 @@ export default {
         const [sidecar, paramId] = key.split('::');
 
         try {
-          this.paramEdits[sidecar][paramId] = await readSharedSecret(secretName);
+          if (secretName === '__create__') {
+            const ns = this.newSecrets[key] || {};
+
+            if (!ns.name || !ns.value) {
+              failures.push(`${ sidecar }/${ paramId }: new secret needs a name and value`);
+              continue;
+            }
+            await createSharedSecret(ns.name, ns.value);
+            if (!this.sharedSecrets.includes(ns.name)) {
+              this.sharedSecrets = [...this.sharedSecrets, ns.name].sort();
+            }
+            this.paramEdits[sidecar][paramId] = ns.value;
+          } else {
+            this.paramEdits[sidecar][paramId] = await readSharedSecret(secretName);
+          }
         } catch (e) {
           failures.push(`secret ${ secretName }: ${ e.message }`);
         }
@@ -320,18 +344,36 @@ export default {
                 :checked="!!paramEdits[s.name][p.id] && paramEdits[s.name][p.id] !== 'false'"
                 @change="paramEdits[s.name][p.id] = $event.target.checked ? 'true' : ''"
               >
-              <select
-                v-else-if="isSecretParam(p)"
-                :id="`${s.name}-${p.id}`"
-                v-model="secretSel[`${s.name}::${p.id}`]"
-              >
-                <option value="">
-                  {{ paramEdits[s.name][p.id] ? '(keep current value)' : '(none)' }}
-                </option>
-                <option v-for="n in sharedSecrets" :key="n" :value="n">
-                  secret: {{ n }}
-                </option>
-              </select>
+              <template v-else-if="isSecretParam(p)">
+                <div v-if="secretSel[`${s.name}::${p.id}`] === '__create__'" class="secret-create">
+                  <input
+                    v-model="newSecrets[`${s.name}::${p.id}`].name"
+                    type="text"
+                    placeholder="secret name"
+                  >
+                  <input
+                    v-model="newSecrets[`${s.name}::${p.id}`].value"
+                    type="password"
+                    placeholder="value"
+                  >
+                  <button
+                    class="btn-cancel"
+                    type="button"
+                    aria-label="Cancel"
+                    @click="cancelCreateSecret(`${s.name}::${p.id}`)"
+                  >
+                    <i class="icon icon-close" />
+                  </button>
+                </div>
+                <LabeledSelect
+                  v-else
+                  class="secret-select"
+                  :value="secretSel[`${s.name}::${p.id}`] || ''"
+                  :options="secretOptions(s, p)"
+                  :searchable="false"
+                  @update:value="onSecretSelect(`${s.name}::${p.id}`, $event)"
+                />
+              </template>
               <input
                 v-else
                 :id="`${s.name}-${p.id}`"
@@ -355,37 +397,6 @@ export default {
               {{ m.label }}
             </option>
           </select>
-        </div>
-      </div>
-
-      <div class="edit-group">
-        <h3 class="group-title">
-          shared secrets
-        </h3>
-        <p class="hint">
-          Reusable across closets (stored as Secrets in
-          <code>magic-closet-secrets</code>); pick them from the dropdowns above.
-        </p>
-        <div class="param-row">
-          <label for="new-secret-name">new secret</label>
-          <input
-            id="new-secret-name"
-            v-model="newSecret.name"
-            type="text"
-            placeholder="name (e.g. my-gh-token)"
-          >
-          <input
-            v-model="newSecret.value"
-            type="password"
-            placeholder="value"
-          >
-          <rc-button
-            variant="secondary"
-            :disabled="!newSecret.name || !newSecret.value || newSecret.busy"
-            @click="addSharedSecret"
-          >
-            Add
-          </rc-button>
         </div>
       </div>
 
@@ -506,6 +517,36 @@ export default {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .secret-select {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .secret-create {
+      flex: 1;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      min-width: 0;
+
+      input {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .btn-cancel {
+        background: none;
+        border: none;
+        color: var(--muted);
+        cursor: pointer;
+        padding: 2px;
+
+        &:hover {
+          color: var(--error);
+        }
+      }
     }
 
     input[type='text'], input[type='password'], select {
