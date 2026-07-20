@@ -17,7 +17,11 @@ metadata:
   name: {{ $svc }}-external
 spec:
   type: NodePort
+{{- if eq $svc "rancher" }}
+  selector: { app: rancher, role: relay }
+{{- else }}
   selector: { app: {{ $svc }} }
+{{- end }}
   ports:
 {{- if eq $svc "vscode" }}
     - { name: http, port: 9000, targetPort: 9000 }

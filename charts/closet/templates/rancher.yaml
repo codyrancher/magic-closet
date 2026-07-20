@@ -91,7 +91,9 @@ spec:
     matchLabels: { app: rancher }
   template:
     metadata:
-      labels: { app: rancher }
+      # role: relay disambiguates from the synced vcluster rancher pod, which
+      # keeps its own app: rancher label on the host cluster
+      labels: { app: rancher, role: relay }
       annotations:
         # Roll the manager (which re-runs the idempotent installs) on every
         # chart upgrade so configmap changes take effect
@@ -133,6 +135,6 @@ kind: Service
 metadata:
   name: rancher
 spec:
-  selector: { app: rancher }
+  selector: { app: rancher, role: relay }
   ports:
     - { name: https, port: 443, targetPort: 443 }
