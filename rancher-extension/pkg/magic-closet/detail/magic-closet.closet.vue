@@ -79,9 +79,8 @@ export default {
 
     cardFor(s) {
       return {
-        id:      `sidecar-${ s.name }`,
-        header:  { title: { text: s.name } },
-        content: { text: s.description || '' },
+        id:     `sidecar-${ s.name }`,
+        header: {},
       };
     },
 
@@ -168,16 +167,21 @@ export default {
           </template>
 
           <template #item-card-sub-header>
-            <a
-              v-if="linkFor(s)"
-              :href="linkFor(s)"
-              target="_blank"
-              rel="noopener"
-              item-card-action
-            >
-              {{ preferExternal(s) ? s.external : `open ${s.name}` }}
-            </a>
-            <span v-if="s.unsupported" class="unsupported">{{ s.unsupported }}</span>
+            <div class="sub">
+              <div class="desc">
+                {{ s.description }}
+              </div>
+              <a
+                v-if="linkFor(s)"
+                :href="linkFor(s)"
+                target="_blank"
+                rel="noopener"
+                item-card-action
+              >
+                {{ preferExternal(s) ? s.external : `open ${s.name}` }}
+              </a>
+              <span v-if="s.unsupported" class="unsupported">{{ s.unsupported }}</span>
+            </div>
           </template>
 
           <template #item-card-footer>
@@ -237,6 +241,16 @@ main:has(.closet-dashboard) .metadata-section,
 
   .status-badge {
     margin-left: 8px;
+  }
+
+  .sub {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    .desc {
+      color: var(--body-text);
+    }
   }
 
   .unsupported {
