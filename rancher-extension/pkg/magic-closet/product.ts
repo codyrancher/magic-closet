@@ -6,6 +6,21 @@ export const PRODUCT_NAME = 'magicCloset';
 export const CLOSET_TYPE = 'magic-closet.closet';
 
 export function init($plugin: IPlugin, store: any) {
+  const explorer: any = $plugin.DSL(store, 'explorer');
+
+  explorer.virtualType({
+    label:      'Magic Closet',
+    group:      'Root',
+    namespaced: false,
+    name:       'magic-closet',
+    weight:     -100,
+    route:      {
+      name:   `c-cluster-${ PRODUCT_NAME }-resource`,
+      params: { product: PRODUCT_NAME, resource: CLOSET_TYPE },
+    },
+  });
+  explorer.basicType(['magic-closet']);
+
   // spoofedType exists at runtime but is missing from DSLReturnType
   const dsl: any = $plugin.DSL(store, PRODUCT_NAME);
   const {
@@ -15,9 +30,6 @@ export function init($plugin: IPlugin, store: any) {
   product({
     icon:    'gear',
     inStore: 'cluster',
-    // Strongly negative so Magic Closet sorts below every built-in group in
-    // the cluster explorer nav (weights sort descending)
-    weight:  -100,
     to:      {
       name:   `c-cluster-${ PRODUCT_NAME }-resource`,
       params: { product: PRODUCT_NAME, resource: CLOSET_TYPE },
@@ -93,5 +105,7 @@ export function init($plugin: IPlugin, store: any) {
     { name: 'namespace', label: 'Namespace', value: 'spec.namespace', sort: ['spec.namespace'] },
   ]);
 
-  basicType([CLOSET_TYPE]);
+  // No basicType here: the product itself stays out of the nav (an empty
+  // group isn't rendered). Instead a single flat entry - like the dashboard
+  // links - is registered on the explorer product above, sorted last.
 }
