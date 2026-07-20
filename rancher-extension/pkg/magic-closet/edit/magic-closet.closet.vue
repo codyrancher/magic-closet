@@ -1,5 +1,8 @@
 <script>
 import { RcButton } from '@components/RcButton';
+import { RcItemCard } from '@components/RcItemCard';
+import { ToggleSwitch } from '@components/Form/ToggleSwitch';
+import { LabeledInput } from '@components/Form/LabeledInput';
 import LabeledSelect from '@shell/components/form/LabeledSelect';
 import {
   closetApiBase, createCloset, createSharedSecret, listSharedSecrets,
@@ -15,7 +18,9 @@ const GROUP_ORDER = ['dev', 'auth', 'design'];
 export default {
   name: 'ClosetEdit',
 
-  components: { RcButton, LabeledSelect },
+  components: {
+    RcButton, RcItemCard, ToggleSwitch, LabeledInput, LabeledSelect,
+  },
 
   props: {
     value: {
@@ -157,13 +162,31 @@ export default {
 
       this.secretSel[key] = v;
       if (v === '__create__' && !this.newSecrets[key]) {
-        this.newSecrets[key] = { name: '', value: '' };
+        this.newSecrets[key] = { value: '' };
       }
+    },
+
+    // Secret names are derived from the param (ghToken -> gh-token),
+    // deduped with a numeric suffix — the user only supplies the value
+    secretNameFor(paramId) {
+      const base = paramId.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+      let name = base;
+      let i = 2;
+
+      while (this.sharedSecrets.includes(name)) {
+        name = `${ base }-${ i++ }`;
+      }
+
+      return name;
     },
 
     cancelCreateSecret(key) {
       this.secretSel[key] = '';
       delete this.newSecrets[key];
+    },
+
+    cardFor(s) {
+      return { id: `sidecar-${ s.name }`, header: {} };
     },
 
     startBody(s) {
@@ -199,14 +222,14 @@ export default {
           if (secretName === '__create__') {
             const ns = this.newSecrets[key] || {};
 
-            if (!ns.name || !ns.value) {
-              failures.push(`${ sidecar }/${ paramId }: new secret needs a name and value`);
+            if (!ns.value) {
+              failures.push(`${ sidecar }/${ paramId }: new secret needs a value`);
               continue;
             }
-            await createSharedSecret(ns.name, ns.value);
-            if (!this.sharedSecrets.includes(ns.name)) {
-              this.sharedSecrets = [...this.sharedSecrets, ns.name].sort();
-            }
+            const name = this.secretNameFor(paramId);
+
+            await createSharedSecret(name, ns.value);
+            this.sharedSecrets = [...this.sharedSecrets, name].sort();
             this.paramEdits[sidecar][paramId] = ns.value;
           } else {
             this.paramEdits[sidecar][paramId] = await readSharedSecret(secretName);
@@ -324,65 +347,85 @@ export default {
         <h3 class="group-title">
           {{ group.name }}
         </h3>
-        <div v-for="s in group.sidecars" :key="s.name" class="sidecar-row">
-          <label class="check head">
-            <input
-              v-model="enabled[s.name]"
-              type="checkbox"
-              :disabled="!!s.unsupported && s.status === 'not_created'"
-            >
-            <span class="sidecar-name">{{ s.name }}</span>
-            <span v-if="s.unsupported" class="unsupported">{{ s.unsupported }}</span>
-          </label>
-          <div v-if="enabled[s.name] && (s.params || []).length" class="params">
-            <div v-for="p in s.params" :key="p.id" class="param-row">
-              <label :for="`${s.name}-${p.id}`">{{ p.id }}</label>
-              <input
-                v-if="p.type === 'boolean'"
-                :id="`${s.name}-${p.id}`"
-                type="checkbox"
-                :checked="!!paramEdits[s.name][p.id] && paramEdits[s.name][p.id] !== 'false'"
-                @change="paramEdits[s.name][p.id] = $event.target.checked ? 'true' : ''"
-              >
-              <template v-else-if="isSecretParam(p)">
-                <div v-if="secretSel[`${s.name}::${p.id}`] === '__create__'" class="secret-create">
-                  <input
-                    v-model="newSecrets[`${s.name}::${p.id}`].name"
-                    type="text"
-                    placeholder="secret name"
-                  >
-                  <input
-                    v-model="newSecrets[`${s.name}::${p.id}`].value"
-                    type="password"
-                    placeholder="value"
-                  >
-                  <button
-                    class="btn-cancel"
-                    type="button"
-                    aria-label="Cancel"
-                    @click="cancelCreateSecret(`${s.name}::${p.id}`)"
-                  >
-                    <i class="icon icon-close" />
-                  </button>
-                </div>
-                <LabeledSelect
-                  v-else
-                  class="secret-select"
-                  :value="secretSel[`${s.name}::${p.id}`] || ''"
-                  :options="secretOptions(s, p)"
-                  :searchable="false"
-                  @update:value="onSecretSelect(`${s.name}::${p.id}`, $event)"
+        <div class="cards">
+          <rc-item-card
+            v-for="s in group.sidecars"
+            :id="`sidecar-${s.name}`"
+            :key="s.name"
+            v-bind="cardFor(s)"
+            variant="medium"
+          >
+            <template #item-card-header-title>
+              <div class="title-row">
+                <h3 class="item-card-header-title medium">
+                  {{ s.name }}
+                </h3>
+                <ToggleSwitch
+                  class="enable-toggle"
+                  :value="!!enabled[s.name]"
+                  :disabled="!!s.unsupported && s.status === 'not_created'"
+                  @update:value="enabled[s.name] = $event"
                 />
-              </template>
-              <input
-                v-else
-                :id="`${s.name}-${p.id}`"
-                v-model="paramEdits[s.name][p.id]"
-                type="text"
-                :placeholder="p.default || ''"
-              >
-            </div>
-          </div>
+              </div>
+            </template>
+
+            <template #item-card-sub-header>
+              <div class="sub">
+                <div class="desc">
+                  {{ s.description }}
+                </div>
+                <span v-if="s.unsupported" class="unsupported">{{ s.unsupported }}</span>
+              </div>
+            </template>
+
+            <template #item-card-footer>
+              <div v-if="enabled[s.name] && (s.params || []).length" class="params">
+                <template v-for="p in s.params" :key="p.id">
+                  <div v-if="p.type === 'boolean'" class="param-row">
+                    <label :for="`${s.name}-${p.id}`">{{ p.id }}</label>
+                    <ToggleSwitch
+                      :id="`${s.name}-${p.id}`"
+                      :value="!!paramEdits[s.name][p.id] && paramEdits[s.name][p.id] !== 'false'"
+                      @update:value="paramEdits[s.name][p.id] = $event ? 'true' : ''"
+                    />
+                  </div>
+                  <div
+                    v-else-if="isSecretParam(p) && secretSel[`${s.name}::${p.id}`] === '__create__'"
+                    class="secret-create"
+                  >
+                    <LabeledInput
+                      v-model:value="newSecrets[`${s.name}::${p.id}`].value"
+                      type="password"
+                      :label="`${p.id}: new secret value`"
+                    />
+                    <button
+                      class="btn-cancel"
+                      type="button"
+                      aria-label="Cancel"
+                      @click="cancelCreateSecret(`${s.name}::${p.id}`)"
+                    >
+                      <i class="icon icon-close" />
+                    </button>
+                  </div>
+                  <LabeledSelect
+                    v-else-if="isSecretParam(p)"
+                    class="secret-select"
+                    :label="p.id"
+                    :value="secretSel[`${s.name}::${p.id}`] || ''"
+                    :options="secretOptions(s, p)"
+                    :searchable="false"
+                    @update:value="onSecretSelect(`${s.name}::${p.id}`, $event)"
+                  />
+                  <LabeledInput
+                    v-else
+                    v-model:value="paramEdits[s.name][p.id]"
+                    :label="p.id"
+                    :placeholder="p.default || ''"
+                  />
+                </template>
+              </div>
+            </template>
+          </rc-item-card>
         </div>
       </div>
 
@@ -390,14 +433,15 @@ export default {
         <h3 class="group-title">
           rancher auth
         </h3>
-        <div class="param-row">
-          <label for="auth-provider">provider</label>
-          <select id="auth-provider" v-model="authProvider">
-            <option v-for="m in authModes" :key="m.value" :value="m.value">
-              {{ m.label }}
-            </option>
-          </select>
-        </div>
+        <LabeledSelect
+          id="auth-provider"
+          class="auth-select"
+          label="provider"
+          :value="authProvider"
+          :options="authModes"
+          :searchable="false"
+          @update:value="authProvider = typeof $event === 'object' ? ($event && $event.value) : $event"
+        />
       </div>
 
       <div class="actions">
@@ -412,7 +456,7 @@ export default {
   </div>
 
   <!-- Create a new closet -->
-  <div v-else class="closet-create">
+  <div v-else class="closet-create create">
     <p class="hint">
       Installs a closet into this cluster (namespace <code>closet-&lt;name&gt;</code>):
       a project workspace plus the sidecars you pick, managed by the closet's
@@ -451,8 +495,12 @@ export default {
 
 <style lang="scss" scoped>
 .closet-create {
-  padding: 20px;
-  max-width: 640px;
+  padding: 20px 0 40px 0;
+
+  &.create {
+    max-width: 640px;
+    padding: 20px;
+  }
 
   .hint {
     opacity: 0.8;
@@ -474,6 +522,54 @@ export default {
     border-bottom: 1px solid var(--border);
     padding-bottom: 4px;
     margin: 20px 0 12px 0;
+  }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+  }
+
+  .title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+
+    h3 {
+      margin: 0;
+    }
+
+    .enable-toggle {
+      margin-left: auto;
+    }
+  }
+
+  .sub {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    .desc {
+      color: var(--body-text);
+    }
+  }
+
+  .params {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .unsupported {
+    font-style: italic;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .auth-select {
+    max-width: 360px;
   }
 
   .sidecar-row {
