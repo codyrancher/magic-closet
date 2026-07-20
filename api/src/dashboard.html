@@ -628,8 +628,12 @@ function render(sidecars) {
       note.style.fontStyle = 'italic';
       note.textContent = s.unsupported;
       card.appendChild(note);
-      grid.appendChild(card);
-      continue;
+      // No deployment exists at all -> nothing to start; otherwise keep the
+      // normal actions so the user can still try/stop/delete it
+      if (s.status === 'not_created') {
+        grid.appendChild(card);
+        continue;
+      }
     }
 
     const actions = document.createElement('div');
