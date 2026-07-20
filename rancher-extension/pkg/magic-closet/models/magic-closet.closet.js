@@ -6,6 +6,10 @@ export default class Closet extends Resource {
     return true;
   }
 
+  get canUpdate() {
+    return true;
+  }
+
   get canClone() {
     return false;
   }

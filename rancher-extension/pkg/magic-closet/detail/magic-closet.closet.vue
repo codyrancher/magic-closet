@@ -1,16 +1,16 @@
 <script>
 import { RcItemCard } from '@components/RcItemCard';
-import { RcButton } from '@components/RcButton';
-import RcIcon from '@components/RcIcon/RcIcon.vue';
 import { BadgeState } from '@components/BadgeState';
 import { closetApiBase, rancherFetch, setCluster } from '../api';
 
 const GROUP_ORDER = ['dev', 'auth', 'design'];
 
+// Read-only view of the closet: current sidecar state, links and configured
+// params. Changing anything happens through Edit Config.
 export default {
   name: 'ClosetDetail',
 
-  components: { RcItemCard, RcButton, RcIcon, BadgeState },
+  components: { RcItemCard, BadgeState },
 
   props: {
     value: {
@@ -21,13 +21,10 @@ export default {
 
   data() {
     return {
-      sidecars:   [],
-      rancher:    { running: false, authProvider: null },
-      busy:       {},
-      authMode:   {},
-      paramEdits: {},
-      error:      null,
-      timer:      null,
+      sidecars: [],
+      rancher:  { running: false, authProvider: null },
+      error:    null,
+      timer:    null,
     };
   },
 
@@ -75,23 +72,6 @@ export default {
         this.sidecars = data.sidecars || [];
         this.rancher = data.rancher || { running: false, authProvider: null };
         this.error = null;
-
-        // Seed editable param values / auth modes once per sidecar
-        for (const s of this.sidecars) {
-          if (!this.paramEdits[s.name]) {
-            const edits = {};
-
-            for (const p of s.params || []) {
-              edits[p.id] = p.value ?? p.default ?? '';
-            }
-            this.paramEdits[s.name] = edits;
-          }
-          if (!this.authMode[s.name] && s.rancherAuth?.modes?.length) {
-            const active = s.rancherAuth.modes.find((m) => m.value === this.rancher.authProvider);
-
-            this.authMode[s.name] = (active || s.rancherAuth.modes[0]).value;
-          }
-        }
       } catch (e) {
         this.error = e.message;
       }
@@ -106,18 +86,11 @@ export default {
     },
 
     badgeColor(s) {
-      if (this.busy[s.name]) {
-        return 'bg-info';
-      }
       const map = {
         running: 'bg-success', exited: 'bg-warning', created: 'bg-warning', not_created: 'bg-darker',
       };
 
       return map[s.status] || 'bg-info';
-    },
-
-    badgeLabel(s) {
-      return this.busy[s.name] || s.status;
     },
 
     badgeTitle(s) {
@@ -142,49 +115,17 @@ export default {
       return null;
     },
 
-    async act(s, verb, path, method = 'POST', body = undefined) {
-      this.busy[s.name] = verb;
-      try {
-        await rancherFetch(`${ this.apiBase }/${ path }`, {
-          method,
-          body: body === undefined ? undefined : JSON.stringify(body),
-        });
-      } catch (e) {
-        this.error = `${ s.name }: ${ e.message }`;
+    shownParams(s) {
+      return (s.params || []).filter((p) => p.value !== undefined && p.value !== null && p.value !== '');
+    },
+
+    authFor(s) {
+      if (!s.rancherAuth) {
+        return null;
       }
-      delete this.busy[s.name];
-      this.refresh();
-    },
+      const active = (s.rancherAuth.modes || []).find((m) => m.value === this.rancher.authProvider);
 
-    start(s) {
-      const params = { ...(this.paramEdits[s.name] || {}) };
-
-      for (const p of s.params || []) {
-        if (p.type === 'boolean') {
-          params[p.id] = params[p.id] && params[p.id] !== 'false' ? 'true' : '';
-        }
-      }
-      this.act(s, 'starting', `sidecars/${ s.name }/start`, 'POST', { params });
-    },
-
-    stop(s) {
-      this.act(s, 'stopping', `sidecars/${ s.name }/stop`);
-    },
-
-    remove(s) {
-      this.act(s, 'deleting', `sidecars/${ s.name }`, 'DELETE');
-    },
-
-    applyAuth(s) {
-      this.act(s, 'applying', 'auth/apply', 'POST', { provider: this.authMode[s.name] });
-    },
-
-    authApplied(s) {
-      return this.authMode[s.name] === this.rancher.authProvider;
-    },
-
-    canApplyAuth(s) {
-      return this.rancher.running && s.status === 'running' && !this.authApplied(s) && !this.busy[s.name];
+      return active ? `applied (${ active.label })` : 'not applied';
     },
   },
 };
@@ -214,7 +155,7 @@ export default {
             </h3>
             <BadgeState
               :color="badgeColor(s)"
-              :label="badgeLabel(s)"
+              :label="s.status"
               :title="badgeTitle(s)"
               class="status-badge"
             />
@@ -234,64 +175,14 @@ export default {
           </template>
 
           <template #item-card-footer>
-            <div class="card-extras" item-card-action>
-              <div v-for="p in s.params || []" :key="p.id" class="param-row">
-                <label :for="`${s.name}-${p.id}`">{{ p.id }}</label>
-                <input
-                  v-if="p.type === 'boolean'"
-                  :id="`${s.name}-${p.id}`"
-                  type="checkbox"
-                  :checked="!!paramEdits[s.name][p.id] && paramEdits[s.name][p.id] !== 'false'"
-                  @change="paramEdits[s.name][p.id] = $event.target.checked ? 'true' : ''"
-                >
-                <input
-                  v-else
-                  :id="`${s.name}-${p.id}`"
-                  v-model="paramEdits[s.name][p.id]"
-                  type="text"
-                  :placeholder="p.default || ''"
-                >
+            <div class="card-extras">
+              <div v-for="p in shownParams(s)" :key="p.id" class="param-row">
+                <label>{{ p.id }}</label>
+                <span class="param-value">{{ p.value }}</span>
               </div>
-
-              <div v-if="s.rancherAuth" class="param-row auth-row">
+              <div v-if="s.rancherAuth" class="param-row">
                 <label>rancher auth</label>
-                <select v-if="(s.rancherAuth.modes || []).length > 1" v-model="authMode[s.name]">
-                  <option v-for="m in s.rancherAuth.modes" :key="m.value" :value="m.value">
-                    {{ m.label }}
-                  </option>
-                </select>
-                <rc-button
-                  variant="secondary"
-                  :disabled="!canApplyAuth(s)"
-                  @click="applyAuth(s)"
-                >
-                  {{ authApplied(s) ? 'Applied' : 'Apply' }}
-                </rc-button>
-              </div>
-
-              <div v-if="!(s.unsupported && s.status === 'not_created')" class="actions">
-                <rc-button
-                  variant="primary"
-                  :disabled="!!busy[s.name]"
-                  @click="start(s)"
-                >
-                  {{ s.status === 'running' ? 'Restart' : 'Start' }}
-                </rc-button>
-                <rc-button
-                  variant="secondary"
-                  :disabled="!!busy[s.name] || s.status !== 'running'"
-                  @click="stop(s)"
-                >
-                  Stop
-                </rc-button>
-                <rc-button
-                  variant="ghost"
-                  aria-label="Delete"
-                  :disabled="!!busy[s.name] || s.status === 'not_created'"
-                  @click="remove(s)"
-                >
-                  <rc-icon type="trash" status="error" />
-                </rc-button>
+                <span class="param-value">{{ authFor(s) }}</span>
               </div>
             </div>
           </template>
@@ -351,12 +242,12 @@ main:has(.closet-dashboard) .metadata-section,
   .card-extras {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     width: 100%;
 
     .param-row {
       display: flex;
-      align-items: center;
+      align-items: baseline;
       gap: 8px;
 
       label {
@@ -369,27 +260,9 @@ main:has(.closet-dashboard) .metadata-section,
         white-space: nowrap;
       }
 
-      input[type='text'], select {
-        flex: 1;
-        min-width: 0;
-        background: var(--input-bg);
-        color: var(--input-text);
-        border: 1px solid var(--input-border);
-        border-radius: 4px;
-        padding: 4px 8px;
+      .param-value {
         font-size: 13px;
-      }
-    }
-
-    .actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 4px;
-
-      // Delete sits apart from the run controls
-      > :last-child {
-        margin-left: auto;
+        overflow-wrap: anywhere;
       }
     }
   }

@@ -33,7 +33,6 @@ export function init($plugin: IPlugin, store: any) {
 
       return Promise.all(closets.map(async (c: any) => {
         let sidecars = null;
-        let authProvider = null;
 
         try {
           const resp = await fetch(`${ closetApiBase(c.namespace) }/sidecars`);
@@ -41,7 +40,6 @@ export function init($plugin: IPlugin, store: any) {
           const list = data.sidecars || [];
 
           sidecars = `${ list.filter((s: any) => s.status === 'running').length }/${ list.length } running`;
-          authProvider = data.rancher?.authProvider || null;
         } catch { /* closet api not reachable (yet) */ }
 
         return {
@@ -49,7 +47,6 @@ export function init($plugin: IPlugin, store: any) {
           type:     CLOSET_TYPE,
           spec:     c,
           sidecars: sidecars || '\u2014',
-          auth:     authProvider || '\u2014',
           metadata: {
             name:  c.name,
             state: {
@@ -65,7 +62,7 @@ export function init($plugin: IPlugin, store: any) {
 
   configureType(CLOSET_TYPE, {
     isCreatable: true,
-    isEditable:  false,
+    isEditable:  true,
     isRemovable: true,
     showAge:     false,
     showState:   true,
@@ -76,7 +73,6 @@ export function init($plugin: IPlugin, store: any) {
     STATE,
     NAME,
     { name: 'sidecars', label: 'Sidecars', value: 'sidecars', sort: ['sidecars'] },
-    { name: 'auth', label: 'Auth', value: 'auth', sort: ['auth'] },
     { name: 'namespace', label: 'Namespace', value: 'spec.namespace', sort: ['spec.namespace'] },
   ]);
 
