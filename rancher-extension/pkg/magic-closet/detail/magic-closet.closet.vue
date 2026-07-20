@@ -177,6 +177,7 @@ export default {
       :key="group.name"
       :title="group.name.charAt(0).toUpperCase() + group.name.slice(1)"
       type="primary"
+      mode="with-header"
       class="sidecar-group"
     >
       <div class="cards">
