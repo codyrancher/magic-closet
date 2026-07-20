@@ -1,6 +1,7 @@
 <script>
 import { RcItemCard } from '@components/RcItemCard';
 import { RcButton } from '@components/RcButton';
+import RcIcon from '@components/RcIcon/RcIcon.vue';
 import { BadgeState } from '@components/BadgeState';
 import { closetApiBase, rancherFetch, setCluster } from '../api';
 
@@ -9,7 +10,7 @@ const GROUP_ORDER = ['dev', 'auth', 'design'];
 export default {
   name: 'ClosetDetail',
 
-  components: { RcItemCard, RcButton, BadgeState },
+  components: { RcItemCard, RcButton, RcIcon, BadgeState },
 
   props: {
     value: {
@@ -282,12 +283,12 @@ export default {
                 <rc-button
                   size="small"
                   variant="ghost"
-                  class="bg-error"
-                  left-icon="trash"
                   aria-label="Delete"
                   :disabled="!!busy[s.name] || s.status === 'not_created'"
                   @click="remove(s)"
-                />
+                >
+                  <rc-icon type="trash" status="error" />
+                </rc-button>
               </div>
             </div>
           </template>
