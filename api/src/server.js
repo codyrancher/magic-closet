@@ -1465,6 +1465,13 @@ const K8S_PROXY_PORTS = {
 function internalUrl(name) {
   const spec = K8S_PROXY_PORTS[name];
   if (!spec) return null;
+  // Keycloak must be visited at the same origin rancher's OIDC config uses
+  // (the NodePort URL in k8s mode) — otherwise the browser ends up with two
+  // different keycloak origins and separate sessions
+  if (name === 'keycloak' && K8S) {
+    const ext = k8sExternalUrl(name);
+    if (ext) return ext;
+  }
   const defaultPort = (spec.scheme === 'https' && spec.port === 443) || (spec.scheme === 'http' && spec.port === 80);
   return `${spec.scheme}://${name}${defaultPort ? '' : `:${spec.port}`}`;
 }
