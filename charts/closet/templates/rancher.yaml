@@ -44,6 +44,11 @@ data:
     #!/bin/sh
     set -x
     apk add --no-cache socat || true
+    # Watchdog (started first): a rollout's old pod runs the preStop pause
+    # and can race this pod's install at any phase - keep the vcluster
+    # scaled up while this manager lives (a real stop removes the manager,
+    # so the pause sticks)
+    ( while true; do kubectl -n "$NS" scale deploy vc --replicas=1 >/dev/null 2>&1 || true; sleep 30; done ) &
     helm repo add loft https://charts.loft.sh
     helm repo add jetstack https://charts.jetstack.io
     helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
@@ -73,13 +78,7 @@ data:
     # Relay the closet services (selector app: rancher -> this pod) to the
     # rancher service replicated out of the vcluster
     socat TCP-LISTEN:443,fork,reuseaddr "TCP:rancher-vc.$NS.svc:443" &
-    # Watchdog: a rollout's old pod runs the preStop pause and can race the
-    # new pod's install - keep the vcluster scaled up while this manager
-    # lives (a real stop removes the manager, so the pause sticks)
-    while true; do
-      kubectl -n "$NS" scale deploy vc --replicas=1 >/dev/null 2>&1 || true
-      sleep 60
-    done
+    wait
   pause.sh: |
     #!/bin/sh
     kubectl -n "$NS" scale deploy vc --replicas=0 2>/dev/null
