@@ -1460,6 +1460,13 @@ function k8sExternalUrl(name) {
   return `${spec.scheme}://${nodeIp}:${nodePort}`;
 }
 
+// Sidecars that cannot run as pods (k8s mode only)
+const K8S_UNSUPPORTED = {
+  rancher: 'cannot run in-cluster: the docker-style rancher image (embedded k3s) does not survive as a pod',
+  'samba-ad': 'needs privileged AD provisioning not available in-cluster',
+  freeipa: 'experimental; not available in-cluster',
+};
+
 function handleList(res) {
   const env = readEnvValues();
   const sidecars = listSidecarDefs().map(s => {
@@ -1471,6 +1478,7 @@ function handleList(res) {
       hostPort: (!K8S && s.port) ? env[s.port] || null : null,
       proxy: K8S ? K8S_PROXY_PORTS[s.name] || null : null,
       external: K8S ? k8sExternalUrl(s.name) : null,
+      unsupported: (K8S && K8S_UNSUPPORTED[s.name]) || null,
       params: s.params.map(p => ({ ...p, value: env[p.env] ?? p.default })),
       ...(s.name === 'rancher' ? { bootstrap: rancherBootstrap.state } : {}),
       ...(s.name === 'keycloak' ? { bootstrap: keycloakBootstrap.state } : {}),

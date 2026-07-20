@@ -10,9 +10,11 @@ images:
 
 # Which sidecars start enabled (deployments always exist; these set the
 # initial replica count — the closet api scales them after install)
+# rancher defaults to false: the docker-style rancher image (embedded k3s)
+# cannot run as a pod — see the note in templates/rancher.yaml
 sidecars:
   vscode: true
-  rancher: true
+  rancher: false
   keycloak: true
   rancherBrowser: false
   openldap: false

@@ -622,6 +622,16 @@ function render(sidecars) {
 
     if (s.rancherAuth) card.appendChild(makeAuthApply(s));
 
+    if (s.unsupported) {
+      const note = document.createElement('div');
+      note.className = 'card-desc';
+      note.style.fontStyle = 'italic';
+      note.textContent = s.unsupported;
+      card.appendChild(note);
+      grid.appendChild(card);
+      continue;
+    }
+
     const actions = document.createElement('div');
     actions.className = 'actions';
     const isBusy = busy.has(s.name);

@@ -19,6 +19,13 @@ spec:
       containers:
         - name: rancher
           image: {{ .Values.images.rancher }}
+          # Private cgroup+mount namespace: without it the embedded k3s's
+          # kubelet sees the host cluster's cgroup tree and destroys other
+          # pods' cgroups as "orphans". Even with it, the docker-style
+          # rancher image does not survive as a pod (its kubelet's node-level
+          # cgroup management makes the outer runtime kill the container) —
+          # which is why sidecars.rancher defaults to false in values.yaml.
+          command: ["unshare", "--cgroup", "--mount", "sh", "-c", "mount -t cgroup2 none /sys/fs/cgroup; exec entrypoint.sh"]
           imagePullPolicy: IfNotPresent
           securityContext:
             privileged: true
