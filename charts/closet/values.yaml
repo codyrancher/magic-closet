@@ -35,7 +35,7 @@ config:
   AWS_DEFAULT_REGION: "us-west-2"
 
 # Helm chart version of vcluster used by the rancher sidecar
-vclusterVersion: "0.24.1"
+vclusterVersion: "0.36.0"
 
 storage:
   # hostPath: single-node friendly (works without any StorageClass; data

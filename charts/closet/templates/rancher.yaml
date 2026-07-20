@@ -13,6 +13,11 @@ metadata:
 data:
   vcluster-values.yaml: |
     controlPlane:
+      distro:
+        k8s:
+          enabled: true
+          # Kept below the rancher chart's kubeVersion ceiling
+          version: v1.34.1
       statefulSet:
         persistence:
           volumeClaim:

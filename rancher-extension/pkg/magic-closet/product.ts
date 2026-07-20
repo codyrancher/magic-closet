@@ -15,7 +15,9 @@ export function init($plugin: IPlugin, store: any) {
   product({
     icon:    'gear',
     inStore: 'cluster',
-    weight:  100,
+    // Strongly negative so Magic Closet sorts below every built-in group in
+    // the cluster explorer nav (weights sort descending)
+    weight:  -100,
     to:      {
       name:   `c-cluster-${ PRODUCT_NAME }-resource`,
       params: { product: PRODUCT_NAME, resource: CLOSET_TYPE },
