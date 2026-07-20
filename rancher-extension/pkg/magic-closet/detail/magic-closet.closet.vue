@@ -1,5 +1,6 @@
 <script>
 import { RcItemCard } from '@components/RcItemCard';
+import { RcSection } from '@components/RcSection';
 import { BadgeState } from '@components/BadgeState';
 import { closetApiBase, rancherFetch, setCluster } from '../api';
 
@@ -10,7 +11,7 @@ const GROUP_ORDER = ['dev', 'auth', 'design'];
 export default {
   name: 'ClosetDetail',
 
-  components: { RcItemCard, BadgeState },
+  components: { RcItemCard, RcSection, BadgeState },
 
   props: {
     value: {
@@ -171,10 +172,13 @@ export default {
       {{ error }}
     </div>
 
-    <div v-for="group in groups" :key="group.name" class="sidecar-group">
-      <h3 class="group-title">
-        {{ group.name }}
-      </h3>
+    <RcSection
+      v-for="group in groups"
+      :key="group.name"
+      :title="group.name.charAt(0).toUpperCase() + group.name.slice(1)"
+      type="primary"
+      class="sidecar-group"
+    >
       <div class="cards">
         <rc-item-card
           v-for="s in group.sidecars"
@@ -239,7 +243,7 @@ export default {
           </template>
         </rc-item-card>
       </div>
-    </div>
+    </RcSection>
   </div>
 </template>
 
@@ -264,14 +268,8 @@ main:has(.closet-dashboard) .metadata-section,
     margin-bottom: 12px;
   }
 
-  .group-title {
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-size: 13px;
-    color: var(--muted);
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 4px;
-    margin: 20px 0 12px 0;
+  .sidecar-group {
+    margin-top: 12px;
   }
 
   .cards {

@@ -1,6 +1,7 @@
 <script>
 import { RcButton } from '@components/RcButton';
 import { RcItemCard } from '@components/RcItemCard';
+import { RcSection } from '@components/RcSection';
 import { ToggleSwitch } from '@components/Form/ToggleSwitch';
 import { LabeledInput } from '@components/Form/LabeledInput';
 import LabeledSelect from '@shell/components/form/LabeledSelect';
@@ -19,7 +20,7 @@ export default {
   name: 'ClosetEdit',
 
   components: {
-    RcButton, RcItemCard, ToggleSwitch, LabeledInput, LabeledSelect,
+    RcButton, RcItemCard, RcSection, ToggleSwitch, LabeledInput, LabeledSelect,
   },
 
   props: {
@@ -343,10 +344,13 @@ export default {
     </div>
 
     <template v-else>
-      <div v-for="group in groups" :key="group.name" class="edit-group">
-        <h3 class="group-title">
-          {{ group.name }}
-        </h3>
+      <RcSection
+        v-for="group in groups"
+        :key="group.name"
+        :title="group.name.charAt(0).toUpperCase() + group.name.slice(1)"
+        type="primary"
+        class="edit-group"
+      >
         <div class="cards">
           <rc-item-card
             v-for="s in group.sidecars"
@@ -427,12 +431,13 @@ export default {
             </template>
           </rc-item-card>
         </div>
-      </div>
+      </RcSection>
 
-      <div class="edit-group">
-        <h3 class="group-title">
-          rancher auth
-        </h3>
+      <RcSection
+        title="Rancher auth"
+        type="primary"
+        class="edit-group"
+      >
         <LabeledSelect
           id="auth-provider"
           class="auth-select"
@@ -442,7 +447,7 @@ export default {
           :searchable="false"
           @update:value="authProvider = typeof $event === 'object' ? ($event && $event.value) : $event"
         />
-      </div>
+      </RcSection>
 
       <div class="actions">
         <rc-button variant="secondary" @click="done(true)">
@@ -514,14 +519,8 @@ export default {
     margin-bottom: 15px;
   }
 
-  .group-title {
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-size: 13px;
-    color: var(--muted);
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 4px;
-    margin: 20px 0 12px 0;
+  .edit-group {
+    margin-top: 12px;
   }
 
   .cards {
