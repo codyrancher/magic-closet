@@ -208,12 +208,19 @@ export default {
           v-bind="cardFor(s)"
           variant="medium"
         >
-          <template #item-card-sub-header>
+          <template #item-card-header-title>
+            <h3 class="item-card-header-title medium">
+              {{ s.name }}
+            </h3>
             <BadgeState
               :color="badgeColor(s)"
               :label="badgeLabel(s)"
               :title="badgeTitle(s)"
+              class="status-badge"
             />
+          </template>
+
+          <template #item-card-sub-header>
             <a
               v-if="linkFor(s)"
               :href="linkFor(s)"
@@ -335,6 +342,10 @@ main:has(.closet-dashboard) .metadata-section,
     gap: 16px;
   }
 
+  .status-badge {
+    margin-left: 8px;
+  }
+
   .unsupported {
     font-style: italic;
     color: var(--muted);
@@ -376,8 +387,14 @@ main:has(.closet-dashboard) .metadata-section,
 
     .actions {
       display: flex;
+      align-items: center;
       gap: 8px;
       margin-top: 4px;
+
+      // Delete sits apart from the run controls
+      > :last-child {
+        margin-left: auto;
+      }
     }
   }
 }
