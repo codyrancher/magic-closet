@@ -23,7 +23,7 @@ export default {
       error:    null,
       sidecars: {
         vscode:         true,
-        rancher:        false,
+        rancher:        true,
         keycloak:       true,
         rancherBrowser: false,
         openldap:       false,
@@ -31,7 +31,7 @@ export default {
       },
       labels: {
         vscode:         'VS Code',
-        rancher:        'Rancher server (not yet supported in-cluster)',
+        rancher:        'Rancher server (first start ~10 min)',
         keycloak:       'Keycloak (OIDC)',
         rancherBrowser: 'Chromium browser',
         openldap:       'OpenLDAP',

@@ -2,7 +2,7 @@ images:
   api: ghcr.io/codyrancher/magic-closet-api:latest
   project: ghcr.io/codyrancher/magic-closet-project:latest
   vscode: ghcr.io/codyrancher/magic-closet-vscode:latest
-  rancher: rancher/rancher:head
+  rancherManager: dtzar/helm-kubectl:latest
   keycloak: quay.io/keycloak/keycloak:latest
   openldap: osixia/openldap:1.5.0
   rancherBrowser: lscr.io/linuxserver/chromium:latest
@@ -10,11 +10,11 @@ images:
 
 # Which sidecars start enabled (deployments always exist; these set the
 # initial replica count — the closet api scales them after install)
-# rancher defaults to false: the docker-style rancher image (embedded k3s)
-# cannot run as a pod — see the note in templates/rancher.yaml
+# rancher runs as a vcluster + helm-installed rancher (see
+# templates/rancher.yaml); first start takes ~10 minutes
 sidecars:
   vscode: true
-  rancher: false
+  rancher: true
   keycloak: true
   rancherBrowser: false
   openldap: false
@@ -33,6 +33,9 @@ config:
   AWS_ACCESS_KEY: ""
   AWS_SECRET_KEY: ""
   AWS_DEFAULT_REGION: "us-west-2"
+
+# Helm chart version of vcluster used by the rancher sidecar
+vclusterVersion: "0.24.1"
 
 storage:
   # hostPath: single-node friendly (works without any StorageClass; data

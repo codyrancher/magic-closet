@@ -1,3 +1,73 @@
+# In-cluster rancher: the docker-style rancher image (embedded k3s) cannot run
+# as a pod (its kubelet fights the host cluster over cgroups), so instead a
+# manager pod installs a vcluster (k3s control plane only — its workloads are
+# synced to the host cluster as normal pods) and helm-installs cert-manager +
+# rancher inside it: the topology rancher actually supports. The manager then
+# relays :443 to the rancher service replicated out of the vcluster, so the
+# closet's `rancher` / `rancher-external` services (selector app: rancher)
+# work unchanged, as do the api bootstrap (https://rancher) and NodePort link.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rancher-manager
+data:
+  vcluster-values.yaml: |
+    controlPlane:
+      statefulSet:
+        persistence:
+          volumeClaim:
+            enabled: false
+{{- if ne .Values.storage.mode "pvc" }}
+          dataVolume:
+            - name: data
+              hostPath:
+                path: {{ .Values.storage.hostPathBase }}/{{ .Release.Namespace }}/vcluster-data
+                type: DirectoryOrCreate
+{{- end }}
+    networking:
+      replicateServices:
+        toHost:
+          - from: cattle-system/rancher
+            to: rancher-vc
+  manage.sh: |
+    #!/bin/sh
+    set -x
+    apk add --no-cache socat || true
+    helm repo add loft https://charts.loft.sh
+    helm repo add jetstack https://charts.jetstack.io
+    helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
+    helm repo update
+
+    helm upgrade --install vc loft/vcluster -n "$NS" \
+      --version "$VCLUSTER_VERSION" -f /scripts/vcluster-values.yaml \
+      --wait --timeout 10m
+
+    until kubectl -n "$NS" get secret vc-vc; do sleep 5; done
+    kubectl -n "$NS" get secret vc-vc -o jsonpath='{.data.config}' | base64 -d \
+      | sed -e "s|server: https://localhost:8443|server: https://vc.$NS.svc:443|" \
+            -e "s|certificate-authority-data:.*|insecure-skip-tls-verify: true|" > /tmp/kc
+    export KUBECONFIG=/tmp/kc
+    until kubectl get ns default; do sleep 5; done
+
+    helm upgrade --install cert-manager jetstack/cert-manager \
+      -n cert-manager --create-namespace \
+      --set crds.enabled=true --wait --timeout 10m
+    helm upgrade --install rancher rancher-latest/rancher \
+      -n cattle-system --create-namespace \
+      --set hostname=rancher.magic-closet.local --set replicas=1 \
+      --set bootstrapPassword="$CATTLE_BOOTSTRAP_PASSWORD" \
+      --wait --timeout 20m
+
+    unset KUBECONFIG
+    # Relay the closet services (selector app: rancher -> this pod) to the
+    # rancher service replicated out of the vcluster
+    exec socat TCP-LISTEN:443,fork,reuseaddr "TCP:rancher-vc.$NS.svc:443"
+  pause.sh: |
+    #!/bin/sh
+    kubectl -n "$NS" scale deploy vc --replicas=0 2>/dev/null
+    kubectl -n "$NS" scale sts vc --replicas=0 2>/dev/null
+    kubectl -n "$NS" delete pods -l vcluster.loft.sh/managed-by=vc --wait=false
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -12,41 +82,36 @@ spec:
     metadata:
       labels: { app: rancher }
     spec:
-      # Without this, rancher sees the mounted SA token, assumes it's an
-      # in-cluster HA install, and crash-loops on RBAC instead of starting
-      # its own embedded k3s
-      automountServiceAccountToken: false
+      serviceAccountName: rancher-manager
       containers:
-        - name: rancher
-          image: {{ .Values.images.rancher }}
-          # Private cgroup+mount namespace: without it the embedded k3s's
-          # kubelet sees the host cluster's cgroup tree and destroys other
-          # pods' cgroups as "orphans". Even with it, the docker-style
-          # rancher image does not survive as a pod (its kubelet's node-level
-          # cgroup management makes the outer runtime kill the container) —
-          # which is why sidecars.rancher defaults to false in values.yaml.
-          command: ["unshare", "--cgroup", "--mount", "sh", "-c", "mount -t cgroup2 none /sys/fs/cgroup; exec entrypoint.sh"]
-          imagePullPolicy: IfNotPresent
-          securityContext:
-            privileged: true
+        - name: manager
+          image: {{ .Values.images.rancherManager }}
+          command: ["/bin/sh", "/scripts/manage.sh"]
           env:
+            - name: NS
+              valueFrom:
+                fieldRef: { fieldPath: metadata.namespace }
+            - name: VCLUSTER_VERSION
+              value: {{ .Values.vclusterVersion | quote }}
             - name: CATTLE_BOOTSTRAP_PASSWORD
               valueFrom:
                 secretKeyRef: { name: closet-secrets, key: RANCHER_BOOTSTRAP_PASSWORD }
           ports:
-            - containerPort: 80
             - containerPort: 443
+          readinessProbe:
+            tcpSocket: { port: 443 }
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            failureThreshold: 90
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "/scripts/pause.sh"]
           volumeMounts:
-            - { name: rancher-data, mountPath: /var/lib/rancher }
+            - { name: scripts, mountPath: /scripts }
       volumes:
-        - name: rancher-data
-{{- if eq .Values.storage.mode "pvc" }}
-          persistentVolumeClaim: { claimName: rancher-data }
-{{- else }}
-          hostPath:
-            path: {{ .Values.storage.hostPathBase }}/{{ .Release.Namespace }}/rancher-data
-            type: DirectoryOrCreate
-{{- end }}
+        - name: scripts
+          configMap: { name: rancher-manager }
 ---
 apiVersion: v1
 kind: Service
@@ -55,5 +120,4 @@ metadata:
 spec:
   selector: { app: rancher }
   ports:
-    - { name: http, port: 80, targetPort: 80 }
     - { name: https, port: 443, targetPort: 443 }

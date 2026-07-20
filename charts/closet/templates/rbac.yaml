@@ -29,3 +29,31 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: closet-api
+---
+# The rancher-manager pod helm-installs vcluster (+ charts inside it) in this
+# namespace, so it needs broad namespaced permissions
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rancher-manager
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: rancher-manager
+rules:
+  - apiGroups: ["", "apps", "batch", "networking.k8s.io", "rbac.authorization.k8s.io", "policy", "coordination.k8s.io", "events.k8s.io", "discovery.k8s.io"]
+    resources: ["*"]
+    verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rancher-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: rancher-manager
+subjects:
+  - kind: ServiceAccount
+    name: rancher-manager

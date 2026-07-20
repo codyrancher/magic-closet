@@ -106,4 +106,9 @@ export async function deleteCloset(closet: any): Promise<void> {
     method: 'POST',
     body:   '{}',
   });
+  // The closet owns its namespace; deleting it also cleans up anything the
+  // chart didn't create directly (e.g. the rancher sidecar's vcluster)
+  if (closet.namespace?.startsWith('closet-')) {
+    await rancherFetch(`${ base() }/v1/namespaces/${ closet.namespace }`, { method: 'DELETE' }).catch(() => null);
+  }
 }

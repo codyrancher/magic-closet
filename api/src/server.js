@@ -1462,7 +1462,6 @@ function k8sExternalUrl(name) {
 
 // Sidecars that cannot run as pods (k8s mode only)
 const K8S_UNSUPPORTED = {
-  rancher: 'not yet working in-cluster (the docker-style rancher image crash-loops as a pod); use compose mode for rancher',
   'samba-ad': 'needs privileged AD provisioning not available in-cluster',
   freeipa: 'experimental; not available in-cluster',
 };
