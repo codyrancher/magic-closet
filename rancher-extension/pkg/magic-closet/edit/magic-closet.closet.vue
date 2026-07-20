@@ -350,7 +350,6 @@ export default {
         :title="group.name.charAt(0).toUpperCase() + group.name.slice(1)"
         type="primary"
         mode="with-header"
-      mode="with-header"
         class="edit-group"
       >
         <div class="cards">
@@ -439,7 +438,6 @@ export default {
         title="Rancher auth"
         type="primary"
         mode="with-header"
-      mode="with-header"
         class="edit-group"
       >
         <LabeledSelect
