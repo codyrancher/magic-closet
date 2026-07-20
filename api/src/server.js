@@ -608,7 +608,14 @@ async function bootstrapRancher() {
 // Then connects Rancher's Keycloak (OIDC) auth provider to it. Idempotent.
 
 const KEYCLOAK_URL = 'http://keycloak:8080';
-const KEYCLOAK_ISSUER = `${KEYCLOAK_URL}/realms/rancher`;
+// URL keycloak is reachable at from the browser AND from rancher's own
+// backend. In k8s mode rancher runs inside the vcluster where the closet's
+// service names don't resolve, so use the node-IP NodePort there (keycloak
+// issues tokens with whatever host it was reached through, so any
+// consistently-used URL works).
+function kcPublicUrl() {
+  return (K8S && k8sExternalUrl('keycloak')) || KEYCLOAK_URL;
+}
 let keycloakBootstrap = { state: 'idle', containerId: null };
 
 async function kcFetch(pathname, { method = 'GET', token, body, form } = {}) {
@@ -685,8 +692,9 @@ async function connectRancherToKeycloak() {
   if (!token) return console.log('keycloak connect: rancher admin login failed');
 
   await disableOtherAuthProviders(token, 'keycloak');
+  const issuer = `${kcPublicUrl()}/realms/rancher`;
   const current = await rancherApi('/v3/keyCloakOIDCConfigs/keycloakoidc', { token });
-  if (current.json?.enabled && current.json?.issuer === KEYCLOAK_ISSUER) {
+  if (current.json?.enabled && current.json?.issuer === issuer) {
     return console.log('keycloak connect: already enabled');
   }
   const { status } = await rancherApi('/v3/keyCloakOIDCConfigs/keycloakoidc', {
@@ -699,8 +707,8 @@ async function connectRancherToKeycloak() {
       accessMode: 'unrestricted',
       clientId: 'rancher',
       clientSecret: env.KEYCLOAK_CLIENT_SECRET,
-      issuer: KEYCLOAK_ISSUER,
-      authEndpoint: `${KEYCLOAK_ISSUER}/protocol/openid-connect/auth`,
+      issuer,
+      authEndpoint: `${issuer}/protocol/openid-connect/auth`,
       rancherUrl: 'https://rancher/verify-auth',
       scope: 'openid profile email',
     },
@@ -921,7 +929,7 @@ async function connectRancherToKeycloakSaml() {
 
   let idpMetadataContent;
   try {
-    const resp = await fetch(`${KEYCLOAK_URL}/realms/rancher/protocol/saml/descriptor`,
+    const resp = await fetch(`${kcPublicUrl()}/realms/rancher/protocol/saml/descriptor`,
       { signal: AbortSignal.timeout(10000) });
     idpMetadataContent = await resp.text();
   } catch {

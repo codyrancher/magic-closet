@@ -34,12 +34,6 @@ data:
         toHost:
           - from: cattle-system/rancher
             to: rancher-vc
-        # Rancher's OIDC token exchange runs inside the vcluster, where the
-        # closet's service names don't resolve — mirror keycloak into
-        # rancher's namespace so http://keycloak:8080 works there too
-        fromHost:
-          - from: {{ .Release.Namespace }}/keycloak
-            to: cattle-system/keycloak
   manage.sh: |
     #!/bin/sh
     set -x
