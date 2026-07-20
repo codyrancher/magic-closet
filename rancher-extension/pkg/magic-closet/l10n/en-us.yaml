@@ -1,5 +1,3 @@
-product:
-  magicCloset: Magic Closet
 typeLabel:
   magic-closet.closet: |-
     {count, plural,

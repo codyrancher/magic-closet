@@ -1,6 +1,6 @@
 <script>
 import { createCloset, setCluster } from '../api';
-import { PRODUCT_NAME, CLOSET_TYPE } from '../product';
+import { EXPLORER, CLOSET_TYPE } from '../product';
 
 export default {
   name: 'ClosetCreate',
@@ -59,8 +59,8 @@ export default {
 
     done() {
       this.$router.push({
-        name:   `c-cluster-${ PRODUCT_NAME }-resource`,
-        params: { cluster: this.$route.params.cluster, product: PRODUCT_NAME, resource: CLOSET_TYPE },
+        name:   'c-cluster-product-resource',
+        params: { cluster: this.$route.params.cluster, product: EXPLORER, resource: CLOSET_TYPE },
       });
     },
   },

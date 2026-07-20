@@ -1,6 +1,5 @@
 import { importTypes } from '@rancher/auto-import';
 import { IPlugin } from '@shell/core/types';
-import extensionRouting from './routing/extension-routing';
 
 // Init the package
 export default function(plugin: IPlugin): void {
@@ -10,7 +9,7 @@ export default function(plugin: IPlugin): void {
   // Provide plugin metadata from package.json
   plugin.metadata = require('./package.json');
 
-  // Magic Closet product (cluster explorer page) + its routes
+  // Closets live on the cluster explorer product (flat nav entry + generic
+  // explorer routes)
   plugin.addProduct(require('./product'));
-  plugin.addRoutes(extensionRouting);
 }

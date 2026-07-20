@@ -2,44 +2,23 @@ import { IPlugin } from '@shell/core/types';
 import { STATE, NAME } from '@shell/config/table-headers';
 import { closetApiBase, listClosets, setCluster } from './api';
 
-export const PRODUCT_NAME = 'magicCloset';
+// Everything is registered on the cluster explorer product: closets appear as
+// a single flat nav entry (like the dashboard links) instead of a product
+// group, and the list/detail/create pages use the explorer's generic routes.
+export const EXPLORER = 'explorer';
 export const CLOSET_TYPE = 'magic-closet.closet';
 
 export function init($plugin: IPlugin, store: any) {
-  const explorer: any = $plugin.DSL(store, 'explorer');
-
-  explorer.virtualType({
-    label:      'Magic Closet',
-    group:      'Root',
-    namespaced: false,
-    name:       'magic-closet',
-    weight:     -100,
-    route:      {
-      name:   `c-cluster-${ PRODUCT_NAME }-resource`,
-      params: { product: PRODUCT_NAME, resource: CLOSET_TYPE },
-    },
-  });
-  explorer.basicType(['magic-closet']);
-
   // spoofedType exists at runtime but is missing from DSLReturnType
-  const dsl: any = $plugin.DSL(store, PRODUCT_NAME);
+  const dsl: any = $plugin.DSL(store, EXPLORER);
   const {
-    product, basicType, configureType, headers, spoofedType,
+    basicType, configureType, headers, spoofedType, virtualType,
   } = dsl;
-
-  product({
-    icon:    'gear',
-    inStore: 'cluster',
-    to:      {
-      name:   `c-cluster-${ PRODUCT_NAME }-resource`,
-      params: { product: PRODUCT_NAME, resource: CLOSET_TYPE },
-    },
-  });
 
   spoofedType({
     label:             'Closets',
     type:              CLOSET_TYPE,
-    product:           PRODUCT_NAME,
+    product:           EXPLORER,
     collectionMethods: ['POST'],
     schemas:           [{
       id:                CLOSET_TYPE,
@@ -69,8 +48,8 @@ export function init($plugin: IPlugin, store: any) {
           id:       c.name,
           type:     CLOSET_TYPE,
           spec:     c,
-          sidecars: sidecars || '—',
-          auth:     authProvider || '—',
+          sidecars: sidecars || '\u2014',
+          auth:     authProvider || '\u2014',
           metadata: {
             name:  c.name,
             state: {
@@ -91,10 +70,6 @@ export function init($plugin: IPlugin, store: any) {
     showAge:     false,
     showState:   true,
     canYaml:     false,
-    customRoute: {
-      name:   `c-cluster-${ PRODUCT_NAME }-resource`,
-      params: { product: PRODUCT_NAME, resource: CLOSET_TYPE },
-    },
   });
 
   headers(CLOSET_TYPE, [
@@ -105,7 +80,17 @@ export function init($plugin: IPlugin, store: any) {
     { name: 'namespace', label: 'Namespace', value: 'spec.namespace', sort: ['spec.namespace'] },
   ]);
 
-  // No basicType here: the product itself stays out of the nav (an empty
-  // group isn't rendered). Instead a single flat entry - like the dashboard
-  // links - is registered on the explorer product above, sorted last.
+  // Single flat entry at the bottom of the cluster explorer nav
+  virtualType({
+    label:      'Magic Closet',
+    group:      'Root',
+    namespaced: false,
+    name:       'magic-closet',
+    weight:     -100,
+    route:      {
+      name:   'c-cluster-product-resource',
+      params: { product: EXPLORER, resource: CLOSET_TYPE },
+    },
+  });
+  basicType(['magic-closet']);
 }
