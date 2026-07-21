@@ -72,7 +72,7 @@ export async function findClosetChart(): Promise<{ repo: string; version: string
   throw new Error('No repository provides the "closet" chart — add https://codyrancher.github.io/magic-closet/ in Apps → Repositories');
 }
 
-export async function createCloset(name: string, sidecars: Record<string, boolean>): Promise<void> {
+export async function createCloset(name: string, sidecars: Record<string, boolean>, config: Record<string, string> = {}): Promise<void> {
   const { repo, version } = await findClosetChart();
   const namespace = `closet-${ name }`;
 
@@ -95,7 +95,7 @@ export async function createCloset(name: string, sidecars: Record<string, boolea
           'catalog.cattle.io/ui-source-repo-type': 'cluster',
           'catalog.cattle.io/ui-source-repo':      repo,
         },
-        values: { sidecars },
+        values: Object.keys(config).length ? { sidecars, config } : { sidecars },
       }],
     }),
   });
@@ -113,28 +113,62 @@ export async function deleteCloset(closet: any): Promise<void> {
   }
 }
 
-// ---------- shared secrets (reused across closets) ----------
+// ---------- secret sets (per-user, reused across closets) ----------
+//
+// A secret set is a named bundle of key->value secrets, stored as a single
+// k8s Secret in the magic-closet-secrets namespace, labeled with the owning
+// Rancher user so sets are scoped per-user. One set can be the default.
 
 export const SECRETS_NS = 'magic-closet-secrets';
 
-export async function listSharedSecrets(): Promise<string[]> {
-  try {
-    const data = await rancherFetch(`${ base() }/v1/secrets/${ SECRETS_NS }`);
+const LBL_KIND = 'magic-closet.io/kind';
+const LBL_OWNER = 'magic-closet.io/owner';
+const LBL_DEFAULT = 'magic-closet.io/default';
+const ANN_NAME = 'magic-closet.io/display-name';
 
-    return (data.data || []).map((s: any) => s.metadata?.name).filter(Boolean).sort();
+function sanitize(v: string): string {
+  return (v || '').replace(/[^a-zA-Z0-9._-]/g, '-').replace(/^-+|-+$/g, '').slice(0, 63).toLowerCase() || 'x';
+}
+
+let ownerId = 'anonymous';
+
+export function setSecretOwner(principalId: string): void {
+  ownerId = sanitize(principalId || 'anonymous');
+}
+
+function secretName(displayName: string): string {
+  return `set-${ ownerId }-${ sanitize(displayName) }`.slice(0, 253);
+}
+
+export interface SecretSet { name: string; isDefault: boolean; keys: string[]; }
+
+export async function listSecretSets(): Promise<SecretSet[]> {
+  try {
+    const sel = `${ LBL_KIND }=secret-set,${ LBL_OWNER }=${ ownerId }`;
+    const data = await rancherFetch(`${ base() }/v1/secrets?labelSelector=${ encodeURIComponent(sel) }`);
+
+    return (data.data || []).map((sec: any) => ({
+      name:      sec.metadata?.annotations?.[ANN_NAME] || sec.metadata?.name,
+      isDefault: sec.metadata?.labels?.[LBL_DEFAULT] === 'true',
+      keys:      Object.keys(sec.data || {}),
+    })).sort((a: SecretSet, b: SecretSet) => a.name.localeCompare(b.name));
   } catch {
     return [];
   }
 }
 
-export async function readSharedSecret(name: string): Promise<string> {
-  const s = await rancherFetch(`${ base() }/v1/secrets/${ SECRETS_NS }/${ name }`);
-  const b64 = s.data?.value || (Object.values(s.data || {})[0] as string) || '';
+export async function readSecretSet(displayName: string): Promise<Record<string, string>> {
+  const sec = await rancherFetch(`${ base() }/v1/secrets/${ SECRETS_NS }/${ secretName(displayName) }`);
+  const out: Record<string, string> = {};
 
-  return b64 ? atob(b64) : '';
+  for (const [k, v] of Object.entries(sec.data || {})) {
+    out[k] = v ? atob(v as string) : '';
+  }
+
+  return out;
 }
 
-export async function createSharedSecret(name: string, value: string): Promise<void> {
+export async function saveSecretSet(displayName: string, values: Record<string, string>, isDefault: boolean): Promise<void> {
   try {
     await rancherFetch(`${ base() }/v1/namespaces`, {
       method: 'POST',
@@ -142,13 +176,52 @@ export async function createSharedSecret(name: string, value: string): Promise<v
     });
   } catch { /* already exists */ }
 
-  await rancherFetch(`${ base() }/v1/secrets`, {
-    method: 'POST',
-    body:   JSON.stringify({
-      type:     'secret',
-      _type:    'Opaque',
-      metadata: { namespace: SECRETS_NS, name },
-      data:     { value: btoa(value) },
-    }),
-  });
+  // Only one default per user — clear it on the others first
+  if (isDefault) {
+    for (const set of await listSecretSets()) {
+      if (set.name !== displayName && set.isDefault) {
+        await patchSecretDefault(set.name, false);
+      }
+    }
+  }
+
+  const data: Record<string, string> = {};
+
+  for (const [k, v] of Object.entries(values)) {
+    if (v !== undefined && v !== null && v !== '') {
+      data[k] = btoa(v);
+    }
+  }
+
+  const body = {
+    type:     'secret',
+    _type:    'Opaque',
+    metadata: {
+      namespace:   SECRETS_NS,
+      name:        secretName(displayName),
+      labels:      { [LBL_KIND]: 'secret-set', [LBL_OWNER]: ownerId, [LBL_DEFAULT]: isDefault ? 'true' : 'false' },
+      annotations: { [ANN_NAME]: displayName },
+    },
+    data,
+  };
+
+  // Upsert
+  const existing = await rancherFetch(`${ base() }/v1/secrets/${ SECRETS_NS }/${ secretName(displayName) }`).catch(() => null);
+
+  if (existing) {
+    await rancherFetch(`${ base() }/v1/secrets/${ SECRETS_NS }/${ secretName(displayName) }`, { method: 'PUT', body: JSON.stringify(body) });
+  } else {
+    await rancherFetch(`${ base() }/v1/secrets`, { method: 'POST', body: JSON.stringify(body) });
+  }
+}
+
+async function patchSecretDefault(displayName: string, isDefault: boolean): Promise<void> {
+  const sec = await rancherFetch(`${ base() }/v1/secrets/${ SECRETS_NS }/${ secretName(displayName) }`);
+
+  sec.metadata.labels = { ...(sec.metadata.labels || {}), [LBL_DEFAULT]: isDefault ? 'true' : 'false' };
+  await rancherFetch(`${ base() }/v1/secrets/${ SECRETS_NS }/${ secretName(displayName) }`, { method: 'PUT', body: JSON.stringify(sec) });
+}
+
+export async function deleteSecretSet(displayName: string): Promise<void> {
+  await rancherFetch(`${ base() }/v1/secrets/${ SECRETS_NS }/${ secretName(displayName) }`, { method: 'DELETE' }).catch(() => null);
 }

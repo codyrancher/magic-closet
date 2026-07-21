@@ -2,26 +2,35 @@
 import { RcButton } from '@components/RcButton';
 import { RcItemCard } from '@components/RcItemCard';
 import { RcSection } from '@components/RcSection';
-import RcIcon from '@components/RcIcon/RcIcon.vue';
 import { ToggleSwitch } from '@components/Form/ToggleSwitch';
 import { LabeledInput } from '@components/Form/LabeledInput';
 import LabeledSelect from '@shell/components/form/LabeledSelect';
 import {
-  closetApiBase, createCloset, createSharedSecret, listSharedSecrets,
-  rancherFetch, readSharedSecret, setCluster,
+  closetApiBase, createCloset, listSecretSets, rancherFetch,
+  readSecretSet, setCluster, setSecretOwner,
 } from '../api';
 import { EXPLORER, CLOSET_TYPE } from '../product';
 
 const GROUP_ORDER = ['dev', 'auth', 'design'];
 
+// Secret-style param id -> chart config env var, for injecting a chosen
+// secret set's values at closet-create time
+const SECRET_PARAM_ENV = {
+  ghToken:      'GH_TOKEN',
+  appcoToken:   'APPCO_TOKEN',
+  awsAccessKey: 'AWS_ACCESS_KEY',
+  awsSecretKey: 'AWS_SECRET_KEY',
+  apiKey:       'FIGMA_API_KEY',
+};
+
 // Create a closet, or edit an existing one's config: which sidecars run,
-// their params, and the active Rancher auth provider. Saving applies the
-// diff through the closet's api (start/stop/auth apply).
+// their params, and the active Rancher auth provider. Secret-style params are
+// filled from a chosen secret set (managed under Configure Secrets).
 export default {
   name: 'ClosetEdit',
 
   components: {
-    RcButton, RcIcon, RcItemCard, RcSection, ToggleSwitch, LabeledInput, LabeledSelect,
+    RcButton, RcItemCard, RcSection, ToggleSwitch, LabeledInput, LabeledSelect,
   },
 
   props: {
@@ -71,15 +80,16 @@ export default {
         },
       ],
       // edit mode
-      sidecars:      [],
-      enabled:       {},
-      paramEdits:    {},
-      authProvider:  '',
-      loaded:        false,
-      sharedSecrets: [],
-      secretSel:     {},
-      newSecrets:    {},
-      optionValues:  {},
+      sidecars:        [],
+      enabled:         {},
+      paramEdits:      {},
+      authProvider:    '',
+      loaded:          false,
+      optionValues:    {},
+      // secrets
+      secretSets:      [],
+      secretSetName:   '',
+      secretSetPicked: false,
     };
   },
 
@@ -131,16 +141,57 @@ export default {
 
       return modes;
     },
+
+    secretSetOptions() {
+      return [
+        { label: 'None (no secrets)', value: '' },
+        ...this.secretSets.map((set) => ({
+          label: set.isDefault ? `${ set.name } (default)` : set.name,
+          value: set.name,
+        })),
+      ];
+    },
+
+    // In create mode a set must be chosen before the rest of the form shows
+    secretSetChosen() {
+      return this.secretSetPicked;
+    },
   },
 
   created() {
     setCluster(this.$route.params.cluster);
+    setSecretOwner(this.$store.getters['auth/principalId']);
+    this.loadSecretSets();
     if (this.isEdit) {
       this.load();
     }
   },
 
   methods: {
+    async loadSecretSets() {
+      this.secretSets = await listSecretSets();
+      const def = this.secretSets.find((x) => x.isDefault);
+
+      if (def && !this.secretSetName) {
+        this.secretSetName = def.name;
+        this.secretSetPicked = true;
+      }
+    },
+
+    onSecretSet(val) {
+      this.secretSetName = typeof val === 'object' ? (val && val.value) : val;
+      this.secretSetPicked = true;
+    },
+
+    // Resolve the chosen secret set's values, keyed by param id
+    async resolveSecretValues() {
+      if (!this.secretSetName) {
+        return {};
+      }
+
+      return readSecretSet(this.secretSetName).catch(() => ({}));
+    },
+
     async load() {
       try {
         const data = await rancherFetch(`${ this.apiBase }/sidecars`);
@@ -156,7 +207,6 @@ export default {
           }
           this.paramEdits[s.name] = edits;
         }
-        this.sharedSecrets = await listSharedSecrets();
         // Suggested values for params with an options source (taggable)
         await Promise.all(this.sidecars.flatMap((sc) => (sc.params || [])
           .filter((p) => p.options)
@@ -173,51 +223,9 @@ export default {
       }
     },
 
-    // Token/secret-style params are backed by shared k8s Secrets (namespace
-    // magic-closet-secrets) so they can be reused between closets
+    // Secret-style params are filled from the chosen secret set
     isSecretParam(p) {
       return /(token|secret|key|password)$/i.test(p.id);
-    },
-
-    // Same pattern as the namespace picker: a highlighted "create new" entry
-    // at the top of the dropdown that swaps to inline inputs
-    secretOptions(s, p) {
-      const current = this.paramEdits[s.name]?.[p.id];
-
-      return [
-        { label: 'Create a new secret…', value: '__create__', kind: 'highlighted' },
-        { label: 'divider', disabled: true, kind: 'divider' },
-        { label: current ? '(keep current value)' : '(none)', value: '' },
-        ...this.sharedSecrets.map((n) => ({ label: n, value: n })),
-      ];
-    },
-
-    onSecretSelect(key, val) {
-      const v = typeof val === 'object' ? val?.value : val;
-
-      this.secretSel[key] = v;
-      if (v === '__create__' && !this.newSecrets[key]) {
-        this.newSecrets[key] = { value: '' };
-      }
-    },
-
-    // Secret names are derived from the param (ghToken -> gh-token),
-    // deduped with a numeric suffix — the user only supplies the value
-    secretNameFor(paramId) {
-      const base = paramId.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
-      let name = base;
-      let i = 2;
-
-      while (this.sharedSecrets.includes(name)) {
-        name = `${ base }-${ i++ }`;
-      }
-
-      return name;
-    },
-
-    cancelCreateSecret(key) {
-      this.secretSel[key] = '';
-      delete this.newSecrets[key];
     },
 
     cardFor(s) {
@@ -245,32 +253,14 @@ export default {
       this.error = null;
       const failures = [];
 
-      // Resolve selected shared secrets into param values first — creating
-      // any new ones typed inline
-      for (const [key, secretName] of Object.entries(this.secretSel)) {
-        if (!secretName) {
-          continue;
-        }
-        const [sidecar, paramId] = key.split('::');
+      // Fill secret-style params from the chosen secret set (by param id)
+      const secretValues = await this.resolveSecretValues();
 
-        try {
-          if (secretName === '__create__') {
-            const ns = this.newSecrets[key] || {};
-
-            if (!ns.value) {
-              failures.push(`${ sidecar }/${ paramId }: new secret needs a value`);
-              continue;
-            }
-            const name = this.secretNameFor(paramId);
-
-            await createSharedSecret(name, ns.value);
-            this.sharedSecrets = [...this.sharedSecrets, name].sort();
-            this.paramEdits[sidecar][paramId] = ns.value;
-          } else {
-            this.paramEdits[sidecar][paramId] = await readSharedSecret(secretName);
+      for (const sc of this.sidecars) {
+        for (const p of sc.params || []) {
+          if (this.isSecretParam(p) && secretValues[p.id] !== undefined) {
+            this.paramEdits[sc.name][p.id] = secretValues[p.id];
           }
-        } catch (e) {
-          failures.push(`secret ${ secretName }: ${ e.message }`);
         }
       }
 
@@ -321,7 +311,15 @@ export default {
       this.busy = true;
       this.error = null;
       try {
-        await createCloset(this.name, this.createSidecars);
+        const secretValues = await this.resolveSecretValues();
+        const config = {};
+
+        for (const [id, env] of Object.entries(SECRET_PARAM_ENV)) {
+          if (secretValues[id]) {
+            config[env] = secretValues[id];
+          }
+        }
+        await createCloset(this.name, this.createSidecars, config);
         this.refreshUntilListed(this.name);
         this.done();
       } catch (e) {
@@ -378,6 +376,23 @@ export default {
     </div>
 
     <template v-else>
+      <RcSection
+        title="Secrets"
+        type="primary"
+        mode="with-header"
+        class="edit-group"
+      >
+        <LabeledSelect
+          class="secret-set-select"
+          :mode="mode"
+          label="Secret set"
+          :value="secretSetName"
+          :options="secretSetOptions"
+          :searchable="false"
+          @update:value="onSecretSet($event)"
+        />
+      </RcSection>
+
       <RcSection
         v-for="group in groups"
         :key="group.name"
@@ -439,34 +454,10 @@ export default {
                     :searchable="true"
                     @update:value="paramEdits[s.name][p.id] = typeof $event === 'object' ? ($event && $event.value) : $event"
                   />
-                  <div
-                    v-else-if="isSecretParam(p) && secretSel[`${s.name}::${p.id}`] === '__create__'"
-                    class="secret-create"
-                  >
-                    <LabeledInput
-                      v-model:value="newSecrets[`${s.name}::${p.id}`].value"
-                      type="password"
-                      :label="`${p.id}: new secret value`"
-                    />
-                    <rc-button
-                      variant="ghost"
-                      size="small"
-                      aria-label="Cancel"
-                      @click="cancelCreateSecret(`${s.name}::${p.id}`)"
-                    >
-                      <rc-icon type="close" size="small" />
-                    </rc-button>
+                  <div v-else-if="isSecretParam(p)" class="param-row">
+                    <label>{{ p.id }}</label>
+                    <span class="param-value">from secret set</span>
                   </div>
-                  <LabeledSelect
-                    v-else-if="isSecretParam(p)"
-                    class="secret-select"
-                    :mode="mode"
-                    :label="p.id"
-                    :value="secretSel[`${s.name}::${p.id}`] || ''"
-                    :options="secretOptions(s, p)"
-                    :searchable="false"
-                    @update:value="onSecretSelect(`${s.name}::${p.id}`, $event)"
-                  />
                   <LabeledInput
                     v-else
                     v-model:value="paramEdits[s.name][p.id]"
@@ -514,35 +505,57 @@ export default {
       {{ error }}
     </div>
 
-    <div class="form">
-      <label>Name</label>
-      <input v-model="name" placeholder="e.g. pr-18387" @keyup.enter="create">
-    </div>
-
     <RcSection
-      v-for="g in createGroups"
-      :key="g.name"
-      :title="g.name"
+      title="Secrets"
       type="primary"
       mode="with-header"
       class="edit-group"
     >
-      <div class="toggle-rows">
-        <div v-for="item in g.items" :key="item.key" class="toggle-row">
-          <span>{{ item.label }}</span>
-          <ToggleSwitch
-            :value="!!createSidecars[item.key]"
-            @update:value="createSidecars[item.key] = $event"
-          />
-        </div>
-      </div>
+      <LabeledSelect
+        class="secret-set-select"
+        label="Secret set"
+        :value="secretSetName"
+        :options="secretSetOptions"
+        :searchable="false"
+        @update:value="onSecretSet($event)"
+      />
+      <p class="hint">
+        Choose a secret set first. Manage sets under
+        <b>Configure Secrets</b> on the Magic Closets list.
+      </p>
     </RcSection>
+
+    <template v-if="secretSetChosen">
+      <div class="form">
+        <label>Name</label>
+        <input v-model="name" placeholder="e.g. pr-18387" @keyup.enter="create">
+      </div>
+
+      <RcSection
+        v-for="g in createGroups"
+        :key="g.name"
+        :title="g.name"
+        type="primary"
+        mode="with-header"
+        class="edit-group"
+      >
+        <div class="toggle-rows">
+          <div v-for="item in g.items" :key="item.key" class="toggle-row">
+            <span>{{ item.label }}</span>
+            <ToggleSwitch
+              :value="!!createSidecars[item.key]"
+              @update:value="createSidecars[item.key] = $event"
+            />
+          </div>
+        </div>
+      </RcSection>
+    </template>
 
     <div class="actions">
       <rc-button variant="secondary" @click="done()">
         Cancel
       </rc-button>
-      <rc-button variant="primary" :disabled="!name || busy" @click="create">
+      <rc-button variant="primary" :disabled="!name || !secretSetChosen || busy" @click="create">
         {{ busy ? 'Creating…' : 'Create' }}
       </rc-button>
     </div>
@@ -572,6 +585,10 @@ export default {
 
   .edit-group {
     margin-top: 12px;
+  }
+
+  .secret-set-select {
+    max-width: 440px;
   }
 
   .cards {
@@ -618,47 +635,6 @@ export default {
     font-size: 12px;
   }
 
-  .sidecar-row {
-    margin-bottom: 12px;
-
-    .check.head {
-      display: flex;
-      gap: 8px;
-      align-items: baseline;
-
-      .sidecar-name {
-        font-weight: 600;
-      }
-    }
-
-    .unsupported {
-      font-style: italic;
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .params {
-      margin: 6px 0 0 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      max-width: 440px;
-    }
-  }
-
-  .secret-create {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    width: 100%;
-    min-width: 0;
-
-    .labeled-input {
-      flex: 1;
-      min-width: 0;
-    }
-  }
-
   .param-row {
     display: flex;
     align-items: center;
@@ -674,20 +650,10 @@ export default {
       white-space: nowrap;
     }
 
-    .secret-select {
-      flex: 1;
-      min-width: 0;
-    }
-
-    input[type='text'], input[type='password'], select {
-      flex: 1;
-      min-width: 0;
-      background: var(--input-bg);
-      color: var(--input-text);
-      border: 1px solid var(--input-border);
-      border-radius: 4px;
-      padding: 4px 8px;
+    .param-value {
       font-size: 13px;
+      color: var(--muted);
+      font-style: italic;
     }
   }
 
@@ -714,18 +680,6 @@ export default {
     > label {
       opacity: 0.8;
       font-size: 13px;
-    }
-
-    .checks {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px;
-
-      .check {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-      }
     }
   }
 

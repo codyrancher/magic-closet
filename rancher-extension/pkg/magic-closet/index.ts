@@ -1,9 +1,10 @@
 import { importTypes } from '@rancher/auto-import';
 import { IPlugin } from '@shell/core/types';
+import extensionRouting from './routing/extension-routing';
 
 // Init the package
 export default function(plugin: IPlugin): void {
-  // Auto-import model, detail, edit from the folders
+  // Auto-import model, detail, edit, list from the folders
   importTypes(plugin);
 
   // Provide plugin metadata from package.json
@@ -12,4 +13,7 @@ export default function(plugin: IPlugin): void {
   // Closets live on the cluster explorer product (flat nav entry + generic
   // explorer routes)
   plugin.addProduct(require('./product'));
+
+  // The Configure Secrets page
+  plugin.addRoutes(extensionRouting);
 }
