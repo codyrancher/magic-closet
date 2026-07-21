@@ -15,7 +15,7 @@ spec:
       containers:
         - name: vscode
           image: {{ .Values.images.vscode }}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           envFrom:
             - secretRef: { name: closet-secrets }
             - configMapRef: { name: closet-config }

@@ -15,7 +15,7 @@ spec:
       containers:
         - name: project
           image: {{ .Values.images.project }}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           envFrom:
             - secretRef: { name: closet-secrets }
             - configMapRef: { name: closet-config }
