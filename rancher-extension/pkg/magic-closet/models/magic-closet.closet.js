@@ -2,26 +2,15 @@ import Resource from '@shell/plugins/dashboard-store/resource-class';
 import { deleteCloset } from '../api';
 
 export default class Closet extends Resource {
-  // Force the standard 73% / full-height slide-in. Some bundled resource-class
-  // versions omit the width prop, which makes the panel default to 33%.
-  showConfiguration(returnFocusSelector, defaultTab) {
-    const onClose = () => this.$ctx.commit('slideInPanel/close', undefined, { root: true });
+  // The config slide-in drawer defaults to a too-narrow 33% for spoofed
+  // types (the shell's width prop isn't wired through), so disable it —
+  // config editing uses the standard full-page editor instead.
+  get disableResourceDetailDrawer() {
+    return true;
+  }
 
-    this.$ctx.commit('slideInPanel/open', {
-      component:      require('@shell/components/Drawer/ResourceDetailDrawer/index.vue').default,
-      componentProps: {
-        resource:           this,
-        onClose,
-        width:              '73%',
-        height:             '100vh',
-        top:                '0',
-        'z-index':          101,
-        closeOnRouteChange: ['name', 'params', 'query'],
-        triggerFocusTrap:   true,
-        returnFocusSelector,
-        defaultTab,
-      },
-    }, { root: true });
+  get disableResourceDetailDrawerConfigTab() {
+    return true;
   }
 
   get canDelete() {
