@@ -374,17 +374,15 @@ export default {
       </div>
 
       <template v-else>
-        <RcSection title="Secrets" type="primary" mode="with-header" class="edit-group">
-          <LabeledSelect
-            class="secret-set-select"
-            :mode="mode"
-            label="Secret set"
-            :value="secretSetName"
-            :options="secretSetOptions"
-            :searchable="false"
-            @update:value="secretSetName = typeof $event === 'object' ? ($event && $event.value) : $event"
-          />
-        </RcSection>
+        <LabeledSelect
+          class="secret-set-select mb-20"
+          :mode="mode"
+          label="Secret set"
+          :value="secretSetName"
+          :options="secretSetOptions"
+          :searchable="false"
+          @update:value="secretSetName = typeof $event === 'object' ? ($event && $event.value) : $event"
+        />
 
         <RcSection
           v-for="group in groups"
@@ -487,16 +485,14 @@ export default {
         :rules="{ name: fvGetAndReportPathRules('metadata.name') }"
       />
 
-      <RcSection title="Secrets" type="primary" mode="with-header" class="edit-group">
-        <LabeledSelect
-          class="secret-set-select"
-          label="Secret set"
-          :value="secretSetName"
-          :options="secretSetOptions"
-          :searchable="false"
-          @update:value="secretSetName = typeof $event === 'object' ? ($event && $event.value) : $event"
-        />
-      </RcSection>
+      <LabeledSelect
+        class="secret-set-select mb-20"
+        label="Secret set"
+        :value="secretSetName"
+        :options="secretSetOptions"
+        :searchable="false"
+        @update:value="secretSetName = typeof $event === 'object' ? ($event && $event.value) : $event"
+      />
 
       <RcSection
         v-for="g in createGroups"
