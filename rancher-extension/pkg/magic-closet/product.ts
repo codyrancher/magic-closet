@@ -13,7 +13,7 @@ export function init($plugin: IPlugin, store: any) {
   // spoofedType exists at runtime but is missing from DSLReturnType
   const dsl: any = $plugin.DSL(store, EXPLORER);
   const {
-    basicType, configureType, headers, spoofedType, virtualType,
+    basicType, configureType, headers, spoofedType, virtualType, weightGroup,
   } = dsl;
 
   spoofedType({
@@ -123,13 +123,12 @@ export function init($plugin: IPlugin, store: any) {
     { name: 'keys', label: 'Keys', value: 'keyList', sort: ['keyList'] },
   ]);
 
-  // Two flat nav entries at the bottom of the cluster explorer nav
+  // Both resources live under a "Magic Closet" nav group (sorted last)
   virtualType({
-    label:      'Magic Closet',
-    group:      'Root',
+    label:      'Closets',
     namespaced: false,
     name:       'magic-closet',
-    weight:     -100,
+    weight:     10,
     route:      {
       name:   'c-cluster-product-resource',
       params: { product: EXPLORER, resource: CLOSET_TYPE },
@@ -137,14 +136,14 @@ export function init($plugin: IPlugin, store: any) {
   });
   virtualType({
     label:      'Secret Sets',
-    group:      'Root',
     namespaced: false,
     name:       'magic-closet-secrets',
-    weight:     -101,
+    weight:     9,
     route:      {
       name:   'c-cluster-product-resource',
       params: { product: EXPLORER, resource: SECRET_SET_TYPE },
     },
   });
-  basicType(['magic-closet', 'magic-closet-secrets']);
+  weightGroup('magicCloset', -100, true);
+  basicType(['magic-closet', 'magic-closet-secrets'], 'magicCloset');
 }
