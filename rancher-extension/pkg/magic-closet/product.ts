@@ -1,12 +1,13 @@
 import { IPlugin } from '@shell/core/types';
 import { STATE, NAME } from '@shell/config/table-headers';
-import { closetApiBase, listClosets, setCluster } from './api';
+import { closetApiBase, listClosets, setCluster, setSecretOwner } from './api';
 
 // Everything is registered on the cluster explorer product: closets appear as
 // a single flat nav entry (like the dashboard links) instead of a product
 // group, and the list/detail/create pages use the explorer's generic routes.
 export const EXPLORER = 'explorer';
 export const CLOSET_TYPE = 'magic-closet.closet';
+export const SECRET_SET_TYPE = 'magic-closet.secret-set';
 
 export function init($plugin: IPlugin, store: any) {
   // spoofedType exists at runtime but is missing from DSLReturnType
@@ -75,6 +76,29 @@ export function init($plugin: IPlugin, store: any) {
     { name: 'sidecars', label: 'Sidecars', value: 'sidecars', sort: ['sidecars'] },
     { name: 'namespace', label: 'Namespace', value: 'spec.namespace', sort: ['spec.namespace'] },
   ]);
+
+  setSecretOwner(store.getters['auth/principalId']);
+
+  // A hidden spoofed type used only to host the Configure Secrets page (its
+  // list component is list/magic-closet.secret-set.vue); not shown in the nav.
+  spoofedType({
+    label:             'Secret Sets',
+    type:              SECRET_SET_TYPE,
+    product:           EXPLORER,
+    collectionMethods: [],
+    schemas:           [{
+      id:                SECRET_SET_TYPE,
+      type:              'schema',
+      collectionMethods: [],
+      resourceMethods:   [],
+      resourceFields:    {},
+    }],
+    getInstances: async () => [],
+  });
+
+  configureType(SECRET_SET_TYPE, {
+    isCreatable: false, isEditable: false, isRemovable: false, showAge: false, showState: false, canYaml: false,
+  });
 
   // Single flat entry at the bottom of the cluster explorer nav
   virtualType({

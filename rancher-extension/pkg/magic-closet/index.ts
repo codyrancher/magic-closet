@@ -1,6 +1,5 @@
 import { importTypes } from '@rancher/auto-import';
 import { IPlugin } from '@shell/core/types';
-import extensionRouting from './routing/extension-routing';
 
 // Init the package
 export default function(plugin: IPlugin): void {
@@ -14,6 +13,4 @@ export default function(plugin: IPlugin): void {
   // explorer routes)
   plugin.addProduct(require('./product'));
 
-  // The Configure Secrets page
-  plugin.addRoutes(extensionRouting);
 }

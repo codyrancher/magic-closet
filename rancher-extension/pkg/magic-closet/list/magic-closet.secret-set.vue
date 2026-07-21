@@ -22,6 +22,13 @@ const SECRET_KEYS = [
 export default {
   name: 'ConfigureSecrets',
 
+  props: {
+    schema: {
+      type:    Object,
+      default: () => ({}),
+    },
+  },
+
   components: {
     RcButton, RcSection, RcIcon, LabeledInput, ToggleSwitch,
   },

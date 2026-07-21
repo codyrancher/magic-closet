@@ -2,7 +2,7 @@
 import Masthead from '@shell/components/ResourceList/Masthead';
 import ResourceTable from '@shell/components/ResourceTable';
 import { RcButton } from '@components/RcButton';
-import { CLOSET_TYPE, EXPLORER } from '../product';
+import { CLOSET_TYPE, EXPLORER, SECRET_SET_TYPE } from '../product';
 
 // Custom list page so we can add a "Configure Secrets" action next to Create.
 export default {
@@ -28,8 +28,8 @@ export default {
   methods: {
     configureSecrets() {
       this.$router.push({
-        name:   'c-cluster-magic-closet-secrets',
-        params: { cluster: this.$route.params.cluster },
+        name:   'c-cluster-product-resource',
+        params: { cluster: this.$route.params.cluster, product: EXPLORER, resource: SECRET_SET_TYPE },
       });
     },
   },
