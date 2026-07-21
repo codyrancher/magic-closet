@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # openvscode-server (Gitpod's VS Code server — good reverse-proxy support)
-ARG OPENVSCODE_VERSION=1.96.4
+ARG OPENVSCODE_VERSION=1.109.5
 RUN wget -q "https://github.com/gitpod-io/openvscode-server/releases/download/openvscode-server-v${OPENVSCODE_VERSION}/openvscode-server-v${OPENVSCODE_VERSION}-linux-x64.tar.gz" \
     && tar -xzf "openvscode-server-v${OPENVSCODE_VERSION}-linux-x64.tar.gz" \
     && mv "openvscode-server-v${OPENVSCODE_VERSION}-linux-x64" /opt/openvscode-server \
