@@ -1,6 +1,6 @@
 import { IPlugin } from '@shell/core/types';
 import { STATE, NAME } from '@shell/config/table-headers';
-import { closetApiBase, listClosets, setCluster, setSecretOwner } from './api';
+import { closetApiBase, listClosets, listSecretSets, setCluster, setSecretOwner } from './api';
 
 // Everything is registered on the cluster explorer product: closets appear as
 // a single flat nav entry (like the dashboard links) instead of a product
@@ -79,28 +79,51 @@ export function init($plugin: IPlugin, store: any) {
 
   setSecretOwner(store.getters['auth/principalId']);
 
-  // A hidden spoofed type used only to host the Configure Secrets page (its
-  // list component is list/magic-closet.secret-set.vue); not shown in the nav.
+  // Secret Sets — a per-user resource (bundles of tokens/keys reused across
+  // closets). Standard list/create/edit pages.
   spoofedType({
     label:             'Secret Sets',
     type:              SECRET_SET_TYPE,
     product:           EXPLORER,
-    collectionMethods: [],
+    collectionMethods: ['POST'],
     schemas:           [{
       id:                SECRET_SET_TYPE,
       type:              'schema',
-      collectionMethods: [],
-      resourceMethods:   [],
-      resourceFields:    {},
+      collectionMethods: ['POST'],
+      resourceMethods:   ['PUT', 'DELETE'],
+      resourceFields:    { spec: { type: 'json' } },
     }],
-    getInstances: async () => [],
+    getInstances: async () => {
+      setSecretOwner(store.getters['auth/principalId']);
+      const sets = await listSecretSets();
+
+      return sets.map((set: any) => ({
+        id:       set.name,
+        type:     SECRET_SET_TYPE,
+        isDefault: set.isDefault,
+        keyList:  (set.keys || []).join(', ') || '—',
+        spec:     set,
+        metadata: { name: set.name },
+      }));
+    },
   });
 
   configureType(SECRET_SET_TYPE, {
-    isCreatable: false, isEditable: false, isRemovable: false, showAge: false, showState: false, canYaml: false,
+    isCreatable: true,
+    isEditable:  true,
+    isRemovable: true,
+    showAge:     false,
+    showState:   false,
+    canYaml:     false,
   });
 
-  // Single flat entry at the bottom of the cluster explorer nav
+  headers(SECRET_SET_TYPE, [
+    NAME,
+    { name: 'default', label: 'Default', value: 'isDefault', sort: ['isDefault'], formatter: 'Checked' },
+    { name: 'keys', label: 'Keys', value: 'keyList', sort: ['keyList'] },
+  ]);
+
+  // Two flat nav entries at the bottom of the cluster explorer nav
   virtualType({
     label:      'Magic Closet',
     group:      'Root',
@@ -112,5 +135,16 @@ export function init($plugin: IPlugin, store: any) {
       params: { product: EXPLORER, resource: CLOSET_TYPE },
     },
   });
-  basicType(['magic-closet']);
+  virtualType({
+    label:      'Secret Sets',
+    group:      'Root',
+    namespaced: false,
+    name:       'magic-closet-secrets',
+    weight:     -101,
+    route:      {
+      name:   'c-cluster-product-resource',
+      params: { product: EXPLORER, resource: SECRET_SET_TYPE },
+    },
+  });
+  basicType(['magic-closet', 'magic-closet-secrets']);
 }

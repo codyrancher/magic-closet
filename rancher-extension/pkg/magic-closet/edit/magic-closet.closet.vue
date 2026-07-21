@@ -520,8 +520,7 @@ export default {
         @update:value="onSecretSet($event)"
       />
       <p class="hint">
-        Choose a secret set first. Manage sets under
-        <b>Configure Secrets</b> on the Magic Closets list.
+        Choose a secret set first. Manage sets on the <b>Secret Sets</b> page.
       </p>
     </RcSection>
 

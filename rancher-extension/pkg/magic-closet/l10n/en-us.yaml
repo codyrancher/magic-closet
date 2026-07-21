@@ -3,3 +3,7 @@ typeLabel:
     {count, plural,
       one { Magic Closet }
       other { Magic Closets }}
+  magic-closet.secret-set: |-
+    {count, plural,
+      one { Secret Set }
+      other { Secret Sets }}
