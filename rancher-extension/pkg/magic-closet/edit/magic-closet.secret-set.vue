@@ -1,7 +1,9 @@
 <script>
+import CruResource from '@shell/components/CruResource';
+import NameNsDescription from '@shell/components/form/NameNsDescription';
+import FormValidation from '@shell/mixins/form-validation';
 import { LabeledInput } from '@components/Form/LabeledInput';
 import { ToggleSwitch } from '@components/Form/ToggleSwitch';
-import { RcButton } from '@components/RcButton';
 import {
   readSecretSet, saveSecretSet, setCluster, setSecretOwner,
 } from '../api';
@@ -19,7 +21,11 @@ const SECRET_KEYS = [
 export default {
   name: 'SecretSetEdit',
 
-  components: { LabeledInput, ToggleSwitch, RcButton },
+  components: {
+    CruResource, NameNsDescription, LabeledInput, ToggleSwitch,
+  },
+
+  mixins: [FormValidation],
 
   props: {
     value: {
@@ -33,13 +39,17 @@ export default {
   },
 
   data() {
+    // The shared FormValidation mixin validates paths within `this.value`
+    if (!this.value.metadata) {
+      this.value.metadata = { name: this.value.id || '' };
+    }
+
     return {
-      secretKeys: SECRET_KEYS,
-      name:       this.value?.metadata?.name || '',
-      isDefault:  !!this.value?.spec?.isDefault,
-      values:     {},
-      busy:       false,
-      error:      null,
+      secretKeys:      SECRET_KEYS,
+      isDefault:       !!this.value?.spec?.isDefault,
+      values:          {},
+      errors:          [],
+      fvFormRuleSets:  [{ path: 'metadata.name', rules: ['required'] }],
     };
   },
 
@@ -48,113 +58,87 @@ export default {
       return this.mode === 'create';
     },
 
-    isView() {
-      return this.mode === 'view';
+    doneRoute() {
+      return 'c-cluster-product-resource';
+    },
+
+    doneParams() {
+      return { cluster: this.$route.params.cluster, product: EXPLORER, resource: SECRET_SET_TYPE };
     },
   },
 
   async created() {
     setCluster(this.$route.params.cluster);
     setSecretOwner(this.$store.getters['auth/principalId']);
-    if (!this.isCreate && this.name) {
-      this.values = await readSecretSet(this.name).catch(() => ({}));
+    if (!this.isCreate && this.value?.metadata?.name) {
+      this.values = await readSecretSet(this.value.metadata.name).catch(() => ({}));
     }
   },
 
   methods: {
-    async save() {
-      if (!this.name) {
-        this.error = 'a name is required';
-
-        return;
-      }
-      this.busy = true;
-      this.error = null;
+    async save(saveCb) {
+      this.errors = [];
       try {
-        await saveSecretSet(this.name, this.values, this.isDefault);
-        this.done();
+        await saveSecretSet(this.value.metadata.name, this.values, this.isDefault);
+        saveCb(true);
+        this.$router.push({ name: this.doneRoute, params: this.doneParams });
       } catch (e) {
-        this.error = e.message;
-        this.busy = false;
+        this.errors = [e.message];
+        saveCb(false);
       }
     },
 
-    done() {
-      this.$router.push({
-        name:   'c-cluster-product-resource',
-        params: { cluster: this.$route.params.cluster, product: EXPLORER, resource: SECRET_SET_TYPE },
-      });
+    cancel() {
+      this.$router.push({ name: this.doneRoute, params: this.doneParams });
     },
   },
 };
 </script>
 
 <template>
-  <div class="secret-set-edit">
-    <div v-if="error" class="banner error">
-      {{ error }}
+  <CruResource
+    :mode="mode"
+    :resource="value"
+    :validation-passed="fvFormIsValid"
+    :errors="errors"
+    :cancel-event="true"
+    :done-route="doneRoute"
+    @finish="save"
+    @cancel="cancel"
+    @error="e => errors = e"
+  >
+    <NameNsDescription
+      :value="value"
+      :mode="mode"
+      :namespaced="false"
+      :description-hidden="true"
+      name-label="Set name"
+      :rules="{ name: fvGetAndReportPathRules('metadata.name') }"
+    />
+
+    <div class="default-row">
+      <span>Default set</span>
+      <ToggleSwitch v-model:value="isDefault" :disabled="mode === 'view'" />
     </div>
 
-    <div class="form">
-      <LabeledInput
-        v-if="isCreate"
-        v-model:value="name"
-        label="Set name"
-        placeholder="e.g. my-tokens"
-      />
-      <div class="default-row">
-        <span>Default set</span>
-        <ToggleSwitch v-model:value="isDefault" :disabled="isView" />
-      </div>
-      <LabeledInput
-        v-for="k in secretKeys"
-        :key="k.key"
-        v-model:value="values[k.key]"
-        type="password"
-        :mode="mode"
-        :label="k.label"
-      />
-    </div>
-
-    <div v-if="!isView" class="actions">
-      <rc-button variant="secondary" @click="done">
-        Cancel
-      </rc-button>
-      <rc-button variant="primary" :disabled="busy" @click="save">
-        {{ busy ? 'Saving…' : 'Save' }}
-      </rc-button>
-    </div>
-  </div>
+    <LabeledInput
+      v-for="k in secretKeys"
+      :key="k.key"
+      v-model:value="values[k.key]"
+      class="mb-10"
+      type="password"
+      :mode="mode"
+      :label="k.label"
+    />
+  </CruResource>
 </template>
 
 <style lang="scss" scoped>
-.secret-set-edit {
-  .banner.error {
-    border: 1px solid var(--error);
-    border-radius: 4px;
-    padding: 10px;
-    margin-bottom: 15px;
-  }
-
-  .form {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    max-width: 640px;
-
-    .default-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      max-width: 640px;
-    }
-  }
-
-  .actions {
-    display: flex;
-    gap: 10px;
-    justify-content: flex-end;
-    margin-top: 20px;
-  }
+.default-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 640px;
+  margin: 10px 0 20px 0;
 }
 </style>

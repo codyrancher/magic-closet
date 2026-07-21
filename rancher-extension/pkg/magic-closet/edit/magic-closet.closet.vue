@@ -1,5 +1,7 @@
 <script>
-import { RcButton } from '@components/RcButton';
+import CruResource from '@shell/components/CruResource';
+import NameNsDescription from '@shell/components/form/NameNsDescription';
+import FormValidation from '@shell/mixins/form-validation';
 import { RcItemCard } from '@components/RcItemCard';
 import { RcSection } from '@components/RcSection';
 import { ToggleSwitch } from '@components/Form/ToggleSwitch';
@@ -23,15 +25,16 @@ const SECRET_PARAM_ENV = {
   apiKey:       'FIGMA_API_KEY',
 };
 
-// Create a closet, or edit an existing one's config: which sidecars run,
-// their params, and the active Rancher auth provider. Secret-style params are
-// filled from a chosen secret set (managed under Configure Secrets).
+// Create a closet, or edit an existing one's config. Wrapped in CruResource
+// for the standard masthead + footer + validation.
 export default {
   name: 'ClosetEdit',
 
   components: {
-    RcButton, RcItemCard, RcSection, ToggleSwitch, LabeledInput, LabeledSelect,
+    CruResource, NameNsDescription, RcItemCard, RcSection, ToggleSwitch, LabeledInput, LabeledSelect,
   },
+
+  mixins: [FormValidation],
 
   props: {
     value: {
@@ -45,10 +48,14 @@ export default {
   },
 
   data() {
+    if (!this.value.metadata) {
+      this.value.metadata = { name: this.value.id || '' };
+    }
+    const editing = !!this.value?.spec?.namespace;
+
     return {
-      name:      '',
-      busy:      false,
-      error:     null,
+      busy:  false,
+      errors: [],
       // create mode
       createSidecars: {
         vscode:         true,
@@ -80,16 +87,17 @@ export default {
         },
       ],
       // edit mode
-      sidecars:        [],
-      enabled:         {},
-      paramEdits:      {},
-      authProvider:    '',
-      loaded:          false,
-      optionValues:    {},
+      sidecars:      [],
+      enabled:       {},
+      paramEdits:    {},
+      authProvider:  '',
+      loaded:        false,
+      optionValues:  {},
       // secrets
-      secretSets:      [],
-      secretSetName:   '',
-      secretSetPicked: false,
+      secretSets:    [],
+      secretSetName: '',
+      // name required on create
+      fvFormRuleSets: editing ? [] : [{ path: 'metadata.name', rules: ['required'] }],
     };
   },
 
@@ -152,9 +160,8 @@ export default {
       ];
     },
 
-    // In create mode a set must be chosen before the rest of the form shows
-    secretSetChosen() {
-      return this.secretSetPicked;
+    doneParams() {
+      return { cluster: this.$route.params.cluster, product: EXPLORER, resource: CLOSET_TYPE };
     },
   },
 
@@ -174,16 +181,9 @@ export default {
 
       if (def && !this.secretSetName) {
         this.secretSetName = def.name;
-        this.secretSetPicked = true;
       }
     },
 
-    onSecretSet(val) {
-      this.secretSetName = typeof val === 'object' ? (val && val.value) : val;
-      this.secretSetPicked = true;
-    },
-
-    // Resolve the chosen secret set's values, keyed by param id
     async resolveSecretValues() {
       if (!this.secretSetName) {
         return {};
@@ -207,7 +207,6 @@ export default {
           }
           this.paramEdits[s.name] = edits;
         }
-        // Suggested values for params with an options source (taggable)
         await Promise.all(this.sidecars.flatMap((sc) => (sc.params || [])
           .filter((p) => p.options)
           .map(async (p) => {
@@ -219,11 +218,10 @@ export default {
           })));
         this.loaded = true;
       } catch (e) {
-        this.error = e.message;
+        this.errors = [e.message];
       }
     },
 
-    // Secret-style params are filled from the chosen secret set
     isSecretParam(p) {
       return /(token|secret|key|password)$/i.test(p.id);
     },
@@ -248,12 +246,14 @@ export default {
       return (s.params || []).some((p) => (this.paramEdits[s.name]?.[p.id] ?? '') !== (p.value ?? p.default ?? ''));
     },
 
-    async save() {
-      this.busy = true;
-      this.error = null;
-      const failures = [];
+    // CruResource @finish
+    finish(cb) {
+      return this.isEdit ? this.saveConfig(cb) : this.create(cb);
+    },
 
-      // Fill secret-style params from the chosen secret set (by param id)
+    async saveConfig(cb) {
+      this.errors = [];
+      const failures = [];
       const secretValues = await this.resolveSecretValues();
 
       for (const sc of this.sidecars) {
@@ -299,18 +299,22 @@ export default {
       }
 
       if (failures.length) {
-        this.error = failures.join(' — ');
-        this.busy = false;
+        this.errors = failures;
+        cb(false);
 
         return;
       }
-      this.done(true);
+      cb(true);
+      this.$router.push({
+        name:   'c-cluster-product-resource-id',
+        params: { ...this.doneParams, id: this.value.metadata.name },
+      });
     },
 
-    async create() {
-      this.busy = true;
-      this.error = null;
+    async create(cb) {
+      this.errors = [];
       try {
+        const name = this.value.metadata.name;
         const secretValues = await this.resolveSecretValues();
         const config = {};
 
@@ -319,12 +323,13 @@ export default {
             config[env] = secretValues[id];
           }
         }
-        await createCloset(this.name, this.createSidecars, config);
-        this.refreshUntilListed(this.name);
-        this.done();
+        await createCloset(name, this.createSidecars, config);
+        this.refreshUntilListed(name);
+        cb(true);
+        this.$router.push({ name: 'c-cluster-product-resource', params: this.doneParams });
       } catch (e) {
-        this.error = e.message;
-        this.busy = false;
+        this.errors = [e.message];
+        cb(false);
       }
     },
 
@@ -332,10 +337,8 @@ export default {
     // the spoofed type is served from cache — force-refetch until the new
     // closet shows up so the list updates without a page reload
     async refreshUntilListed(name) {
-      const store = this.$store;
-
       for (let i = 0; i < 15; i++) {
-        const all = await store.dispatch('cluster/findAll', { type: CLOSET_TYPE, opt: { force: true } });
+        const all = await this.$store.dispatch('cluster/findAll', { type: CLOSET_TYPE, opt: { force: true } });
 
         if ((all || []).some((c) => c.metadata?.name === name)) {
           return;
@@ -344,191 +347,155 @@ export default {
       }
     },
 
-    done(toDetail = false) {
-      if (toDetail && this.isEdit) {
-        this.$router.push({
-          name:   'c-cluster-product-resource-id',
-          params: {
-            cluster: this.$route.params.cluster, product: EXPLORER, resource: CLOSET_TYPE, id: this.value.metadata.name,
-          },
-        });
-
-        return;
-      }
-      this.$router.push({
-        name:   'c-cluster-product-resource',
-        params: { cluster: this.$route.params.cluster, product: EXPLORER, resource: CLOSET_TYPE },
-      });
+    cancel() {
+      this.$router.push({ name: 'c-cluster-product-resource', params: this.doneParams });
     },
   },
 };
 </script>
 
 <template>
-  <!-- Edit config for an existing closet -->
-  <div v-if="isEdit" class="closet-create">
-    <div v-if="error" class="banner error">
-      {{ error }}
-    </div>
+  <CruResource
+    :mode="mode"
+    :resource="value"
+    :validation-passed="isEdit || fvFormIsValid"
+    :errors="errors"
+    :cancel-event="true"
+    :finish-button-mode="isEdit ? 'edit' : 'create'"
+    @finish="finish"
+    @cancel="cancel"
+    @error="e => errors = e"
+  >
+    <!-- Edit config for an existing closet -->
+    <template v-if="isEdit">
+      <div v-if="!loaded" class="hint">
+        Loading current configuration…
+      </div>
 
-    <div v-if="!loaded" class="hint">
-      Loading current configuration…
-    </div>
+      <template v-else>
+        <RcSection title="Secrets" type="primary" mode="with-header" class="edit-group">
+          <LabeledSelect
+            class="secret-set-select"
+            :mode="mode"
+            label="Secret set"
+            :value="secretSetName"
+            :options="secretSetOptions"
+            :searchable="false"
+            @update:value="secretSetName = typeof $event === 'object' ? ($event && $event.value) : $event"
+          />
+        </RcSection>
 
+        <RcSection
+          v-for="group in groups"
+          :key="group.name"
+          :title="group.name.charAt(0).toUpperCase() + group.name.slice(1)"
+          type="primary"
+          mode="with-header"
+          class="edit-group"
+        >
+          <div class="cards">
+            <rc-item-card
+              v-for="s in group.sidecars"
+              :id="`sidecar-${s.name}`"
+              :key="s.name"
+              v-bind="cardFor(s)"
+              variant="medium"
+            >
+              <template #item-card-header-title>
+                <div class="title-row">
+                  <h3 class="item-card-header-title medium">
+                    {{ s.name }}
+                  </h3>
+                  <ToggleSwitch
+                    class="enable-toggle"
+                    :value="!!enabled[s.name]"
+                    :disabled="isView || (!!s.unsupported && s.status === 'not_created')"
+                    @update:value="enabled[s.name] = $event"
+                  />
+                </div>
+              </template>
+
+              <template #item-card-sub-header>
+                <div class="sub">
+                  <div class="desc">
+                    {{ s.description }}
+                  </div>
+                  <span v-if="s.unsupported" class="unsupported">{{ s.unsupported }}</span>
+                </div>
+              </template>
+
+              <template #item-card-footer>
+                <div v-if="enabled[s.name] && ((s.params || []).length || s.name === 'rancher')" class="params">
+                  <template v-for="p in s.params" :key="p.id">
+                    <div v-if="p.type === 'boolean'" class="param-row">
+                      <label :for="`${s.name}-${p.id}`">{{ p.id }}</label>
+                      <ToggleSwitch
+                        :id="`${s.name}-${p.id}`"
+                        :value="!!paramEdits[s.name][p.id] && paramEdits[s.name][p.id] !== 'false'"
+                        :disabled="isView"
+                        @update:value="paramEdits[s.name][p.id] = $event ? 'true' : ''"
+                      />
+                    </div>
+                    <LabeledSelect
+                      v-else-if="p.options"
+                      :mode="mode"
+                      :label="p.id"
+                      :value="paramEdits[s.name][p.id]"
+                      :options="optionValues[`${s.name}::${p.id}`] || []"
+                      :taggable="true"
+                      :searchable="true"
+                      @update:value="paramEdits[s.name][p.id] = typeof $event === 'object' ? ($event && $event.value) : $event"
+                    />
+                    <div v-else-if="isSecretParam(p)" class="param-row">
+                      <label>{{ p.id }}</label>
+                      <span class="param-value">from secret set</span>
+                    </div>
+                    <LabeledInput
+                      v-else
+                      v-model:value="paramEdits[s.name][p.id]"
+                      :mode="mode"
+                      :label="p.id"
+                      :placeholder="p.default || ''"
+                    />
+                  </template>
+                  <LabeledSelect
+                    v-if="s.name === 'rancher'"
+                    class="auth-select"
+                    :mode="mode"
+                    label="rancher auth"
+                    :value="authProvider"
+                    :options="authModes"
+                    :searchable="false"
+                    @update:value="authProvider = typeof $event === 'object' ? ($event && $event.value) : $event"
+                  />
+                </div>
+              </template>
+            </rc-item-card>
+          </div>
+        </RcSection>
+      </template>
+    </template>
+
+    <!-- Create a new closet -->
     <template v-else>
-      <RcSection
-        title="Secrets"
-        type="primary"
-        mode="with-header"
-        class="edit-group"
-      >
+      <NameNsDescription
+        :value="value"
+        :mode="mode"
+        :namespaced="false"
+        :description-hidden="true"
+        :rules="{ name: fvGetAndReportPathRules('metadata.name') }"
+      />
+
+      <RcSection title="Secrets" type="primary" mode="with-header" class="edit-group">
         <LabeledSelect
           class="secret-set-select"
-          :mode="mode"
           label="Secret set"
           :value="secretSetName"
           :options="secretSetOptions"
           :searchable="false"
-          @update:value="onSecretSet($event)"
+          @update:value="secretSetName = typeof $event === 'object' ? ($event && $event.value) : $event"
         />
       </RcSection>
-
-      <RcSection
-        v-for="group in groups"
-        :key="group.name"
-        :title="group.name.charAt(0).toUpperCase() + group.name.slice(1)"
-        type="primary"
-        mode="with-header"
-        class="edit-group"
-      >
-        <div class="cards">
-          <rc-item-card
-            v-for="s in group.sidecars"
-            :id="`sidecar-${s.name}`"
-            :key="s.name"
-            v-bind="cardFor(s)"
-            variant="medium"
-          >
-            <template #item-card-header-title>
-              <div class="title-row">
-                <h3 class="item-card-header-title medium">
-                  {{ s.name }}
-                </h3>
-                <ToggleSwitch
-                  class="enable-toggle"
-                  :value="!!enabled[s.name]"
-                  :disabled="isView || (!!s.unsupported && s.status === 'not_created')"
-                  @update:value="enabled[s.name] = $event"
-                />
-              </div>
-            </template>
-
-            <template #item-card-sub-header>
-              <div class="sub">
-                <div class="desc">
-                  {{ s.description }}
-                </div>
-                <span v-if="s.unsupported" class="unsupported">{{ s.unsupported }}</span>
-              </div>
-            </template>
-
-            <template #item-card-footer>
-              <div v-if="enabled[s.name] && ((s.params || []).length || s.name === 'rancher')" class="params">
-                <template v-for="p in s.params" :key="p.id">
-                  <div v-if="p.type === 'boolean'" class="param-row">
-                    <label :for="`${s.name}-${p.id}`">{{ p.id }}</label>
-                    <ToggleSwitch
-                      :id="`${s.name}-${p.id}`"
-                      :value="!!paramEdits[s.name][p.id] && paramEdits[s.name][p.id] !== 'false'"
-                      :disabled="isView"
-                      @update:value="paramEdits[s.name][p.id] = $event ? 'true' : ''"
-                    />
-                  </div>
-                  <LabeledSelect
-                    v-else-if="p.options"
-                    :mode="mode"
-                    :label="p.id"
-                    :value="paramEdits[s.name][p.id]"
-                    :options="optionValues[`${s.name}::${p.id}`] || []"
-                    :taggable="true"
-                    :searchable="true"
-                    @update:value="paramEdits[s.name][p.id] = typeof $event === 'object' ? ($event && $event.value) : $event"
-                  />
-                  <div v-else-if="isSecretParam(p)" class="param-row">
-                    <label>{{ p.id }}</label>
-                    <span class="param-value">from secret set</span>
-                  </div>
-                  <LabeledInput
-                    v-else
-                    v-model:value="paramEdits[s.name][p.id]"
-                    :mode="mode"
-                    :label="p.id"
-                    :placeholder="p.default || ''"
-                  />
-                </template>
-                <LabeledSelect
-                  v-if="s.name === 'rancher'"
-                  class="auth-select"
-                  :mode="mode"
-                  label="rancher auth"
-                  :value="authProvider"
-                  :options="authModes"
-                  :searchable="false"
-                  @update:value="authProvider = typeof $event === 'object' ? ($event && $event.value) : $event"
-                />
-              </div>
-            </template>
-          </rc-item-card>
-        </div>
-      </RcSection>
-
-      <div v-if="!isView" class="actions">
-        <rc-button variant="secondary" @click="done(true)">
-          Cancel
-        </rc-button>
-        <rc-button variant="primary" :disabled="busy" @click="save">
-          {{ busy ? 'Saving…' : 'Save' }}
-        </rc-button>
-      </div>
-    </template>
-  </div>
-
-  <!-- Create a new closet -->
-  <div v-else class="closet-create create">
-    <p class="hint">
-      Installs a closet into this cluster (namespace <code>closet-&lt;name&gt;</code>):
-      a project workspace plus the sidecars you pick, managed by the closet's
-      own dashboard.
-    </p>
-
-    <div v-if="error" class="banner error">
-      {{ error }}
-    </div>
-
-    <RcSection
-      title="Secrets"
-      type="primary"
-      mode="with-header"
-      class="edit-group"
-    >
-      <LabeledSelect
-        class="secret-set-select"
-        label="Secret set"
-        :value="secretSetName"
-        :options="secretSetOptions"
-        :searchable="false"
-        @update:value="onSecretSet($event)"
-      />
-      <p class="hint">
-        Choose a secret set first. Manage sets on the <b>Secret Sets</b> page.
-      </p>
-    </RcSection>
-
-    <template v-if="secretSetChosen">
-      <div class="form">
-        <label>Name</label>
-        <input v-model="name" placeholder="e.g. pr-18387" @keyup.enter="create">
-      </div>
 
       <RcSection
         v-for="g in createGroups"
@@ -549,144 +516,100 @@ export default {
         </div>
       </RcSection>
     </template>
-
-    <div class="actions">
-      <rc-button variant="secondary" @click="done()">
-        Cancel
-      </rc-button>
-      <rc-button variant="primary" :disabled="!name || !secretSetChosen || busy" @click="create">
-        {{ busy ? 'Creating…' : 'Create' }}
-      </rc-button>
-    </div>
-  </div>
+  </CruResource>
 </template>
 
 <style lang="scss" scoped>
-.closet-create {
-  padding: 20px 0 40px 0;
+.hint {
+  opacity: 0.8;
+  margin: 10px 0 20px;
+}
 
-  &.create {
-    max-width: 640px;
-    padding: 20px;
+.edit-group {
+  margin-top: 12px;
+}
+
+.secret-set-select {
+  max-width: 440px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+
+  h3 {
+    margin: 0;
   }
 
-  .hint {
-    opacity: 0.8;
-    margin: 10px 0 20px;
+  .enable-toggle {
+    margin-left: auto;
   }
+}
 
-  .banner.error {
-    border: 1px solid var(--error);
-    border-radius: 4px;
-    padding: 10px;
-    margin-bottom: 15px;
+.sub {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  .desc {
+    color: var(--body-text);
   }
+}
 
-  .edit-group {
-    margin-top: 12px;
-  }
+.params {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
 
-  .secret-set-select {
-    max-width: 440px;
-  }
+.unsupported {
+  font-style: italic;
+  color: var(--muted);
+  font-size: 12px;
+}
 
-  .cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 16px;
-  }
+.param-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 
-  .title-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-
-    h3 {
-      margin: 0;
-    }
-
-    .enable-toggle {
-      margin-left: auto;
-    }
-  }
-
-  .sub {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-
-    .desc {
-      color: var(--body-text);
-    }
-  }
-
-  .params {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    width: 100%;
-  }
-
-  .unsupported {
-    font-style: italic;
+  label {
+    width: 40%;
+    margin: 0;
     color: var(--muted);
     font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .param-row {
+  .param-value {
+    font-size: 13px;
+    color: var(--muted);
+    font-style: italic;
+  }
+}
+
+.toggle-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 440px;
+
+  .toggle-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-
-    label {
-      width: 40%;
-      margin: 0;
-      color: var(--muted);
-      font-size: 12px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .param-value {
-      font-size: 13px;
-      color: var(--muted);
-      font-style: italic;
-    }
-  }
-
-  .toggle-rows {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    max-width: 440px;
-
-    .toggle-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-  }
-
-  .form {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 20px;
-
-    > label {
-      opacity: 0.8;
-      font-size: 13px;
-    }
-  }
-
-  .actions {
-    display: flex;
-    gap: 10px;
-    justify-content: flex-end;
-    margin-top: 20px;
+    justify-content: space-between;
+    gap: 12px;
   }
 }
 </style>

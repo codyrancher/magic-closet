@@ -4,8 +4,8 @@ nav:
 typeLabel:
   magic-closet.closet: |-
     {count, plural,
-      one { Magic Closet }
-      other { Magic Closets }}
+      one { Closet }
+      other { Closets }}
   magic-closet.secret-set: |-
     {count, plural,
       one { Secret Set }
