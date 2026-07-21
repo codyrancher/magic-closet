@@ -79,6 +79,7 @@ export default {
       sharedSecrets: [],
       secretSel:     {},
       newSecrets:    {},
+      optionValues:  {},
     };
   },
 
@@ -119,7 +120,12 @@ export default {
 
       for (const s of this.sidecars) {
         for (const m of s.rancherAuth?.modes || []) {
-          modes.push({ value: m.value, label: `${ s.name }: ${ m.label }` });
+          modes.push({
+            value:    m.value,
+            label:    `${ s.name }: ${ m.label }`,
+            // Only selectable when the backing sidecar will be up
+            disabled: !this.enabled[s.name],
+          });
         }
       }
 
@@ -151,6 +157,16 @@ export default {
           this.paramEdits[s.name] = edits;
         }
         this.sharedSecrets = await listSharedSecrets();
+        // Suggested values for params with an options source (taggable)
+        await Promise.all(this.sidecars.flatMap((sc) => (sc.params || [])
+          .filter((p) => p.options)
+          .map(async (p) => {
+            try {
+              const r = await rancherFetch(`${ this.apiBase }/sidecars/${ sc.name }/params/${ p.id }/options`);
+
+              this.optionValues[`${ sc.name }::${ p.id }`] = (r.options || []).map((o) => o.value ?? o);
+            } catch { /* suggestions are best-effort */ }
+          })));
         this.loaded = true;
       } catch (e) {
         this.error = e.message;
@@ -402,7 +418,7 @@ export default {
             </template>
 
             <template #item-card-footer>
-              <div v-if="enabled[s.name] && (s.params || []).length" class="params">
+              <div v-if="enabled[s.name] && ((s.params || []).length || s.name === 'rancher')" class="params">
                 <template v-for="p in s.params" :key="p.id">
                   <div v-if="p.type === 'boolean'" class="param-row">
                     <label :for="`${s.name}-${p.id}`">{{ p.id }}</label>
@@ -413,6 +429,16 @@ export default {
                       @update:value="paramEdits[s.name][p.id] = $event ? 'true' : ''"
                     />
                   </div>
+                  <LabeledSelect
+                    v-else-if="p.options"
+                    :mode="mode"
+                    :label="p.id"
+                    :value="paramEdits[s.name][p.id]"
+                    :options="optionValues[`${s.name}::${p.id}`] || []"
+                    :taggable="true"
+                    :searchable="true"
+                    @update:value="paramEdits[s.name][p.id] = typeof $event === 'object' ? ($event && $event.value) : $event"
+                  />
                   <div
                     v-else-if="isSecretParam(p) && secretSel[`${s.name}::${p.id}`] === '__create__'"
                     class="secret-create"
@@ -449,28 +475,20 @@ export default {
                     :placeholder="p.default || ''"
                   />
                 </template>
+                <LabeledSelect
+                  v-if="s.name === 'rancher'"
+                  class="auth-select"
+                  :mode="mode"
+                  label="rancher auth"
+                  :value="authProvider"
+                  :options="authModes"
+                  :searchable="false"
+                  @update:value="authProvider = typeof $event === 'object' ? ($event && $event.value) : $event"
+                />
               </div>
             </template>
           </rc-item-card>
         </div>
-      </RcSection>
-
-      <RcSection
-        title="Rancher auth"
-        type="primary"
-        mode="with-header"
-        class="edit-group"
-      >
-        <LabeledSelect
-          id="auth-provider"
-          class="auth-select"
-          :mode="mode"
-          label="provider"
-          :value="authProvider"
-          :options="authModes"
-          :searchable="false"
-          @update:value="authProvider = typeof $event === 'object' ? ($event && $event.value) : $event"
-        />
       </RcSection>
 
       <div v-if="!isView" class="actions">
@@ -598,10 +616,6 @@ export default {
     font-style: italic;
     color: var(--muted);
     font-size: 12px;
-  }
-
-  .auth-select {
-    max-width: 360px;
   }
 
   .sidecar-row {
