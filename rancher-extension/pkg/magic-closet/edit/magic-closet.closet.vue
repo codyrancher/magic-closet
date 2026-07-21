@@ -358,6 +358,7 @@ export default {
   <CruResource
     :mode="mode"
     :resource="value"
+    :can-yaml="false"
     :validation-passed="isEdit || fvFormIsValid"
     :errors="errors"
     :cancel-event="true"
