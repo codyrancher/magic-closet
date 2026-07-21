@@ -144,14 +144,18 @@ export interface SecretSet { name: string; isDefault: boolean; keys: string[]; }
 
 export async function listSecretSets(): Promise<SecretSet[]> {
   try {
-    const sel = `${ LBL_KIND }=secret-set,${ LBL_OWNER }=${ ownerId }`;
-    const data = await rancherFetch(`${ base() }/v1/secrets?labelSelector=${ encodeURIComponent(sel) }`);
+    // Steve's /v1/secrets ignores labelSelector, so filter client-side by
+    // our kind + owner labels
+    const data = await rancherFetch(`${ base() }/v1/secrets/${ SECRETS_NS }`);
 
-    return (data.data || []).map((sec: any) => ({
-      name:      sec.metadata?.annotations?.[ANN_NAME] || sec.metadata?.name,
-      isDefault: sec.metadata?.labels?.[LBL_DEFAULT] === 'true',
-      keys:      Object.keys(sec.data || {}),
-    })).sort((a: SecretSet, b: SecretSet) => a.name.localeCompare(b.name));
+    return (data.data || [])
+      .filter((sec: any) => sec.metadata?.labels?.[LBL_KIND] === 'secret-set' && sec.metadata?.labels?.[LBL_OWNER] === ownerId)
+      .map((sec: any) => ({
+        name:      sec.metadata?.annotations?.[ANN_NAME] || sec.metadata?.name,
+        isDefault: sec.metadata?.labels?.[LBL_DEFAULT] === 'true',
+        keys:      Object.keys(sec.data || {}),
+      }))
+      .sort((a: SecretSet, b: SecretSet) => a.name.localeCompare(b.name));
   } catch {
     return [];
   }
