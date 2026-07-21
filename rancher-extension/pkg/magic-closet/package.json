@@ -1,7 +1,7 @@
 {
   "name": "magic-closet",
   "description": "Provision and manage magic closet dev environments from Rancher",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "private": false,
   "icon": "https://codyrancher.github.io/magic-closet/logo.svg",
   "homepage": "https://github.com/codyrancher/magic-closet",

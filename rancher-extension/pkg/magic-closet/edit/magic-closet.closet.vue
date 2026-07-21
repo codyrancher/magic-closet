@@ -4,8 +4,8 @@ import NameNsDescription from '@shell/components/form/NameNsDescription';
 import FormValidation from '@shell/mixins/form-validation';
 import { RcItemCard } from '@components/RcItemCard';
 import { RcSection } from '@components/RcSection';
-import { ToggleSwitch } from '@components/Form/ToggleSwitch';
 import { LabeledInput } from '@components/Form/LabeledInput';
+import { Checkbox } from '@components/Form/Checkbox';
 import LabeledSelect from '@shell/components/form/LabeledSelect';
 import {
   closetApiBase, createCloset, listSecretSets, rancherFetch,
@@ -19,11 +19,16 @@ const GROUP_ORDER = ['dev', 'auth', 'design'];
 // secret set's values at closet-create time
 const SECRET_PARAM_ENV = {
   ghToken:      'GH_TOKEN',
+  appcoEmail:   'APPCO_EMAIL',
   appcoToken:   'APPCO_TOKEN',
   awsAccessKey: 'AWS_ACCESS_KEY',
   awsSecretKey: 'AWS_SECRET_KEY',
   apiKey:       'FIGMA_API_KEY',
 };
+
+// Params managed entirely by the chosen secret set — hidden from the closet
+// form (they live on the Secret Sets page)
+const SECRET_SET_KEYS = Object.keys(SECRET_PARAM_ENV);
 
 // Create a closet, or edit an existing one's config. Wrapped in CruResource
 // for the standard masthead + footer + validation.
@@ -31,7 +36,7 @@ export default {
   name: 'ClosetEdit',
 
   components: {
-    CruResource, NameNsDescription, RcItemCard, RcSection, ToggleSwitch, LabeledInput, LabeledSelect,
+    CruResource, NameNsDescription, RcItemCard, RcSection, Checkbox, LabeledInput, LabeledSelect,
   },
 
   mixins: [FormValidation],
@@ -213,7 +218,7 @@ export default {
             try {
               const r = await rancherFetch(`${ this.apiBase }/sidecars/${ sc.name }/params/${ p.id }/options`);
 
-              this.optionValues[`${ sc.name }::${ p.id }`] = (r.options || []).map((o) => o.value ?? o);
+              this.optionValues[`${ sc.name }::${ p.id }`] = (r.options || []).map((o) => (typeof o === 'object' ? o : { label: o, value: o }));
             } catch { /* suggestions are best-effort */ }
           })));
         this.loaded = true;
@@ -223,7 +228,12 @@ export default {
     },
 
     isSecretParam(p) {
-      return /(token|secret|key|password)$/i.test(p.id);
+      return SECRET_SET_KEYS.includes(p.id);
+    },
+
+    // Params to show on a sidecar card (secret-set-managed ones are hidden)
+    visibleParams(s) {
+      return (s.params || []).filter((p) => !this.isSecretParam(p));
     },
 
     cardFor(s) {
@@ -405,36 +415,30 @@ export default {
                   <h3 class="item-card-header-title medium">
                     {{ s.name }}
                   </h3>
-                  <ToggleSwitch
+                  <Checkbox
                     class="enable-toggle"
                     :value="!!enabled[s.name]"
                     :disabled="isView || (!!s.unsupported && s.status === 'not_created')"
+                    label="Enabled"
                     @update:value="enabled[s.name] = $event"
                   />
                 </div>
               </template>
 
-              <template #item-card-sub-header>
-                <div class="sub">
-                  <div class="desc">
-                    {{ s.description }}
-                  </div>
-                  <span v-if="s.unsupported" class="unsupported">{{ s.unsupported }}</span>
-                </div>
+              <template v-if="s.unsupported" #item-card-sub-header>
+                <span class="unsupported">{{ s.unsupported }}</span>
               </template>
 
               <template #item-card-footer>
-                <div v-if="enabled[s.name] && ((s.params || []).length || s.name === 'rancher')" class="params">
-                  <template v-for="p in s.params" :key="p.id">
-                    <div v-if="p.type === 'boolean'" class="param-row">
-                      <label :for="`${s.name}-${p.id}`">{{ p.id }}</label>
-                      <ToggleSwitch
-                        :id="`${s.name}-${p.id}`"
-                        :value="!!paramEdits[s.name][p.id] && paramEdits[s.name][p.id] !== 'false'"
-                        :disabled="isView"
-                        @update:value="paramEdits[s.name][p.id] = $event ? 'true' : ''"
-                      />
-                    </div>
+                <div v-if="enabled[s.name] && (visibleParams(s).length || s.name === 'rancher')" class="params">
+                  <template v-for="p in visibleParams(s)" :key="p.id">
+                    <Checkbox
+                      v-if="p.type === 'boolean'"
+                      :value="!!paramEdits[s.name][p.id] && paramEdits[s.name][p.id] !== 'false'"
+                      :disabled="isView"
+                      :label="p.id"
+                      @update:value="paramEdits[s.name][p.id] = $event ? 'true' : ''"
+                    />
                     <LabeledSelect
                       v-else-if="p.options"
                       :mode="mode"
@@ -445,10 +449,6 @@ export default {
                       :searchable="true"
                       @update:value="paramEdits[s.name][p.id] = typeof $event === 'object' ? ($event && $event.value) : $event"
                     />
-                    <div v-else-if="isSecretParam(p)" class="param-row">
-                      <label>{{ p.id }}</label>
-                      <span class="param-value">from secret set</span>
-                    </div>
                     <LabeledInput
                       v-else
                       v-model:value="paramEdits[s.name][p.id]"
@@ -503,13 +503,13 @@ export default {
         class="edit-group"
       >
         <div class="toggle-rows">
-          <div v-for="item in g.items" :key="item.key" class="toggle-row">
-            <span>{{ item.label }}</span>
-            <ToggleSwitch
-              :value="!!createSidecars[item.key]"
-              @update:value="createSidecars[item.key] = $event"
-            />
-          </div>
+          <Checkbox
+            v-for="item in g.items"
+            :key="item.key"
+            :value="!!createSidecars[item.key]"
+            :label="item.label"
+            @update:value="createSidecars[item.key] = $event"
+          />
         </div>
       </RcSection>
     </template>

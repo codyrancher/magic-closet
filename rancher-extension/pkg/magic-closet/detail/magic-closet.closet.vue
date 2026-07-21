@@ -6,6 +6,9 @@ import { closetApiBase, rancherFetch, setCluster } from '../api';
 
 const GROUP_ORDER = ['dev', 'auth', 'design'];
 
+// Params managed by the secret set — not shown as closet params
+const SECRET_SET_KEYS = ['ghToken', 'appcoEmail', 'appcoToken', 'awsAccessKey', 'awsSecretKey', 'apiKey'];
+
 // Read-only view of the closet: current sidecar state, links and configured
 // params. Changing anything happens through Edit Config.
 export default {
@@ -122,7 +125,7 @@ export default {
     },
 
     shownParams(s) {
-      return (s.params || []).filter((p) => p.value !== undefined && p.value !== null && p.value !== '');
+      return (s.params || []).filter((p) => !SECRET_SET_KEYS.includes(p.id) && p.value !== undefined && p.value !== null && p.value !== '');
     },
 
     browserSidecar() {
@@ -204,9 +207,6 @@ export default {
 
           <template #item-card-sub-header>
             <div class="sub">
-              <div class="desc">
-                {{ s.description }}
-              </div>
               <div class="links">
                 <a
                   v-if="linkFor(s)"
