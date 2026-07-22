@@ -226,6 +226,16 @@ async function patchSecretDefault(displayName: string, isDefault: boolean): Prom
   await rancherFetch(`${ base() }/v1/secrets/${ SECRETS_NS }/${ secretName(displayName) }`, { method: 'PUT', body: JSON.stringify(sec) });
 }
 
+// Make one set the user's default, clearing the flag on whichever set had it
+export async function setSecretSetDefault(displayName: string): Promise<void> {
+  for (const set of await listSecretSets()) {
+    if (set.name !== displayName && set.isDefault) {
+      await patchSecretDefault(set.name, false);
+    }
+  }
+  await patchSecretDefault(displayName, true);
+}
+
 export async function deleteSecretSet(displayName: string): Promise<void> {
   await rancherFetch(`${ base() }/v1/secrets/${ SECRETS_NS }/${ secretName(displayName) }`, { method: 'DELETE' }).catch(() => null);
 }

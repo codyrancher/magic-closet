@@ -1,5 +1,5 @@
 import Resource from '@shell/plugins/dashboard-store/resource-class';
-import { deleteSecretSet } from '../api';
+import { deleteSecretSet, setSecretSetDefault } from '../api';
 
 export default class SecretSet extends Resource {
   get canDelete() {
@@ -8,6 +8,27 @@ export default class SecretSet extends Resource {
 
   get canUpdate() {
     return true;
+  }
+
+  // Add "Make default" to the row/detail action menu (only when not already
+  // the default). Standard actions (Edit Config, Delete) come from super.
+  get _availableActions() {
+    const out = super._availableActions;
+
+    if (!this.isDefault) {
+      out.unshift({
+        action: 'makeDefault',
+        label:  'Make default',
+        icon:   'icon icon-checkmark',
+      });
+    }
+
+    return out;
+  }
+
+  async makeDefault() {
+    await setSecretSetDefault(this.metadata.name);
+    await this.$dispatch('findAll', { type: this.type, opt: { force: true } });
   }
 
   get canClone() {

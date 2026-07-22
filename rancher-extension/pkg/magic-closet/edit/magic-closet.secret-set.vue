@@ -1,6 +1,5 @@
 <script>
 import CruResource from '@shell/components/CruResource';
-import NameNsDescription from '@shell/components/form/NameNsDescription';
 import FormValidation from '@shell/mixins/form-validation';
 import { LabeledInput } from '@components/Form/LabeledInput';
 import { Checkbox } from '@components/Form/Checkbox';
@@ -9,21 +8,39 @@ import {
 } from '../api';
 import { EXPLORER, SECRET_SET_TYPE } from '../product';
 
-// The known secret keys a set can hold (param id -> friendly label)
-const SECRET_KEYS = [
-  { key: 'ghToken', label: 'GitHub token (ghToken)' },
-  { key: 'appcoEmail', label: 'AppCo email (appcoEmail)' },
-  { key: 'appcoToken', label: 'AppCo token (appcoToken)' },
-  { key: 'awsAccessKey', label: 'AWS access key (awsAccessKey)' },
-  { key: 'awsSecretKey', label: 'AWS secret key (awsSecretKey)' },
-  { key: 'apiKey', label: 'Figma API key (apiKey)' },
+// The known secret keys a set can hold, laid out in rows: related credentials
+// (AppCo, AWS, Azure) share a line; each field is half width.
+const SECRET_GROUPS = [
+  [
+    { key: 'ghToken', label: 'GitHub token (ghToken)' },
+    { key: 'apiKey', label: 'Figma API key (apiKey)' },
+  ],
+  [
+    { key: 'appcoEmail', label: 'AppCo email (appcoEmail)' },
+    { key: 'appcoToken', label: 'AppCo token (appcoToken)' },
+  ],
+  [
+    { key: 'awsAccessKey', label: 'AWS access key (awsAccessKey)' },
+    { key: 'awsSecretKey', label: 'AWS secret key (awsSecretKey)' },
+  ],
+  [
+    { key: 'gcpServiceAccountKey', label: 'GCP service account key (gcpServiceAccountKey)' },
+  ],
+  [
+    { key: 'azureClientId', label: 'Azure client ID (azureClientId)' },
+    { key: 'azureClientSecret', label: 'Azure client secret (azureClientSecret)' },
+  ],
+  [
+    { key: 'azureSubscriptionId', label: 'Azure subscription ID (azureSubscriptionId)' },
+    { key: 'azureTenantId', label: 'Azure tenant ID (azureTenantId)' },
+  ],
 ];
 
 export default {
   name: 'SecretSetEdit',
 
   components: {
-    CruResource, NameNsDescription, LabeledInput, Checkbox,
+    CruResource, LabeledInput, Checkbox,
   },
 
   mixins: [FormValidation],
@@ -46,11 +63,11 @@ export default {
     }
 
     return {
-      secretKeys:      SECRET_KEYS,
-      isDefault:       !!this.value?.spec?.isDefault,
-      values:          {},
-      errors:          [],
-      fvFormRuleSets:  [{ path: 'metadata.name', rules: ['required'] }],
+      secretGroups:   SECRET_GROUPS,
+      isDefault:      !!this.value?.spec?.isDefault,
+      values:         {},
+      errors:         [],
+      fvFormRuleSets: [{ path: 'metadata.name', rules: ['required'] }],
     };
   },
 
@@ -109,13 +126,13 @@ export default {
     @cancel="cancel"
     @error="e => errors = e"
   >
-    <NameNsDescription
-      :value="value"
+    <LabeledInput
+      v-model:value="value.metadata.name"
+      class="name-input"
       :mode="mode"
-      :namespaced="false"
-      :description-hidden="true"
-      name-label="Set name"
-      :rules="{ name: fvGetAndReportPathRules('metadata.name') }"
+      label="Set name"
+      required
+      :rules="fvGetAndReportPathRules('metadata.name')"
     />
 
     <Checkbox
@@ -125,24 +142,30 @@ export default {
       :disabled="mode === 'view'"
     />
 
-    <LabeledInput
-      v-for="k in secretKeys"
-      :key="k.key"
-      v-model:value="values[k.key]"
-      class="mb-10"
-      type="password"
-      :mode="mode"
-      :label="k.label"
-    />
+    <div
+      v-for="(group, gi) in secretGroups"
+      :key="gi"
+      class="row mb-10"
+    >
+      <div
+        v-for="k in group"
+        :key="k.key"
+        class="col span-6"
+      >
+        <LabeledInput
+          v-model:value="values[k.key]"
+          type="password"
+          :mode="mode"
+          :label="k.label"
+        />
+      </div>
+    </div>
   </CruResource>
 </template>
 
 <style lang="scss" scoped>
-.default-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  max-width: 640px;
-  margin: 10px 0 20px 0;
+// Equal gap above (masthead divider) and below (default checkbox)
+.name-input {
+  margin: 20px 0;
 }
 </style>

@@ -18,12 +18,17 @@ const GROUP_ORDER = ['dev', 'auth', 'design'];
 // Secret-style param id -> chart config env var, for injecting a chosen
 // secret set's values at closet-create time
 const SECRET_PARAM_ENV = {
-  ghToken:      'GH_TOKEN',
-  appcoEmail:   'APPCO_EMAIL',
-  appcoToken:   'APPCO_TOKEN',
-  awsAccessKey: 'AWS_ACCESS_KEY',
-  awsSecretKey: 'AWS_SECRET_KEY',
-  apiKey:       'FIGMA_API_KEY',
+  ghToken:             'GH_TOKEN',
+  appcoEmail:          'APPCO_EMAIL',
+  appcoToken:          'APPCO_TOKEN',
+  awsAccessKey:        'AWS_ACCESS_KEY',
+  awsSecretKey:        'AWS_SECRET_KEY',
+  apiKey:              'FIGMA_API_KEY',
+  gcpServiceAccountKey: 'GCP_SERVICE_ACCOUNT_KEY',
+  azureClientId:       'AZURE_CLIENT_ID',
+  azureClientSecret:   'AZURE_CLIENT_SECRET',
+  azureSubscriptionId: 'AZURE_SUBSCRIPTION_ID',
+  azureTenantId:       'AZURE_TENANT_ID',
 };
 
 // Params managed entirely by the chosen secret set — hidden from the closet
@@ -385,7 +390,7 @@ export default {
 
       <template v-else>
         <LabeledSelect
-          class="secret-set-select mb-20"
+          class="secret-set-select"
           :mode="mode"
           label="Secret set"
           :value="secretSetName"
@@ -486,7 +491,7 @@ export default {
       />
 
       <LabeledSelect
-        class="secret-set-select mb-20"
+        class="secret-set-select"
         label="Secret set"
         :value="secretSetName"
         :options="secretSetOptions"
@@ -526,8 +531,9 @@ export default {
   margin-top: 12px;
 }
 
+// Equal gap above (masthead divider) and below (first section)
 .secret-set-select {
-  max-width: 440px;
+  margin: 20px 0;
 }
 
 .cards {

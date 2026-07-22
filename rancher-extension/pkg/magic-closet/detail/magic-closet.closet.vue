@@ -7,7 +7,10 @@ import { closetApiBase, rancherFetch, setCluster } from '../api';
 const GROUP_ORDER = ['dev', 'auth', 'design'];
 
 // Params managed by the secret set — not shown as closet params
-const SECRET_SET_KEYS = ['ghToken', 'appcoEmail', 'appcoToken', 'awsAccessKey', 'awsSecretKey', 'apiKey'];
+const SECRET_SET_KEYS = [
+  'ghToken', 'appcoEmail', 'appcoToken', 'awsAccessKey', 'awsSecretKey', 'apiKey',
+  'gcpServiceAccountKey', 'azureClientId', 'azureClientSecret', 'azureSubscriptionId', 'azureTenantId',
+];
 
 // Read-only view of the closet: current sidecar state, links and configured
 // params. Changing anything happens through Edit Config.
