@@ -535,8 +535,13 @@ async function bootstrapRancher() {
     console.log('rancher bootstrap: logged in');
 
     await rancherApi('/v3/settings/first-login', { method: 'PUT', token, body: { value: 'false' } });
-    // Empty server-url makes the dashboard use window.location.origin
-    await rancherApi('/v3/settings/server-url', { method: 'PUT', token, body: { value: '' } });
+    // server-url must be reachable from OUTSIDE this rancher, or clusters
+    // provisioned inside the closet can't register — their cattle-cluster-agents
+    // phone home to this URL. In k8s mode that's the node-IP NodePort exposed on
+    // the host cluster; compose mode has no external mapping, so fall back to the
+    // in-network service name.
+    const serverUrl = k8sExternalUrl('rancher') || RANCHER_URL;
+    await rancherApi('/v3/settings/server-url', { method: 'PUT', token, body: { value: serverUrl } });
     await rancherApi('/v3/settings/agent-tls-mode', { method: 'PUT', token, body: { value: 'system-store' } });
 
     const users = [
