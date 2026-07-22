@@ -45,6 +45,16 @@ export default class SecretSet extends Resource {
 
   async remove() {
     await deleteSecretSet(this.metadata.name);
-    await this.$dispatch('findAll', { type: this.type, opt: { force: true } });
+
+    // Steve's secret list lags a moment after the delete — refetch until the
+    // row is gone so the list updates without a page reload
+    for (let i = 0; i < 15; i++) {
+      const all = await this.$dispatch('findAll', { type: this.type, opt: { force: true } });
+
+      if (!(all || []).some((s) => s.metadata?.name === this.metadata?.name)) {
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 1000));
+    }
   }
 }
