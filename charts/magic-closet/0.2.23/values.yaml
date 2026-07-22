@@ -1,0 +1,15 @@
+nameOverride: ""
+fullnameOverride: ""
+plugin:
+  enabled: true
+  versionOverride: ""
+  endpoint: >-
+    https://raw.githubusercontent.com/codyrancher/magic-closet/gh-pages/extensions/magic-closet/0.2.23
+  compressedEndpoint: >-
+    https://raw.githubusercontent.com/codyrancher/magic-closet/gh-pages/extensions/magic-closet/0.2.23.tgz
+  noCache: false
+  noAuth: false
+  metadata:
+    catalog.cattle.io/display-name: Magic Closet
+    catalog.cattle.io/rancher-version: ">= 2.10.0"
+    catalog.cattle.io/ui-extensions-version: ">= 3.0.0 < 4.0.0"

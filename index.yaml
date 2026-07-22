@@ -1,0 +1,1217 @@
+apiVersion: v1
+entries:
+  closet:
+  - annotations:
+      catalog.cattle.io/namespace: closet
+      catalog.cattle.io/os: linux
+    apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-07-22T21:55:37.90134651Z"
+    description: A magic closet dev environment — project container plus optional
+      sidecars, managed by its own in-cluster api/dashboard.
+    digest: 85dc420af6e5380980439e5a4d324d7a916ff41eb1fd93cdd899c1c07f03562a
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: closet
+    type: application
+    urls:
+    - assets/closet/closet-0.2.11.tgz
+    version: 0.2.11
+  - annotations:
+      catalog.cattle.io/namespace: closet
+      catalog.cattle.io/os: linux
+    apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-07-21T22:53:09.44958077Z"
+    description: A magic closet dev environment — project container plus optional
+      sidecars, managed by its own in-cluster api/dashboard.
+    digest: dfc8f191e11794e90c26d228af4ff207bcae65a7c301b5835f81366767588d75
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: closet
+    type: application
+    urls:
+    - assets/closet/closet-0.2.10.tgz
+    version: 0.2.10
+  - annotations:
+      catalog.cattle.io/namespace: closet
+      catalog.cattle.io/os: linux
+    apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-07-20T21:59:13.891491607Z"
+    description: A magic closet dev environment — project container plus optional
+      sidecars, managed by its own in-cluster api/dashboard.
+    digest: a21976e013be39ff3f402941872750704e32d7419d09070f6066be41d1a7e198
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: closet
+    type: application
+    urls:
+    - assets/closet/closet-0.2.9.tgz
+    version: 0.2.9
+  - annotations:
+      catalog.cattle.io/namespace: closet
+      catalog.cattle.io/os: linux
+    apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-07-20T19:26:15.76511649Z"
+    description: A magic closet dev environment — project container plus optional
+      sidecars, managed by its own in-cluster api/dashboard.
+    digest: a2217e103322321cd35876c3c1f744e90209f52412f74e75f8c936fe1691fd80
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: closet
+    type: application
+    urls:
+    - assets/closet/closet-0.2.8.tgz
+    version: 0.2.8
+  - annotations:
+      catalog.cattle.io/namespace: closet
+      catalog.cattle.io/os: linux
+    apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-07-20T18:45:18.188345362Z"
+    description: A magic closet dev environment — project container plus optional
+      sidecars, managed by its own in-cluster api/dashboard.
+    digest: 8c20fadde002941589f6e1300f48d20fb741094b4c75b187aac4029353987a0d
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: closet
+    type: application
+    urls:
+    - assets/closet/closet-0.2.7.tgz
+    version: 0.2.7
+  - annotations:
+      catalog.cattle.io/namespace: closet
+      catalog.cattle.io/os: linux
+    apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-07-20T18:24:12.837055352Z"
+    description: A magic closet dev environment — project container plus optional
+      sidecars, managed by its own in-cluster api/dashboard.
+    digest: 10a12132962e819200ce53c4cf13d2da406cc7bc82dc52772904be97688f984e
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: closet
+    type: application
+    urls:
+    - assets/closet/closet-0.2.6.tgz
+    version: 0.2.6
+  - annotations:
+      catalog.cattle.io/namespace: closet
+      catalog.cattle.io/os: linux
+    apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-07-20T17:59:36.791642183Z"
+    description: A magic closet dev environment — project container plus optional
+      sidecars, managed by its own in-cluster api/dashboard.
+    digest: 93d4679aa2b2da924ed6e73752984c314712a913b7c711286f4f4fc907a20a93
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: closet
+    type: application
+    urls:
+    - assets/closet/closet-0.2.4.tgz
+    version: 0.2.4
+  - annotations:
+      catalog.cattle.io/namespace: closet
+      catalog.cattle.io/os: linux
+    apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-07-20T17:54:53.930559041Z"
+    description: A magic closet dev environment — project container plus optional
+      sidecars, managed by its own in-cluster api/dashboard.
+    digest: 663bf204d90182981f2ce5ab061733663c881e6dc41b922650313b0f8396bdec
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: closet
+    type: application
+    urls:
+    - assets/closet/closet-0.2.3.tgz
+    version: 0.2.3
+  - annotations:
+      catalog.cattle.io/namespace: closet
+      catalog.cattle.io/os: linux
+    apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-07-20T17:20:24.895469684Z"
+    description: A magic closet dev environment — project container plus optional
+      sidecars, managed by its own in-cluster api/dashboard.
+    digest: 7238a6985f75b52df7c791ca25e117b0c3da367601245060a607777b220eafa4
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: closet
+    type: application
+    urls:
+    - assets/closet/closet-0.2.2.tgz
+    version: 0.2.2
+  - annotations:
+      catalog.cattle.io/namespace: closet
+      catalog.cattle.io/os: linux
+    apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-07-20T17:16:24.487777033Z"
+    description: A magic closet dev environment — project container plus optional
+      sidecars, managed by its own in-cluster api/dashboard.
+    digest: 0312a5ad3c744c2406fa3f62b1b02fd6893b8dcba6156136d3d49cc1d95dfe4d
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: closet
+    type: application
+    urls:
+    - assets/closet/closet-0.2.1.tgz
+    version: 0.2.1
+  - annotations:
+      catalog.cattle.io/namespace: closet
+      catalog.cattle.io/os: linux
+    apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-07-20T14:40:20.417058309Z"
+    description: A magic closet dev environment — project container plus optional
+      sidecars, managed by its own in-cluster api/dashboard.
+    digest: 1f70e073a68fb0685093769aa200f7d66c90920eaa89cf20c275f8cabda0ded8
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: closet
+    type: application
+    urls:
+    - assets/closet/closet-0.2.0.tgz
+    version: 0.2.0
+  - annotations:
+      catalog.cattle.io/namespace: closet
+      catalog.cattle.io/os: linux
+    apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-07-20T14:16:17.01914921Z"
+    description: A magic closet dev environment — project container plus optional
+      sidecars, managed by its own in-cluster api/dashboard.
+    digest: c355447e8ea4c5d7cf9dcf3912b544f9d7644c230891a43ed62643d6b202ab6c
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: closet
+    type: application
+    urls:
+    - assets/closet/closet-0.1.6.tgz
+    version: 0.1.6
+  - annotations:
+      catalog.cattle.io/namespace: closet
+      catalog.cattle.io/os: linux
+    apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-07-19T23:04:58.731523767Z"
+    description: A magic closet dev environment — project container plus optional
+      sidecars, managed by its own in-cluster api/dashboard.
+    digest: 061410487865179875e3ed601595342c92d144218c441b9e9f3890c7bfda885f
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: closet
+    type: application
+    urls:
+    - assets/closet/closet-0.1.5.tgz
+    version: 0.1.5
+  - annotations:
+      catalog.cattle.io/namespace: closet
+      catalog.cattle.io/os: linux
+    apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-07-19T22:58:58.767786258Z"
+    description: A magic closet dev environment — project container plus optional
+      sidecars, managed by its own in-cluster api/dashboard.
+    digest: 7fa755dfef8a12b7b2cfbd171f26b53214fb0df5bed1fb5f374607fc8c42b17c
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: closet
+    type: application
+    urls:
+    - assets/closet/closet-0.1.4.tgz
+    version: 0.1.4
+  - annotations:
+      catalog.cattle.io/namespace: closet
+      catalog.cattle.io/os: linux
+    apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-07-19T22:27:17.86435861Z"
+    description: A magic closet dev environment — project container plus optional
+      sidecars, managed by its own in-cluster api/dashboard.
+    digest: a561d717cde5f090033018fbc5d31fafab0745c0bf6498208352bef30b3624af
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: closet
+    type: application
+    urls:
+    - assets/closet/closet-0.1.3.tgz
+    version: 0.1.3
+  - annotations:
+      catalog.cattle.io/namespace: closet
+      catalog.cattle.io/os: linux
+    apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-07-19T21:39:04.829297522Z"
+    description: A magic closet dev environment — project container plus optional
+      sidecars, managed by its own in-cluster api/dashboard.
+    digest: a1e5f35bfa500227cab29798436c4e06a3248bd1fe0de1818d8e4a8877f23a10
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: closet
+    type: application
+    urls:
+    - assets/closet/closet-0.1.2.tgz
+    version: 0.1.2
+  - annotations:
+      catalog.cattle.io/namespace: closet
+      catalog.cattle.io/os: linux
+    apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-07-19T21:16:03.502216672Z"
+    description: A magic closet dev environment — project container plus optional
+      sidecars, managed by its own in-cluster api/dashboard.
+    digest: af34bde62d4b7fa49fff6266bb2272e5949b913b8501126efcae89f0eef20e93
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: closet
+    type: application
+    urls:
+    - assets/closet/closet-0.1.1.tgz
+    version: 0.1.1
+  - annotations:
+      catalog.cattle.io/namespace: closet
+      catalog.cattle.io/os: linux
+    apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-07-19T20:25:33.392101415Z"
+    description: A magic closet dev environment — project container plus optional
+      sidecars, managed by its own in-cluster api/dashboard.
+    digest: b1d2f8bb7a4fb010c6cb63ba057a76ab4b7bb415b09917028d10c892829235a5
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: closet
+    type: application
+    urls:
+    - assets/closet/closet-0.1.0.tgz
+    version: 0.1.0
+  magic-closet:
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.4.1
+    created: "2026-07-22T21:55:37.901567163Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: a9455bed908bb08e71d79bf7e1031ea202d3cc9884b9e027fd5050491aa8097f
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.4.1.tgz
+    version: 0.4.1
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.3.9
+    created: "2026-07-22T20:13:24.212582985Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: d56114eb0296f80a4e8723a6f21361fbe1bc32dd3e25ff3571a5eaf91a666d4d
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.3.9.tgz
+    version: 0.3.9
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.3.8
+    created: "2026-07-21T21:37:04.87264968Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 9af3941a6d19b37884a61525cc865a2d14dd20f0e8f0120181ff7b59d7cc7a10
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.3.8.tgz
+    version: 0.3.8
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.3.7
+    created: "2026-07-21T21:22:16.813095633Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 7838c7b2fef6ff235e3ec3e445e6be935b02c40f697d6b0b1f07ac9ebe58a7fb
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.3.7.tgz
+    version: 0.3.7
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.3.6
+    created: "2026-07-21T20:25:46.636606672Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 9c03f7e167e660468e81384c9c7c2c196abac33c431929dcb60baa2f1b213938
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.3.6.tgz
+    version: 0.3.6
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.3.5
+    created: "2026-07-21T20:10:31.330152606Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 043c9a92c9c4f48d3c5c0148c63333059e71844dc200999f83ba35e263e8f00b
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.3.5.tgz
+    version: 0.3.5
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.3.4
+    created: "2026-07-21T16:04:09.504781627Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 35e66bf5a0bf88ecd7d89573afb7184548ce0b1e6a3221da490f775ba9a7e8b9
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.3.4.tgz
+    version: 0.3.4
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.3.3
+    created: "2026-07-21T15:36:22.261522297Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 54da6cdbfdf8adf220c0beb5a01b0ba9a69fa3ececb4a954ce8a02fab473d68c
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.3.3.tgz
+    version: 0.3.3
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.3.2
+    created: "2026-07-21T14:54:46.976487768Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: e62923513dc9e536803270400b9c73128652ab26cb37939d8c0db3bfed7d86f7
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.3.2.tgz
+    version: 0.3.2
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.3.1
+    created: "2026-07-21T14:42:41.681297765Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 9a2bc3c302d45226492d022688424ff1954afa86e7713a44e2cc68c8a3057b54
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.3.1.tgz
+    version: 0.3.1
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.3.0
+    created: "2026-07-21T14:26:20.747580277Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: d4400efdf283aaf96356fb4c9109594eee003a5241bb30c110c501f3c5b2bcb9
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.3.0.tgz
+    version: 0.3.0
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.26
+    created: "2026-07-21T14:02:27.141450848Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 530e0c5443dfdb5da6f6d56bd501ab6a8b4d7f2b687d1c79e08f62f9ce6a6bba
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.26.tgz
+    version: 0.2.26
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.25
+    created: "2026-07-20T23:52:28.401521877Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: c653305e57e8b8c37db46e1c7b9c3547723be0369a2428586b26162723cca573
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.25.tgz
+    version: 0.2.25
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.24
+    created: "2026-07-20T23:15:55.551858615Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 10fdd52aaa5b29f57196cdcb07d44ce2bc18acf6b5c0cf36de95f083ef740ba7
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.24.tgz
+    version: 0.2.24
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.23
+    created: "2026-07-20T22:51:12.527967195Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: b8f1c4527c4aea5b2f1f0da5726682f67a8a10123b9b9526d8158b12ef9dc830
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.23.tgz
+    version: 0.2.23
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.22
+    created: "2026-07-20T22:33:37.598391868Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 48180c3e6e8b1fff603cb1edb528cbde18780353e4cf719d82ac4cd2dde47bce
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.22.tgz
+    version: 0.2.22
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.20
+    created: "2026-07-20T22:28:01.296408583Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 63040949df43e8c687aad5d50d0a26127fd2d8f7eee134328244138df9d6527b
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.20.tgz
+    version: 0.2.20
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.19
+    created: "2026-07-20T22:03:18.298616254Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 499f5f77ca61d9e1769b96d8102e1122647eeee1a2aea230b40c02ebc4a8d8cb
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.19.tgz
+    version: 0.2.19
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.18
+    created: "2026-07-20T21:59:13.891765088Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 89c5091841aa87887dd3cdbbce6d954813b007f0a7e2e7dc029e01b61a6535bf
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.18.tgz
+    version: 0.2.18
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.17
+    created: "2026-07-20T21:55:59.380367449Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: f89ceac4ed49eca39c4810b1076436a28c6253d35ff387f7ca82180bf99a3f86
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.17.tgz
+    version: 0.2.17
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.16
+    created: "2026-07-20T21:26:54.538879067Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 679ab30db67960abfcba4272755bedacc9639466fc19cb3a7f5b002363b71a71
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.16.tgz
+    version: 0.2.16
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.15
+    created: "2026-07-20T21:23:23.864690762Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 2b4934c13740646a2a12b278175b95f26f1348b3ce3b7951cca48e0417be07a1
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.15.tgz
+    version: 0.2.15
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.14
+    created: "2026-07-20T21:13:02.471834523Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: c9f1e488b2f4a1b1bbc1f378a24f71ece04ba9601056c55b3d4658c9b342aee0
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.14.tgz
+    version: 0.2.14
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.13
+    created: "2026-07-20T21:07:04.357386213Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: fd3df279acb3b6a731e228e01ee0916a97d706efa7c2836d9bca423384e00867
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.13.tgz
+    version: 0.2.13
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.11
+    created: "2026-07-20T20:35:26.499154497Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 15543a3c7bb91011a8e46ff39691aad4871699e8cfb8b9d07b8a539191fdf59e
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.11.tgz
+    version: 0.2.11
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.10
+    created: "2026-07-20T20:23:35.703647752Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: b3aa1ef193e1c142b08c1d8a600f95ab967bb1719dde064e6a609c8b1a9401e1
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.10.tgz
+    version: 0.2.10
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.9
+    created: "2026-07-20T20:10:35.5576467Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: b9fc7b964c44b9729bb357ef304c69de769eb5c2926894e5d8645a66fad010a1
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.9.tgz
+    version: 0.2.9
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.8
+    created: "2026-07-20T19:26:15.765378416Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 092bc69ad97d9e1ccd4a27785b043f4703cc88dbb6747d8aad69d1cc1c560f72
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.8.tgz
+    version: 0.2.8
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.7
+    created: "2026-07-20T17:09:25.336576547Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 49f39943cea16b9ef4b29d5c2dabb1b19bd1f5f272b82ea83396517c42d18927
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.7.tgz
+    version: 0.2.7
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.6
+    created: "2026-07-20T17:03:00.954572367Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: f5a7d657f58f3a1f25383d66688caccc7b1d8d26a8bfcd277e5d6418dd014b3b
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.6.tgz
+    version: 0.2.6
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.5
+    created: "2026-07-20T14:59:45.589522648Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 331015dc179b501f12e0f3cbf7c60ed3f1fc94f083ab9ec0a0a90ea63b03dcd6
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.5.tgz
+    version: 0.2.5
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.4
+    created: "2026-07-20T14:40:20.41730613Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 890774b72fac6ba0189c2d22718f320aaff9c0fc423a115ee100a81d1f85f7f4
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.4.tgz
+    version: 0.2.4
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.3
+    created: "2026-07-20T14:32:40.614503565Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 4ee0849b81c8be6aeb8f756c92905fe6f69067df01965dc4f3ef02ffb5a1babe
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.3.tgz
+    version: 0.2.3
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.2
+    created: "2026-07-20T14:16:17.019538486Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 990bc759abf7bcdf0891d00723da0ac7f4985dcb5780162a3b0b5e84ffb1db70
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.2.tgz
+    version: 0.2.2
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.1
+    created: "2026-07-19T23:04:58.731725684Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: f4d7d9c66be005d6be6aa877505a6404b923b75accab2cde11620dec96042668
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.1.tgz
+    version: 0.2.1
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.2.0
+    created: "2026-07-19T20:56:53.886677492Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 0f0e79ab927e7580bc823b4385cc19822d5def7ea130abe3878db1ad6ef5d7cc
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.2.0.tgz
+    version: 0.2.0
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.1.6
+    created: "2026-07-19T20:24:01.809092357Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 5da93057352e9a239faebcc5da3b741d788aa51d819162d0dc09faf3960e69bd
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.1.6.tgz
+    version: 0.1.6
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.1.5
+    created: "2026-07-19T19:42:58.627084422Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 182a3ec25d99fd15eccbb1b7543ca11fb2a2186846cc225b5f10b965594a74f1
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.1.5.tgz
+    version: 0.1.5
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.1.4
+    created: "2026-07-19T19:27:14.29619487Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: afe7a53c98c92d6f1ee68e13d825aafd37aa76a29fdc28986f3a115ad3d126e9
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.1.4.tgz
+    version: 0.1.4
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.1.3
+    created: "2026-07-19T19:22:48.014165014Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 81a3ce11dd44808107ee19ea7f07a23c1072027ec0b33194983b35e613bbfe0f
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.1.3.tgz
+    version: 0.1.3
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.1.2
+    created: "2026-07-19T17:31:05.338293702Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 49a74fcbf18db78ba88ffa4a545a1ff1212eb3350b447dfff21372b4fe4081cb
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.1.2.tgz
+    version: 0.1.2
+  - annotations:
+      catalog.cattle.io/certified: rancher
+      catalog.cattle.io/display-name: Magic Closet
+      catalog.cattle.io/namespace: cattle-ui-plugin-system
+      catalog.cattle.io/os: linux
+      catalog.cattle.io/permits-os: linux, windows
+      catalog.cattle.io/rancher-version: '>= 2.10.0'
+      catalog.cattle.io/scope: management
+      catalog.cattle.io/ui-component: plugins
+      catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
+    apiVersion: v2
+    appVersion: 0.1.1
+    created: "2026-07-19T16:00:02.395422605Z"
+    description: Provision and manage magic closet dev environments from Rancher
+    digest: 789cfefcc3b11ea0e0788465f63e6af85627b68b66c92b4f21fc934f7d6d8c1c
+    home: https://github.com/codyrancher/magic-closet
+    icon: https://codyrancher.github.io/magic-closet/logo.svg
+    name: magic-closet
+    type: application
+    urls:
+    - assets/magic-closet/magic-closet-0.1.1.tgz
+    version: 0.1.1
+generated: "2026-07-22T21:55:37.900811688Z"

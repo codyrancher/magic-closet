@@ -1,0 +1,2 @@
+(("undefined"!==typeof self?self:this)["webpackChunkmagic_closet_0_2_0"]=("undefined"!==typeof self?self:this)["webpackChunkmagic_closet_0_2_0"]||[]).push([[37],{37:function(e){const s=[{product:{magicCloset:"Magic Closet"}}];e.exports=s.length<=1?s[0]:s}}]);
+//# sourceMappingURL=magic-closet-0.2.0.umd.min.37.js.map

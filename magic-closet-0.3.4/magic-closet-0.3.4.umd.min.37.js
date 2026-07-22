@@ -1,0 +1,2 @@
+(("undefined"!==typeof self?self:this)["webpackChunkmagic_closet_0_3_4"]=("undefined"!==typeof self?self:this)["webpackChunkmagic_closet_0_3_4"]||[]).push([[37],{49037:function(e){const t=[{nav:{group:{magicCloset:"Magic Closet"}},typeLabel:{"magic-closet.closet":"{count, plural,\n  one { Magic Closet }\n  other { Magic Closets }}","magic-closet.secret-set":"{count, plural,\n  one { Secret Set }\n  other { Secret Sets }}"}}];e.exports=t.length<=1?t[0]:t}}]);
+//# sourceMappingURL=magic-closet-0.3.4.umd.min.37.js.map
