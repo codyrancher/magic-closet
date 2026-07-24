@@ -897,11 +897,13 @@ let logsName = null;
 let logsAbort = null;
 
 async function streamLogs(name) {
-  logsAbort = new AbortController();
-  logsBody.textContent = 'Connecting…\n';
+  logsAbort?.abort();
+  const ctrl = new AbortController();
+  logsAbort = ctrl;
+  if (!logsBody.textContent) logsBody.textContent = 'Connecting…\n';
   try {
-    const resp = await fetch(`sidecars/${name}/logs/stream?tail=1000`, { signal: logsAbort.signal });
-    if (!resp.ok || !resp.body) { logsBody.textContent = 'Failed to load logs'; return; }
+    const resp = await fetch(`sidecars/${name}/logs/stream?tail=1000`, { signal: ctrl.signal });
+    if (!resp.ok || !resp.body) throw new Error('bad response');
     logsBody.textContent = '';
     const reader = resp.body.getReader();
     const dec = new TextDecoder();
@@ -914,7 +916,15 @@ async function streamLogs(name) {
       if (atBottom) logsBody.scrollTop = logsBody.scrollHeight;
     }
   } catch (err) {
-    if (err.name !== 'AbortError') logsBody.textContent += `\n[stream error: ${err.message}]`;
+    if (ctrl.signal.aborted) return; // modal closed or superseded
+  }
+  // The stream ended — the sidecar was still starting, got recreated, or
+  // `docker logs -f` exited. Reconnect while the modal is open AND the sidecar
+  // is still running (a stopped container's `logs -f` exits at once — don't
+  // loop on it), so logs go live without a manual close/reopen.
+  const running = (lastSidecars.find((x) => x.name === name) || {}).status === 'running';
+  if (!ctrl.signal.aborted && logsName === name && running) {
+    setTimeout(() => { if (logsName === name && logsAbort === ctrl) { logsBody.textContent = ''; streamLogs(name); } }, 1000);
   }
 }
 
