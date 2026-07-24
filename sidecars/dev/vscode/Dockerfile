@@ -41,9 +41,13 @@ RUN /opt/openvscode-server/bin/openvscode-server --extensions-dir /opt/vscode-ex
 RUN chmod -R 755 /opt/vscode-extensions
 
 ENV PATH="/opt/magic-closet/tools/bin:${PATH}"
-# Login shells (the openvscode-server terminal) reset PATH via /etc/profile, so
-# re-add the tools dir there too — otherwise `mc` isn't found in the terminal.
-RUN echo 'export PATH="/opt/magic-closet/tools/bin:$PATH"' > /etc/profile.d/magic-closet-tools.sh
+# The openvscode terminal is an interactive non-login shell that inherits a PATH
+# without the tools dir, so re-add it in the files those shells source
+# (/etc/bash.bashrc) plus /etc/profile.d for login shells — otherwise `mc` isn't
+# found in the terminal.
+RUN L='export PATH="/opt/magic-closet/tools/bin:$PATH"'; \
+    printf '%s\n' "$L" > /etc/profile.d/magic-closet-tools.sh; \
+    printf '%s\n' "$L" >> /etc/bash.bashrc
 
 COPY --chmod=755 entrypoint.sh /entrypoint.sh
 COPY config/ /opt/vscode-defaults/
