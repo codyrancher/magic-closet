@@ -25,17 +25,11 @@ services:
       - .:/magic-closet                     # the repo — live edits to api/, sidecars/, workspace/, .env keep working
       - mc-docker:/var/lib/docker           # nested docker images/volumes survive restarts
     ports:
-      # ${*_PORT} resolve from ./.env (auto-loaded), so host overrides still apply.
-      # Each maps host -> DinD; the inner stack then publishes the same port inside.
-      - "${API_PORT:-8300}:${API_PORT:-8300}"
-      - "${API_HTTPS_PORT:-8301}:${API_HTTPS_PORT:-8301}"
-      - "${DEV_PORT:-8305}:${DEV_PORT:-8305}"
-      - "${VSCODE_PORT:-8310}:${VSCODE_PORT:-8310}"
-      - "${RANCHER_BROWSER_PORT:-8320}:${RANCHER_BROWSER_PORT:-8320}"
-      - "${KEYCLOAK_PORT:-8330}:${KEYCLOAK_PORT:-8330}"
-      - "${OPENLDAP_PORT:-8340}:${OPENLDAP_PORT:-8340}"
-      - "${FIGMA_PORT:-8360}:${FIGMA_PORT:-8360}"
-      - "${RANCHER_PORT:-8444}:${RANCHER_PORT:-8444}"
+      # The base closet's ports all derive from API_PORT (default 8300) — publish
+      # the whole 8300-8399 block so any derived (or overridden) port is reachable
+      # without the wrapper needing the exact values. Keep API_PORT within
+      # ~8300-8339 so its derived ports stay in this range (else widen it here).
+      - "8300-8399:8300-8399"
       # Provisioned closets grab ports from 8500 up — 20 exposed for host access
       - "8500-8519:8500-8519"
     restart: unless-stopped

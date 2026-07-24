@@ -16,7 +16,7 @@ services:
       - RANCHER_VERSION_TYPE=${RANCHER_PRIME:+prime}
       - CATTLE_BASE_UI_BRAND=${RANCHER_PRIME:+suse}
     ports:
-      - "${RANCHER_PORT:-8444}:443"
+      - "${RANCHER_PORT:-8344}:443"
     volumes:
       - rancher-data:/var/lib/rancher
       - ./tools:/opt/magic-closet/tools:ro

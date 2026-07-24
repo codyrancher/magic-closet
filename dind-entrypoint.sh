@@ -31,6 +31,18 @@ docker compose version >/dev/null 2>&1 || apk add --no-cache docker-cli-compose 
 # bind-mounted repo already has .env, so this is skipped.
 [ -f .env ] || sh ./setup.sh
 
+# Derive every sidecar host port from API_PORT (default 8300) for any not
+# explicitly set in .env, and export them so the inner compose interpolates
+# them. Anything set in .env wins (we don't override it). So .env only needs
+# API_PORT; add a *_PORT line to override an individual one.
+base=$(grep -E '^API_PORT=' .env 2>/dev/null | head -1 | cut -d= -f2 | sed 's/#.*//' | tr -d '[:space:]')
+: "${base:=8300}"
+export API_PORT="$base"
+for pair in API_HTTPS_PORT:1 DEV_PORT:5 VSCODE_PORT:10 RANCHER_BROWSER_PORT:20 KEYCLOAK_PORT:30 OPENLDAP_PORT:40 RANCHER_PORT:44 FIGMA_PORT:60; do
+  var=${pair%:*}; off=${pair#*:}
+  grep -qE "^${var}=" .env 2>/dev/null || export "${var}=$((base + off))"
+done
+
 echo "[dind] bringing up the magic-closet stack (first run builds images)..."
 docker compose -f compose.stack.yml up -d --build \
   || echo "[dind] 'compose up' returned non-zero — check 'docker compose logs' inside the container"

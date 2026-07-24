@@ -566,10 +566,13 @@ async function bootstrapRancher() {
     await rancherApi('/v3/settings/first-login', { method: 'PUT', token, body: { value: 'false' } });
     // server-url must be reachable from OUTSIDE this rancher, or clusters
     // provisioned inside the closet can't register — their cattle-cluster-agents
-    // phone home to this URL. In k8s mode that's the node-IP NodePort exposed on
-    // the host cluster; compose mode has no external mapping, so fall back to the
-    // in-network service name.
-    const serverUrl = k8sExternalUrl('rancher') || RANCHER_URL;
+    // phone home to this URL. k8s: the node-IP NodePort. Compose: the host's
+    // external address, https://MC_PUBLIC_HOST:RANCHER_PORT (set MC_PUBLIC_HOST
+    // in .env to the host's external IP/hostname). Else the in-network name.
+    const pubHost = env.MC_PUBLIC_HOST;
+    const ranPort = parseInt(env.RANCHER_PORT, 10) || (parseInt(env.API_PORT, 10) || 8300) + 44;
+    const serverUrl = k8sExternalUrl('rancher')
+      || (pubHost ? `https://${pubHost}:${ranPort}` : RANCHER_URL);
     await rancherApi('/v3/settings/server-url', { method: 'PUT', token, body: { value: serverUrl } });
     await rancherApi('/v3/settings/agent-tls-mode', { method: 'PUT', token, body: { value: 'system-store' } });
 
