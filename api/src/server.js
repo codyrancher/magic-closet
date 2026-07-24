@@ -538,6 +538,37 @@ const https = require('https');
 const RANCHER_URL = 'https://rancher';
 let rancherBootstrap = { state: 'idle', containerId: null }; // idle|running|done|failed
 
+// The host's externally-reachable IP, for Rancher's server-url. Detected once
+// (cached): EC2 instance metadata first, then a public-IP echo service.
+// undefined = not tried, null = tried and failed, string = the IP.
+let publicHostCache;
+async function detectPublicHost() {
+  if (publicHostCache !== undefined) return publicHostCache;
+  const isIp = (t) => /^(\d{1,3}\.){3}\d{1,3}$/.test(t) || /^[0-9a-fA-F:]+$/.test(t);
+  const get = async (url, opts, ms) => {
+    try {
+      const r = await fetch(url, { signal: AbortSignal.timeout(ms), ...opts });
+      if (!r.ok) return null;
+      const t = (await r.text()).trim();
+      return isIp(t) ? t : null;
+    } catch { return null; }
+  };
+  let host = null;
+  // EC2 IMDSv2: fetch a token, then the instance's public IPv4.
+  const token = await get('http://169.254.169.254/latest/api/token',
+    { method: 'PUT', headers: { 'X-aws-ec2-metadata-token-ttl-seconds': '60' } }, 1500);
+  if (token) {
+    host = await get('http://169.254.169.254/latest/meta-data/public-ipv4',
+      { headers: { 'X-aws-ec2-metadata-token': token } }, 1500);
+  }
+  // Off-EC2: ask a public echo service what our egress IP is.
+  if (!host) host = await get('https://checkip.amazonaws.com', {}, 4000);
+  if (!host) host = await get('https://api.ipify.org', {}, 4000);
+  publicHostCache = host || null;
+  console.log(host ? `detected public host: ${host}` : 'could not detect public host (server-url stays in-network)');
+  return publicHostCache;
+}
+
 // Scoped https JSON call that accepts rancher's self-signed cert (a global
 // TLS override would also disable verification for Docker Hub/GitHub calls)
 function rancherApi(pathname, { method = 'GET', token, body } = {}) {
@@ -606,9 +637,10 @@ async function bootstrapRancher() {
     // server-url must be reachable from OUTSIDE this rancher, or clusters
     // provisioned inside the closet can't register — their cattle-cluster-agents
     // phone home to this URL. k8s: the node-IP NodePort. Compose: the host's
-    // external address, https://MC_PUBLIC_HOST:RANCHER_PORT (set MC_PUBLIC_HOST
-    // in .env to the host's external IP/hostname). Else the in-network name.
-    const pubHost = env.MC_PUBLIC_HOST;
+    // external address, https://<publicHost>:RANCHER_PORT — auto-detected
+    // (EC2 IMDS, else a public-IP echo service); MC_PUBLIC_HOST in .env is an
+    // optional manual override. Else the in-network name.
+    const pubHost = env.MC_PUBLIC_HOST || await detectPublicHost();
     const ranPort = parseInt(env.RANCHER_PORT, 10) || (parseInt(env.API_PORT, 10) || 8300) + 44;
     const serverUrl = k8sExternalUrl('rancher')
       || (pubHost ? `https://${pubHost}:${ranPort}` : RANCHER_URL);
@@ -1464,7 +1496,6 @@ function handleClosetCreate(body, res) {
     ...Object.entries(CLOSET_PORTS).map(([k, off]) => `${k}=${base + off}`),
     'RANCHER_TAG=head',
     'RANCHER_AUTH_PROVIDER=keycloak',
-    'NODE_VERSION=',
     'GH_TOKEN=',
     'FIGMA_API_KEY=',
     'APPCO_EMAIL=',

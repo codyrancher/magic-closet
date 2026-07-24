@@ -151,19 +151,20 @@ Docker Hub image tags (see the rancher `tag` param):
 ```
 
 A second source, `github-node-engines`, lists the node major versions a
-GitHub repo's branches declare in `package.json` `engines.node` (see the
-vscode `nodeVersion` param — main branch's version first, then the last
-`limit` `branchPrefix` branches):
+GitHub repo's branches declare in `package.json` `engines.node` (main branch's
+version first, then the last `limit` `branchPrefix` branches):
 
 ```json
 "options": { "source": "github-node-engines", "repo": "rancher/dashboard",
              "mainBranch": "master", "branchPrefix": "release-2.", "limit": 6 }
 ```
 
+(No sidecar uses this today — the closet's node version comes from the
+workspace's `.nvmrc`, see `closet/setup-node.sh`, not a param.)
+
 A param with `"defaultFromOptions": true` gets its default from the first
 option: when its env var is unset in `.env`, the api resolves the options and
-persists option[0] (e.g. `NODE_VERSION` = whatever rancher/dashboard:master
-uses) — at boot and before any start.
+persists option[0] — at boot and before any start.
 
 Results are cached for 10 minutes; if the upstream (Docker Hub / GitHub) is
 unreachable the endpoint falls back to the `prepend` values.
