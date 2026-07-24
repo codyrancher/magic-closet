@@ -114,14 +114,15 @@ names stay flat (`keycloak`) — the group is purely organizational.
    collapsible accordion section on the card (see the rancher-browser sidecar’s AppCo
    and AWS groups); ungrouped params show as flat rows.
 
-   Internal secrets are not params — list their env vars in a top-level
-   `"secrets"` array instead (see rancher's `RANCHER_BOOTSTRAP_PASSWORD`).
-   They never appear in the dashboard or the start API; the api generates a
-   password and persists it to `.env` at boot and before any start. Name them
-   `*_PASSWORD` so `setup.sh` also fills them when seeding a fresh `.env`
-   (that matters because a first `docker compose up -d` creates sidecar
-   containers before the api can write `.env`). Look the value up in `.env`
-   when you need to log in.
+   Internal secrets are not params and are never authored by hand — list their
+   env vars in a top-level `"secrets"` array instead (see rancher's
+   `RANCHER_BOOTSTRAP_PASSWORD`). Name them `*_PASSWORD` / `*_SECRET`. They
+   never appear in the dashboard, the start API, or `.env.example`; every
+   `secrets`-array entry is generated at startup — `setup.sh` scans the
+   sidecar.json files and appends any missing one to `.env` before the first
+   `docker compose up -d` (which creates sidecar containers before the api
+   could write `.env`), and the api regenerates any still-missing at boot and
+   before any start. Look the value up in `.env` when you need to log in.
 2. Add it to the `include:` list in `docker-compose.yml`.
 3. Optionally add its profile to `COMPOSE_PROFILES` and its port/params to
    `.env` / `.env.example`.

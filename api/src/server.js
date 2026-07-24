@@ -437,6 +437,14 @@ function readEnvValues() {
       values[m[1]] = value;
     }
   } catch { /* no .env yet */ }
+  // Derive host ports from API_PORT for any not explicitly set — mirrors
+  // dind-entrypoint.sh, which only exports the derived ports into the compose
+  // process (they're not written to .env), so without this the api wouldn't
+  // know a sidecar's host port and would drop its "Launch" link.
+  const base = parseInt(values.API_PORT, 10) || 8300;
+  for (const [k, off] of Object.entries(CLOSET_PORTS)) {
+    if (values[k] == null || values[k] === '') values[k] = String(base + off);
+  }
   return values;
 }
 
