@@ -7,7 +7,7 @@
 #   mc start <name> [k=v ...] [--wait]
 #   mc stop <name>
 #   mc rm <name>
-#   mc run <command...>              run a command inside the project container
+#   mc run <command...>              run a command in the closet container
 #   mc open <url>                    open a tab in the browser sidecar (queued if not ready)
 #   mc create-sidecar <name> [k=v ...] | --file <spec.json>   define a new sidecar
 #   mc edit-sidecar <name>   [k=v ...] | --file <spec.json>   edit a sidecar (built-ins too)
@@ -65,7 +65,7 @@ case "$cmd" in
     [ -n "$1" ] || usage
     escaped="$(json_escape "$*")"
     curl -fsS -X POST -H 'Content-Type: application/json' \
-      -d "{\"command\":\"$escaped\"}" "$API/project/exec"
+      -d "{\"command\":\"$escaped\"}" "$API/exec"
     ;;
   open)
     [ -n "$1" ] || usage

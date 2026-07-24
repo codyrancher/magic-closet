@@ -64,11 +64,22 @@ chmod +x /usr/local/bin/claude-session
 
 chown "$USER_ID:$GROUP_ID" /workspace
 
-# Optional per-project init hook
+# ---- Shared node toolchain (nvm, from the repo's .nvmrc) ----
+# Populated into the /opt/toolchain volume that the slim vscode sidecar also
+# mounts, so the editor's terminal shares this exact node. Install one now, then
+# re-run once the workspace clone brings in rancher/dashboard's .nvmrc.
+if [ -d /opt/toolchain ]; then
+    chown -R "$USER_ID:$GROUP_ID" /opt/toolchain
+    gosu "$USER_NAME" env NVM_DIR=/opt/toolchain/nvm HOME="$HOME_DIR" setup-node || true
+    ( until [ -f /workspace/dashboard/.nvmrc ]; do sleep 3; done
+      gosu "$USER_NAME" env NVM_DIR=/opt/toolchain/nvm HOME="$HOME_DIR" setup-node || true ) &
+fi
+
+# Optional per-closet init hook
 if [ -f /workspace/init.sh ]; then
     chmod +x /workspace/init.sh
     gosu "$USER_NAME" bash -c '/workspace/init.sh > /workspace/.init.log 2>&1' &
 fi
 
-echo "magic-closet project container ready (user: $USER_NAME)"
+echo "magic-closet closet container ready (user: $USER_NAME)"
 exec gosu "$USER_NAME" sleep infinity

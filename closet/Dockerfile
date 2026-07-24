@@ -27,11 +27,18 @@ RUN CLAUDE_VERSION=$(curl -fsSL https://storage.googleapis.com/claude-code-dist-
     && curl -fsSL -o /usr/local/bin/claude "https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases/${CLAUDE_VERSION}/linux-x64/claude" \
     && chmod +x /usr/local/bin/claude
 
-# Shared tools directory (bind-mounted at runtime, on PATH everywhere)
-ENV PATH="/opt/magic-closet/tools/bin:${PATH}"
-# Interactive (non-login) and login shells source different files — put the
-# tools dir on PATH in both so `mc` (and the other tools) resolve in terminals.
-RUN L='export PATH="/opt/magic-closet/tools/bin:$PATH"'; \
+# nvm baked into the image; copied into the shared /opt/toolchain volume at
+# runtime, where the node version (from the repo's .nvmrc) is installed and
+# shared with the slim vscode sidecar via /opt/toolchain/node.
+RUN mkdir -p /opt/nvm /opt/toolchain \
+    && curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | NVM_DIR=/opt/nvm PROFILE=/dev/null bash
+COPY --chmod=755 setup-node.sh /usr/local/bin/setup-node
+
+# The shared node (/opt/toolchain/node/bin) + the tools bin on PATH everywhere.
+ENV PATH="/opt/toolchain/node/bin:/opt/magic-closet/tools/bin:${PATH}"
+# Interactive (non-login) and login shells source different files — put both
+# dirs on PATH in each so node/yarn and `mc` resolve in terminals.
+RUN L='export PATH="/opt/toolchain/node/bin:/opt/magic-closet/tools/bin:$PATH"'; \
     printf '%s\n' "$L" > /etc/profile.d/magic-closet-tools.sh; \
     printf '%s\n' "$L" >> /etc/bash.bashrc
 

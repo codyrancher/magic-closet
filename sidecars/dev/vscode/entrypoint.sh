@@ -25,23 +25,8 @@ if [ -d /claude-data ]; then
     ln -sfn /claude-data/.claude.json "$HOME_DIR/.claude.json"
 fi
 
-# Node: install the requested version (falls back to the baked-in v24 when
-# offline) and expose it everywhere — symlinks for non-shell contexts, fnm
-# shell integration for terminals.
-NODE_VERSION=${NODE_VERSION:-24}
-export FNM_DIR=/opt/fnm
-fnm install "$NODE_VERSION" 2>/dev/null || echo "fnm: could not install $NODE_VERSION, using existing versions"
-NODE_BIN=$(dirname "$(fnm exec --using="$NODE_VERSION" -- which node 2>/dev/null)" 2>/dev/null || true)
-if [ -n "$NODE_BIN" ] && [ -d "$NODE_BIN" ]; then
-    fnm exec --using="$NODE_VERSION" -- corepack enable 2>/dev/null || true
-    for bin in node npm npx corepack yarn pnpm; do
-        [ -e "$NODE_BIN/$bin" ] && ln -sf "$NODE_BIN/$bin" "/usr/local/bin/$bin"
-    done
-    echo "node $(node --version) active (fnm, NODE_VERSION=$NODE_VERSION)"
-fi
-if ! grep -q 'fnm env' /etc/bash.bashrc 2>/dev/null; then
-    echo 'export FNM_DIR=/opt/fnm; command -v fnm >/dev/null && eval "$(fnm env)" 2>/dev/null' >> /etc/bash.bashrc
-fi
+# Node comes from the closet's shared /opt/toolchain volume (nvm, from the
+# repo's .nvmrc), already on PATH — nothing to install here.
 
 # gh: authenticate git through gh when a token is present (gh itself reads
 # GH_TOKEN from the environment)

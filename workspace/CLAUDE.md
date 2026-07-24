@@ -16,7 +16,7 @@ mc list                       # sidecars + status, host ports, params (JSON)
 mc start rancher tag=v2.11-head --wait   # start/restart a sidecar (params are k=v)
 mc stop rancher-browser       # stop (kept for fast restart)
 mc rm figma                   # stop + remove the container (named volumes kept)
-mc run "yarn install"         # run a command in THIS project container
+mc run "yarn install"         # run a command in the closet container
 mc open https://rancher       # open a tab in the rancher-browser sidecar
 ```
 
@@ -27,7 +27,7 @@ Raw endpoints (same thing) — `http://api:8080`:
 | `GET /sidecars` | list: status, health, host port, params + values, `internal` URL |
 | `POST /sidecars/<name>/start` | body `{ "params": {...}, "wait": true }` |
 | `POST /sidecars/<name>/stop` / `DELETE /sidecars/<name>` | stop / remove |
-| `POST /project/exec` | `{ "command": "yarn build" }` → runs in this container |
+| `POST /exec` | `{ "command": "yarn build" }` → runs in the closet container |
 | `POST /browser/open` | `{ "url": "https://rancher" }` → queue a tab in the browser |
 | `POST /auth/apply` | `{ "provider": "keycloak" }` → set Rancher's auth provider |
 

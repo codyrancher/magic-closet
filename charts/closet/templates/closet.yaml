@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: project
-  labels: { app: project }
+  name: closet
+  labels: { app: closet }
 spec:
   replicas: 1
   strategy: { type: Recreate }
   selector:
-    matchLabels: { app: project }
+    matchLabels: { app: closet }
   template:
     metadata:
-      labels: { app: project }
+      labels: { app: closet }
     spec:
       containers:
-        - name: project
-          image: {{ .Values.images.project }}
+        - name: closet
+          image: {{ .Values.images.closet }}
           imagePullPolicy: Always
           envFrom:
             - secretRef: { name: closet-secrets }
@@ -45,8 +45,8 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: project
+  name: closet
 spec:
-  selector: { app: project }
+  selector: { app: closet }
   ports:
     - { name: dev, port: 8005, targetPort: 8005 }

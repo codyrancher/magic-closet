@@ -18,7 +18,7 @@ fills in generated secrets).
 ## Single-container (DinD) model
 
 `docker compose up -d` starts **one** privileged container, `magic-closet`,
-that runs its own inner dockerd. The whole stack (project, api, and every
+that runs its own inner dockerd. The whole stack (closet, api, and every
 sidecar) runs as *nested* containers inside it — nothing else lands on the host
 docker. The host publishes only the fixed sidecar ports plus `8500-8519` for
 provisioned closets.
@@ -29,7 +29,7 @@ provisioned closets.
 - `dind-entrypoint.sh` — PID 1 of that container: boots the inner dockerd, then
   runs `docker compose -f compose.stack.yml up -d --build` inside it.
 - `compose.stack.yml` — the **actual stack** (formerly `docker-compose.yml`):
-  core `project` + `api` and the `include:` of each sidecar. The api drives
+  core `closet` + `api` and the `include:` of each sidecar. The api drives
   nested compose with this file (via `MC_COMPOSE_FILE`), talking to the inner
   socket with `MC_ROOT=/magic-closet`.
 
@@ -49,13 +49,13 @@ still talk to each other over the inner docker network regardless.
 ```
 magic-closet/
 ├── docker-compose.yml   # DinD wrapper: one privileged docker:dind container
-├── compose.stack.yml    # the actual stack (project, api) + include: of each sidecar
+├── compose.stack.yml    # the actual stack (closet, api) + include: of each sidecar
 ├── dind-entrypoint.sh   # inner dockerd + `compose up` of the stack
 ├── .env                 # profiles, host ports, sidecar parameters
-├── workspace/           # THE source code — bind-mounted into project + vscode
+├── workspace/           # THE source code — bind-mounted into closet + vscode
 ├── tools/               # shared CLI tools, mounted into every container
 │   └── bin/mc           # control CLI (list/start/stop/rm/run)
-├── project/             # main container image (node, git, gh, claude)
+├── closet/              # main container image (node via nvm, git, gh, claude)
 ├── api/                 # sidecar control API (port ${API_PORT}, default 8300)
 └── sidecars/
     └── <name>/          # one directory per sidecar
@@ -169,7 +169,7 @@ Delete its directory and its `include:` entry, and drop its profile from
 
 ## The control API
 
-`api/` runs alongside the project container (it is core, not a sidecar) and
+`api/` runs alongside the closet container (it is core, not a sidecar) and
 drives `docker compose` through the host docker socket.
 
 ```
@@ -178,7 +178,7 @@ GET    /sidecars                list sidecars: status, health, host port, params
 POST   /sidecars/<name>/start   body: { "params": {"tag": "v2.11-head"}, "wait": true }
 POST   /sidecars/<name>/stop    stop the container (kept for fast restart)
 DELETE /sidecars/<name>         stop + remove the container (named volumes kept)
-POST   /project/exec            { "command": "yarn build" } → runs in the project container
+POST   /exec            { "command": "yarn build" } → runs in the closet container
 POST   /browser/open            { "url": "https://rancher" } → open a tab in the rancher-browser
                                 sidecar; 202 + queued if the browser isn't ready, and the
                                 queue is flushed (FIFO) once it comes up
@@ -204,7 +204,7 @@ GET    /browser/queue           tabs still waiting for the browser
 ### The `mc` CLI
 `tools/` is mounted into every container at `/opt/magic-closet/tools` (and on
 PATH in the images we build), so all sidecars share the same CLI tools —
-including `claude` and `gh`, which the project container copies into
+including `claude` and `gh`, which the closet container copies into
 `tools/bin` at startup.
 
 ```bash
@@ -212,7 +212,7 @@ mc list                          # sidecars + status
 mc start rancher tag=v2.11-head --wait
 mc stop rancher-browser
 mc rm figma
-mc run "yarn install"            # executes inside the project container
+mc run "yarn install"            # executes inside the closet container
 mc open https://rancher          # open a browser tab (queued until the browser is up)
 ```
 
@@ -222,7 +222,7 @@ On the host, prefix with `MC_API_URL=http://localhost:8300`.
 
 - **project** — holds `/workspace` (bind of `./workspace`), node 22, git, gh,
   claude. Long-running; get a shell with
-  `docker exec -it -u 1000 magic-closet-project bash`, or `claude-session`
+  `docker exec -it -u 1000 magic-closet-closet bash`, or `claude-session`
   inside it for a persistent tmux Claude session. Dev servers should listen on
   `0.0.0.0:8005` (forwarded as `${DEV_PORT}`). If `workspace/init.sh` exists
   it runs (backgrounded, log: `workspace/.init.log`) on container start.
@@ -232,7 +232,7 @@ On the host, prefix with `MC_API_URL=http://localhost:8300`.
 
 The vscode sidecar's `githubUrl` param points at a GitHub PR, issue, or repo;
 the api clones it into `/workspace/dashboard` (blob-less partial clone) via
-the project container:
+the closet container:
 
 - `.../pull/123` — PR head checked out on branch `pr-123`
 - `.../issues/456` — default branch on a new branch `issue-456`
@@ -391,7 +391,7 @@ node -e '...connectOverCDP(...)...' "$(cdp-url)"
 
 - Run `docker compose` commands **from this directory** — the api service
   mounts the repo at `${PWD}` so compose paths resolve identically inside it.
-- After editing `project/`, `api/`, or `sidecars/vscode/` (built images), run
+- After editing `closet/`, `api/`, or `sidecars/vscode/` (built images), run
   `docker compose up -d --build`. Sidecars using stock images just need
   `docker compose up -d`.
 - `figma` needs `FIGMA_API_KEY` set in `.env` (or `mc start figma apiKey=...`).

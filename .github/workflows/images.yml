@@ -18,9 +18,9 @@ jobs:
           - name: api
             context: .
             dockerfile: api/Dockerfile
-          - name: project
-            context: project
-            dockerfile: project/Dockerfile
+          - name: closet
+            context: closet
+            dockerfile: closet/Dockerfile
           - name: vscode
             context: sidecars/dev/vscode
             dockerfile: sidecars/dev/vscode/Dockerfile

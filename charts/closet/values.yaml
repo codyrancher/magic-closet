@@ -1,6 +1,6 @@
 images:
   api: ghcr.io/codyrancher/magic-closet-api:latest
-  project: ghcr.io/codyrancher/magic-closet-project:latest
+  closet: ghcr.io/codyrancher/magic-closet-closet:latest
   vscode: ghcr.io/codyrancher/magic-closet-vscode:latest
   rancherManager: dtzar/helm-kubectl:latest
   keycloak: quay.io/keycloak/keycloak:latest

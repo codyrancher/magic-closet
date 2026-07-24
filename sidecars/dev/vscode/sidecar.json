@@ -7,20 +7,7 @@
       "id": "githubUrl",
       "env": "GITHUB_URL",
       "default": "",
-      "description": "GitHub PR or issue URL — PRs are cloned with the PR branch checked out, issues clone master on a new issue-N branch, into /workspace/dashboard"
-    },
-    {
-      "id": "nodeVersion",
-      "env": "NODE_VERSION",
-      "description": "Node.js version for the terminal (installed via fnm); defaults to what rancher/dashboard:master uses",
-      "defaultFromOptions": true,
-      "options": {
-        "source": "github-node-engines",
-        "repo": "rancher/dashboard",
-        "mainBranch": "master",
-        "branchPrefix": "release-2.",
-        "limit": 6
-      }
+      "description": "GitHub repo/PR/issue URL cloned into /workspace/dashboard (defaults to rancher/dashboard master). PRs check out the PR branch; issues branch off master. Node is picked from the repo's .nvmrc."
     }
   ]
 }

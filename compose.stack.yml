@@ -17,11 +17,12 @@ include:
     project_directory: .
 
 services:
-  # Main container: holds the source code, node, and the CLI toolchain.
-  # Everything else is an optional sidecar.
-  project:
-    image: magic-closet-project
-    build: ./project
+  # Main container: holds the source code, node (via nvm), and the CLI toolchain.
+  # Everything else is an optional sidecar. The vscode sidecar shares this
+  # container's toolchain (the `toolchain` volume) instead of baking its own.
+  closet:
+    image: magic-closet-closet
+    build: ./closet
     # All params/secrets live in .env and are injected into every container,
     # so any argument passed to one sidecar is visible to all of them.
     env_file:
@@ -38,7 +39,9 @@ services:
       - ${MC_WORKSPACE:-./workspace}:/workspace
       - ./tools:/opt/magic-closet/tools
       - claude-data:/claude-data
-      # Rancher UI extension source — built with the project container's node
+      # Node + nvm, shared with the (slim) vscode sidecar
+      - toolchain:/opt/toolchain
+      # Rancher UI extension source — built with the closet container's node
       - ./rancher-extension:/rancher-extension
     restart: unless-stopped
 
@@ -69,3 +72,5 @@ services:
 
 volumes:
   claude-data:
+  # nvm + node, populated by the closet container and shared with vscode
+  toolchain:

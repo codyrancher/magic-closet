@@ -12,7 +12,7 @@
 //   POST   /sidecars/:name/start  body: { params?: {id: value}, wait?: bool }
 //   POST   /sidecars/:name/stop
 //   DELETE /sidecars/:name        stop + remove the container (volumes kept)
-//   POST   /project/exec          body: { command: "..." } — run in project container
+//   POST   /exec                  body: { command: "..." } — run in the closet container
 //   POST   /browser/open          body: { url: "..." } — open a tab in the browser
 //                                 sidecar; queued (202) until the browser is ready
 //   GET    /browser/queue         tabs waiting for the browser to come up
@@ -1111,11 +1111,13 @@ let cloneRunning = false;
 function ensureWorkspaceClone() {
   if (K8S) return;
   const env = readEnvValues();
-  const url = env.GITHUB_URL;
-  if (!url || cloneRunning) return;
-  if (containerStatus('project').status !== 'running') return;
+  // Default to rancher/dashboard master; set GITHUB_URL in .env to override
+  // (a repo, PR, or issue URL).
+  const url = env.GITHUB_URL || 'https://github.com/rancher/dashboard';
+  if (cloneRunning) return;
+  if (containerStatus('closet').status !== 'running') return;
   try {
-    execFileSync('docker', ['exec', containerIdOf('project'), 'test', '-d', '/workspace/dashboard'],
+    execFileSync('docker', ['exec', containerIdOf('closet'), 'test', '-d', '/workspace/dashboard'],
       { stdio: 'ignore' });
     return; // already cloned
   } catch { /* not cloned yet */ }
@@ -1137,7 +1139,7 @@ function ensureWorkspaceClone() {
   cloneRunning = true;
   const what = kind ? `${kind === 'pull' ? 'PR' : 'issue'} #${num}` : 'default branch';
   console.log(`workspace: cloning ${owner}/${repo} (${what}) into /workspace/dashboard...`);
-  execFile('docker', ['exec', '-u', '1000:1000', containerIdOf('project'), 'bash', '-c',
+  execFile('docker', ['exec', '-u', '1000:1000', containerIdOf('closet'), 'bash', '-c',
     `set -e; { ${script}; } > /workspace/.clone.log 2>&1`],
     { maxBuffer: 1024 * 1024 }, (err) => {
       cloneRunning = false;
@@ -1711,8 +1713,8 @@ function handleSidecarDeleteDef(name, res) {
 function handleExec(body, res) {
   if (K8S) return sendJson(res, 501, { error: 'project exec is not supported in kubernetes mode yet' });
   if (!body.command) return sendJson(res, 400, { error: 'missing "command"' });
-  const projectId = containerIdOf('project');
-  if (!projectId) return sendJson(res, 409, { error: 'project container is not running' });
+  const projectId = containerIdOf('closet');
+  if (!projectId) return sendJson(res, 409, { error: 'closet container is not running' });
   execFile('docker', ['exec', '-u', '1000:1000', projectId, 'bash', '-lc', body.command],
     { encoding: 'utf-8', maxBuffer: 16 * 1024 * 1024, timeout: (body.timeoutSeconds || 300) * 1000 },
     (err, stdout, stderr) => {
@@ -1791,7 +1793,7 @@ const handler = (async (req, res) => {
         return handleDelete(name, res);
       }
     }
-    if (req.method === 'POST' && url.pathname === '/project/exec') {
+    if (req.method === 'POST' && (url.pathname === '/exec' || url.pathname === '/project/exec')) {
       return handleExec(await readBody(req), res);
     }
     if (req.method === 'POST' && url.pathname === '/auth/apply') {

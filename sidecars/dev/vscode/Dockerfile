@@ -17,18 +17,9 @@ RUN wget -q "https://github.com/gitpod-io/openvscode-server/releases/download/op
     && mv "openvscode-server-v${OPENVSCODE_VERSION}-linux-x64" /opt/openvscode-server \
     && rm "openvscode-server-v${OPENVSCODE_VERSION}-linux-x64.tar.gz"
 
-# GitHub CLI (authenticated via the GH_TOKEN env var / ghToken param)
-RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-    && apt-get update && apt-get install -y gh \
-    && rm -rf /var/lib/apt/lists/*
-
-# fnm for a selectable node version (NODE_VERSION env / nodeVersion param);
-# v24 is pre-installed as the offline default
-ENV FNM_DIR=/opt/fnm
-RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir /usr/local/bin --skip-shell \
-    && fnm install 24 \
-    && chmod -R a+rX /opt/fnm
+# This is a thin editor: node (from nvm/.nvmrc) and gh/claude/mc come from the
+# closet container via the shared /opt/toolchain volume and the tools mount —
+# not baked in here.
 
 # Use the Microsoft marketplace so the Claude extension is available
 ENV VSCODE_GALLERY_SERVICE_URL='https://marketplace.visualstudio.com/_apis/public/gallery' \
@@ -40,19 +31,19 @@ RUN mkdir -p /opt/vscode-extensions \
 RUN /opt/openvscode-server/bin/openvscode-server --extensions-dir /opt/vscode-extensions --install-extension Vue.volar || true
 RUN chmod -R 755 /opt/vscode-extensions
 
-ENV PATH="/opt/magic-closet/tools/bin:${PATH}"
+# Shared node (from the closet's /opt/toolchain volume) + the tools bin on PATH.
+ENV PATH="/opt/toolchain/node/bin:/opt/magic-closet/tools/bin:${PATH}"
 # The openvscode terminal is an interactive non-login shell that inherits a PATH
-# without the tools dir, so re-add it in the files those shells source
-# (/etc/bash.bashrc) plus /etc/profile.d for login shells — otherwise `mc` isn't
-# found in the terminal.
-RUN L='export PATH="/opt/magic-closet/tools/bin:$PATH"'; \
+# without these dirs, so re-add them where those shells look (/etc/bash.bashrc)
+# plus /etc/profile.d for login shells — otherwise node/`mc` aren't found.
+RUN L='export PATH="/opt/toolchain/node/bin:/opt/magic-closet/tools/bin:$PATH"'; \
     printf '%s\n' "$L" > /etc/profile.d/magic-closet-tools.sh; \
     printf '%s\n' "$L" >> /etc/bash.bashrc
 
 COPY --chmod=755 entrypoint.sh /entrypoint.sh
 COPY config/ /opt/vscode-defaults/
 
-RUN mkdir -p /workspace /data
+RUN mkdir -p /workspace /data /opt/toolchain
 EXPOSE 9000
 
 ENTRYPOINT ["/entrypoint.sh"]
