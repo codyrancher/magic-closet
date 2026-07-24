@@ -67,6 +67,13 @@ async function createEc2Cluster(setStatus) {
   });
   if (!awsCred) throw new Error('No AWS cloud credential found. Create one in Cluster Management > Cloud Credentials first.');
 
+  // 1b. Use whatever RKE2 version this Rancher recommends — version-agnostic,
+  // so this works on head and on stable releases (each ships a different set).
+  var verResp = await rancherApi('GET', '/v3/settings/rke2-default-version');
+  var k8sVersion = (verResp && verResp.value) ? verResp.value : '';
+  if (k8sVersion && k8sVersion.charAt(0) !== 'v') k8sVersion = 'v' + k8sVersion;
+  if (!k8sVersion) throw new Error('Could not determine the default RKE2 version (setting rke2-default-version is empty).');
+
   // 2. Create machine config
   setStatus('pending', 'Creating machine config...');
   var machineConfigName = clusterName + '-machine';
@@ -95,7 +102,7 @@ async function createEc2Cluster(setStatus) {
     },
     spec: {
       cloudCredentialSecretName: awsCred.id,
-      kubernetesVersion: 'v1.34.4+rke2r1',
+      kubernetesVersion: k8sVersion,
       defaultPodSecurityAdmissionConfigurationTemplateName: '',
       rkeConfig: {
         chartValues: {},
