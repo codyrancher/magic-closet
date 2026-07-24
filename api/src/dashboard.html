@@ -774,7 +774,6 @@ function render(sidecars) {
       params: Object.fromEntries(Object.entries(inputs).map(([id, el]) =>
         [id, el.type === 'checkbox' ? (el.checked ? 'true' : '') : el.value])),
     });
-    actions.appendChild(startBtn);
 
     if (running || s.status === 'exited' || s.status === 'created') {
       const stopBtn = document.createElement('button');
@@ -784,6 +783,8 @@ function render(sidecars) {
       stopBtn.onclick = () => act(s.name, 'stopping', `sidecars/${s.name}/stop`, 'POST');
       actions.appendChild(stopBtn);
     }
+    // Start/Restart is the primary action — keep it right-most
+    actions.appendChild(startBtn);
 
     card.appendChild(actions);
     grid.appendChild(card);
