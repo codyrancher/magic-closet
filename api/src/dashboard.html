@@ -376,6 +376,7 @@
 
   .actions {
     display: flex;
+    justify-content: flex-end;
     gap: var(--spacing-sm);
   }
 
@@ -401,6 +402,12 @@
     color: var(--color-text-primary);
   }
   .btn-stop:hover:not(:disabled) { background: var(--color-bg-element-hover); color: var(--color-text-bright); }
+
+  .btn-secondary {
+    background: var(--color-bg-element);
+    color: var(--color-text-primary);
+  }
+  .btn-secondary:hover:not(:disabled) { background: var(--color-bg-element-hover); color: var(--color-text-bright); }
 
   .btn-delete {
     background: none;
@@ -699,7 +706,7 @@ function render(sidecars) {
     // Internal Launch: open the sidecar's in-network URL inside the rancher-browser
     // sidecar, where compose service names resolve
     const browser = lastSidecars.find(x => x.name === 'rancher-browser');
-    if (s.internal && s.status === 'running' && s.name !== 'rancher-browser'
+    if (s.internal && s.status === 'running' && s.name !== 'rancher-browser' && s.name !== 'vscode'
         && browser && browser.status === 'running') {
       const b = document.createElement('a');
       b.className = 'card-link';
@@ -708,7 +715,6 @@ function render(sidecars) {
       b.onclick = (ev) => { ev.preventDefault(); openInBrowser(s, browser); };
       links.appendChild(b);
     }
-    if (links.children.length) card.appendChild(links);
 
     // logs — a logbook icon in the top-right corner (whenever a container exists)
     if (s.status !== 'not_created') {
@@ -751,6 +757,9 @@ function render(sidecars) {
         continue;
       }
     }
+
+    // launch links sit just above the action buttons
+    if (links.children.length) card.appendChild(links);
 
     const actions = document.createElement('div');
     actions.className = 'actions';
@@ -825,7 +834,7 @@ function makeAuthApply(s) {
   row.appendChild(select);
 
   const btn = document.createElement('button');
-  btn.className = 'btn-start';
+  btn.className = 'btn-secondary';
   const syncBtn = () => {
     const isApplied = select.value === rancherInfo.authProvider;
     btn.textContent = isApplied ? 'Applied' : 'Apply';
