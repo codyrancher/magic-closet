@@ -1,7 +1,11 @@
 .env
 workspace/*
 !workspace/.gitkeep
+!workspace/CLAUDE.md
 tools/bin/claude
 tools/bin/gh
 .state/
 workspaces/
+# Sidecars created/edited from within a closet — runtime state, shared with
+# future compose closets via the bind-mounted repo (git add -f to version one).
+custom-sidecars/

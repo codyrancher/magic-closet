@@ -130,47 +130,69 @@ function containerIdOf(service, project = MC_PROJECT) {
 // A directory under sidecars/ that contains a compose.yml is a sidecar; one
 // that doesn't is a group whose subdirectories are sidecars (e.g.
 // sidecars/auth/keycloak). Group = directory name.
-function listSidecarDefs() {
-  if (!fs.existsSync(SIDECARS_DIR)) return [];
-  const defs = [];
-  const groupOrder = {}; // group name -> order (from <group>/group.json; default 100)
+// Sidecars come from two roots: the built-in `sidecars/` in the repo and a
+// `custom-sidecars/` overlay — created/edited from within a closet and shared
+// with every future compose closet via MC_ROOT. A custom entry shadows a
+// built-in of the same name (so built-ins can be edited without touching them).
+const CUSTOM_SIDECARS_DIR = path.join(MC_ROOT, 'custom-sidecars');
+
+function scanSidecarRoot(root, custom, byName, groupOrder) {
+  if (!fs.existsSync(root)) return;
   const readDef = (dir, name, group) => {
     let meta = {};
     try { meta = JSON.parse(fs.readFileSync(path.join(dir, 'sidecar.json'), 'utf-8')); } catch { /* no metadata */ }
-    defs.push({
-      name, group,
+    byName.set(name, {
+      name,
+      group: meta.group || group,
       description: meta.description || '',
       port: meta.port, scheme: meta.scheme,
       params: meta.params || [], secrets: meta.secrets || [],
       rancherAuth: meta.rancherAuth,
+      dir, custom,
     });
   };
-  for (const entry of fs.readdirSync(SIDECARS_DIR, { withFileTypes: true })) {
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
-    const dir = path.join(SIDECARS_DIR, entry.name);
-    if (fs.existsSync(path.join(dir, 'compose.yml'))) {
-      readDef(dir, entry.name, null);
-      continue;
-    }
+    const dir = path.join(root, entry.name);
+    if (fs.existsSync(path.join(dir, 'compose.yml'))) { readDef(dir, entry.name, null); continue; }
     try {
       groupOrder[entry.name] = JSON.parse(fs.readFileSync(path.join(dir, 'group.json'), 'utf-8')).order ?? 100;
-    } catch { groupOrder[entry.name] = 100; }
+    } catch { if (!(entry.name in groupOrder)) groupOrder[entry.name] = 100; }
     for (const child of fs.readdirSync(dir, { withFileTypes: true })) {
       if (!child.isDirectory()) continue;
       const childDir = path.join(dir, child.name);
       if (fs.existsSync(path.join(childDir, 'compose.yml'))) readDef(childDir, child.name, entry.name);
     }
   }
+}
+
+function listSidecarDefs() {
+  const byName = new Map();
+  const groupOrder = {};
+  scanSidecarRoot(SIDECARS_DIR, false, byName, groupOrder);
+  scanSidecarRoot(CUSTOM_SIDECARS_DIR, true, byName, groupOrder); // custom shadows built-in
   // Ungrouped first, then groups by their group.json order, then by name
   const orderOf = d => (d.group ? groupOrder[d.group] ?? 100 : -1);
-  return defs.sort((a, b) =>
+  return [...byName.values()].sort((a, b) =>
     orderOf(a) - orderOf(b) ||
     (a.group || '').localeCompare(b.group || '') ||
     a.name.localeCompare(b.name));
 }
 
+function listBuiltinNames() {
+  const byName = new Map();
+  scanSidecarRoot(SIDECARS_DIR, false, byName, {});
+  return [...byName.keys()];
+}
+
 function getSidecarDef(name) {
   return listSidecarDefs().find(s => s.name === name) || null;
+}
+
+// Custom sidecars aren't in the base compose `include:`, so their fragment must
+// be passed explicitly with `-f` for compose to know the service.
+function sidecarFiles(def) {
+  return def && def.custom ? [path.join(def.dir, 'compose.yml')] : [];
 }
 
 function containerStatus(name) {
@@ -444,18 +466,25 @@ function writeEnvValues(updates) {
 
 // ---------- compose invocation ----------
 
-function composeFor(project, envFile, args, cb) {
+// When running inside the DinD wrapper the default compose file is the wrapper
+// itself, so the stack lives in a separate file — select it explicitly.
+const MC_COMPOSE_FILE = process.env.MC_COMPOSE_FILE || null;
+
+function composeFor(project, envFile, args, cb, extraFiles = []) {
   // Minimal environment: OS env vars override .env during compose
   // interpolation, and this container's base image leaks vars like
   // NODE_VERSION that would shadow user params.
   const env = { PATH: process.env.PATH, HOME: process.env.HOME || '/root' };
-  execFile('docker', ['compose', '-p', project, '--env-file', envFile, ...args],
+  const fileArgs = [];
+  if (MC_COMPOSE_FILE) fileArgs.push('-f', MC_COMPOSE_FILE);
+  for (const f of extraFiles) fileArgs.push('-f', f); // e.g. a custom sidecar's fragment
+  execFile('docker', ['compose', ...fileArgs, '-p', project, '--env-file', envFile, ...args],
     { cwd: MC_ROOT, encoding: 'utf-8', maxBuffer: 16 * 1024 * 1024, env },
     (err, stdout, stderr) => cb(err, stdout, stderr));
 }
 
-function compose(args, cb) {
-  composeFor(MC_PROJECT, ENV_FILE, args, cb);
+function compose(args, cb, extraFiles) {
+  composeFor(MC_PROJECT, ENV_FILE, args, cb, extraFiles);
 }
 
 // ---------- rancher bootstrap ----------
@@ -823,19 +852,23 @@ async function bootstrapOpenLdap() {
     for (const ou of ['users', 'groups']) {
       ldapAdd(adminPw, `dn: ou=${ou},${LDAP_BASE}\nobjectClass: organizationalUnit\nou: ${ou}\n`);
     }
+    // admin uses the Rancher bootstrap password so the same credentials work
+    // on the "Log in with OpenLDAP" form (it's a regular LDAP user, though —
+    // for global-admin access use "Use a local user").
     const users = [
-      ['user1', env.RANCHER_USER1_PASSWORD, 'One'],
-      ['user2', env.RANCHER_USER2_PASSWORD, 'Two'],
-      ['user3', env.RANCHER_USER3_PASSWORD, 'Three'],
+      ['admin', env.RANCHER_BOOTSTRAP_PASSWORD, 'Admin', 'Admin'],
+      ['user1', env.RANCHER_USER1_PASSWORD, 'User One', 'One'],
+      ['user2', env.RANCHER_USER2_PASSWORD, 'User Two', 'Two'],
+      ['user3', env.RANCHER_USER3_PASSWORD, 'User Three', 'Three'],
     ];
-    for (const [uid, password, last] of users) {
+    for (const [uid, password, cn, sn] of users) {
       if (!password) continue;
       const result = ldapAdd(adminPw, [
         `dn: uid=${uid},ou=users,${LDAP_BASE}`,
         'objectClass: inetOrgPerson',
         `uid: ${uid}`,
-        `cn: User ${last}`,
-        `sn: ${last}`,
+        `cn: ${cn}`,
+        `sn: ${sn}`,
         `mail: ${uid}@magic-closet.local`,
         `userPassword: ${password}`,
         '',
@@ -1516,11 +1549,12 @@ async function handleStart(name, body, res) {
       bootstrapOpenLdap();
     }
     sendJson(res, 200, { status: 'started', sidecar: name, params: updates, containerStatus: containerStatus(name) });
-  });
+  }, sidecarFiles(def));
 }
 
 function handleStop(name, res) {
-  if (!getSidecarDef(name)) return sendJson(res, 404, { error: `unknown sidecar: ${name}` });
+  const def = getSidecarDef(name);
+  if (!def) return sendJson(res, 404, { error: `unknown sidecar: ${name}` });
   if (K8S) {
     k8sApi(`/apis/apps/v1/namespaces/${K8S.ns}/deployments/${name}`, {
       method: 'PATCH', contentType: 'application/strategic-merge-patch+json', body: { spec: { replicas: 0 } },
@@ -1532,16 +1566,108 @@ function handleStop(name, res) {
   compose(['--profile', name, 'stop', name], (err, stdout, stderr) => {
     if (err) return sendJson(res, 500, { error: 'compose stop failed', detail: stderr.trim() });
     sendJson(res, 200, { status: 'stopped', sidecar: name });
-  });
+  }, sidecarFiles(def));
 }
 
 function handleDelete(name, res) {
-  if (!getSidecarDef(name)) return sendJson(res, 404, { error: `unknown sidecar: ${name}` });
+  const def = getSidecarDef(name);
+  if (!def) return sendJson(res, 404, { error: `unknown sidecar: ${name}` });
   if (K8S) return handleStop(name, res); // in-cluster: delete == scale to 0
   compose(['--profile', name, 'rm', '-sf', name], (err, stdout, stderr) => {
     if (err) return sendJson(res, 500, { error: 'compose rm failed', detail: stderr.trim() });
     sendJson(res, 200, { status: 'deleted', sidecar: name });
+  }, sidecarFiles(def));
+}
+
+// ---------- custom sidecar definitions (created/edited from within a closet) ----------
+//
+// A spec ({name, image|compose, port, containerPort, params, secrets, ...}) is
+// written to custom-sidecars/<name>/ as a compose fragment + sidecar.json. It's
+// discovered like any built-in and (living under MC_ROOT) is inherited by every
+// future compose closet. A custom name shadows a built-in of the same name.
+
+const SIDECAR_NAME_RE = /^[a-z0-9][a-z0-9-]{0,38}$/;
+
+function specToFragment(spec) {
+  const svc = {
+    profiles: [spec.name],
+    env_file: [{ path: '${MC_ENV_FILE:-./.env}', required: false }],
+    restart: 'unless-stopped',
+  };
+  if (spec.image) svc.image = spec.image;
+  if (spec.command !== undefined) svc.command = spec.command;
+  if (spec.environment && typeof spec.environment === 'object') {
+    svc.environment = Object.entries(spec.environment).map(([k, v]) => `${k}=${v}`);
+  }
+  if (Array.isArray(spec.volumes)) svc.volumes = spec.volumes;
+  // Publish a host port only when asked; otherwise it's reachable in-network by
+  // service name (host access needs the port to fall in the DinD wrapper's range)
+  if (spec.containerPort && (spec.port || spec.hostPort)) {
+    const host = spec.port
+      ? `\${${spec.port}:-${spec.hostPort || spec.containerPort}}`
+      : String(spec.hostPort);
+    svc.ports = [`${host}:${spec.containerPort}`];
+  }
+  Object.assign(svc, spec.compose || {}); // advanced raw compose overrides win
+  return { services: { [spec.name]: svc } };
+}
+
+function specToMeta(spec) {
+  const meta = { name: spec.name, description: spec.description || '' };
+  if (spec.group) meta.group = spec.group;
+  if (spec.port) meta.port = spec.port;
+  if (spec.scheme) meta.scheme = spec.scheme;
+  if (Array.isArray(spec.params)) meta.params = spec.params;
+  if (Array.isArray(spec.secrets)) meta.secrets = spec.secrets;
+  return meta;
+}
+
+function validateSidecarSpec(spec) {
+  if (!spec || typeof spec !== 'object') return 'body must be a JSON object';
+  if (!SIDECAR_NAME_RE.test(spec.name || '')) return 'name must match [a-z0-9][a-z0-9-]{0,38}';
+  if (!spec.image && !spec.compose) return 'provide an "image" (or raw "compose" overrides)';
+  return null;
+}
+
+function handleSidecarWrite(spec, res, editing) {
+  if (K8S) return sendJson(res, 501, { error: 'custom sidecars are compose-mode only' });
+  const err = validateSidecarSpec(spec);
+  if (err) return sendJson(res, 400, { error: err });
+  const dir = path.join(CUSTOM_SIDECARS_DIR, spec.name);
+  const exists = fs.existsSync(path.join(dir, 'compose.yml'));
+  if (!editing && exists) return sendJson(res, 409, { error: `custom sidecar '${spec.name}' already exists (use PUT to edit)` });
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    // JSON is valid YAML, so a JSON-shaped compose.yml parses fine and diffs cleanly
+    fs.writeFileSync(path.join(dir, 'compose.yml'), `${JSON.stringify(specToFragment(spec), null, 2)}\n`);
+    fs.writeFileSync(path.join(dir, 'sidecar.json'), `${JSON.stringify(specToMeta(spec), null, 2)}\n`);
+    fs.writeFileSync(path.join(dir, 'spec.json'), `${JSON.stringify(spec, null, 2)}\n`); // lets edits round-trip
+  } catch (e) {
+    return sendJson(res, 500, { error: `failed to write sidecar: ${e.message}` });
+  }
+  ensureGeneratedSecrets(); // generate any secrets the new sidecar declares
+  return sendJson(res, editing ? 200 : 201, {
+    status: editing ? 'updated' : 'created',
+    sidecar: spec.name,
+    shadowsBuiltin: listBuiltinNames().includes(spec.name),
+    note: 'start with POST /sidecars/<name>/start; inherited by future compose closets',
   });
+}
+
+function handleSidecarDeleteDef(name, res) {
+  const dir = path.join(CUSTOM_SIDECARS_DIR, name);
+  if (!fs.existsSync(path.join(dir, 'compose.yml'))) {
+    return sendJson(res, 404, { error: `no custom definition for '${name}'` });
+  }
+  const def = getSidecarDef(name);
+  const finish = () => {
+    try { fs.rmSync(dir, { recursive: true, force: true }); }
+    catch (e) { return sendJson(res, 500, { error: `failed to remove: ${e.message}` }); }
+    sendJson(res, 200, { status: 'removed', sidecar: name, revertsToBuiltin: listBuiltinNames().includes(name) });
+  };
+  // best-effort remove any running container first, then drop the definition
+  if (def) compose(['--profile', name, 'rm', '-sf', name], () => finish(), sidecarFiles(def));
+  else finish();
 }
 
 function handleExec(body, res) {
@@ -1597,8 +1723,17 @@ const handler = (async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/sidecars') {
       return handleList(res);
     }
+    if (req.method === 'POST' && url.pathname === '/sidecars') {
+      return handleSidecarWrite(await readBody(req), res, false);
+    }
     if (parts[0] === 'sidecars' && parts[1]) {
       const name = parts[1];
+      if (req.method === 'PUT' && parts.length === 2) {
+        return handleSidecarWrite({ ...(await readBody(req)), name }, res, true);
+      }
+      if (req.method === 'DELETE' && parts[2] === 'definition') {
+        return handleSidecarDeleteDef(name, res);
+      }
       if (req.method === 'GET' && parts[2] === 'params' && parts[3] && parts[4] === 'options') {
         return handleParamOptions(name, parts[3], res);
       }

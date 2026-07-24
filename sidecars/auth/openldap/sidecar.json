@@ -1,6 +1,6 @@
 {
   "name": "openldap",
-  "description": "OpenLDAP directory server with users user1-3.",
+  "description": "OpenLDAP directory server with admin and users user1-3.",
   "rancherAuth": { "modes": [{ "value": "openldap", "label": "OpenLDAP" }] },
   "params": [],
   "secrets": ["OPENLDAP_ADMIN_PASSWORD"]

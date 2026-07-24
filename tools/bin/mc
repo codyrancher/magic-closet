@@ -9,11 +9,14 @@
 #   mc rm <name>
 #   mc run <command...>              run a command inside the project container
 #   mc open <url>                    open a tab in the browser sidecar (queued if not ready)
+#   mc create-sidecar <name> [k=v ...] | --file <spec.json>   define a new sidecar
+#   mc edit-sidecar <name>   [k=v ...] | --file <spec.json>   edit a sidecar (built-ins too)
+#   mc rm-sidecar <name>             remove a custom sidecar definition
 
 API="${MC_API_URL:-http://api:8080}"
 
 usage() {
-  sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
   exit 1
 }
 
@@ -69,6 +72,31 @@ case "$cmd" in
     escaped="$(json_escape "$1")"
     curl -sS -X POST -H 'Content-Type: application/json' \
       -d "{\"url\":\"$escaped\"}" "$API/browser/open"
+    ;;
+  create-sidecar|edit-sidecar)
+    name="$1"; [ -n "$name" ] || usage
+    shift
+    if [ "$cmd" = edit-sidecar ]; then method=PUT; url="$API/sidecars/$name"; else method=POST; url="$API/sidecars"; fi
+    if [ "$1" = "--file" ]; then
+      [ -n "$2" ] || usage
+      body="$(cat "$2")"
+    else
+      # build a simple spec from k=v (containerPort/hostPort are numeric)
+      body="{\"name\":\"$name\""
+      for arg in "$@"; do
+        case "$arg" in
+          containerPort=*|hostPort=*) body="$body,\"${arg%%=*}\":${arg#*=}" ;;
+          *=*) key="${arg%%=*}"; val="$(json_escape "${arg#*=}")"; body="$body,\"$key\":\"$val\"" ;;
+          *) echo "unrecognized argument: $arg" >&2; usage ;;
+        esac
+      done
+      body="$body}"
+    fi
+    curl -fsS -X "$method" -H 'Content-Type: application/json' -d "$body" "$url"
+    ;;
+  rm-sidecar)
+    name="$1"; [ -n "$name" ] || usage
+    curl -fsS -X DELETE "$API/sidecars/$name/definition"
     ;;
   *)
     usage
