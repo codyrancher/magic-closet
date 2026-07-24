@@ -15,11 +15,42 @@ Which sidecars that command starts is controlled by `COMPOSE_PROFILES` in
 `.env` (run `./setup.sh` once first — it creates `.env` from the example and
 fills in generated secrets).
 
+## Single-container (DinD) model
+
+`docker compose up -d` starts **one** privileged container, `magic-closet`,
+that runs its own inner dockerd. The whole stack (project, api, and every
+sidecar) runs as *nested* containers inside it — nothing else lands on the host
+docker. The host publishes only the fixed sidecar ports plus `8500-8519` for
+provisioned closets.
+
+- `docker-compose.yml` — the **DinD wrapper**: the single `magic-closet`
+  service (`docker:27-dind`), the repo bind-mounted at `/magic-closet`, the
+  `mc-docker` volume for nested docker data, and the host port mappings.
+- `dind-entrypoint.sh` — PID 1 of that container: boots the inner dockerd, then
+  runs `docker compose -f compose.stack.yml up -d --build` inside it.
+- `compose.stack.yml` — the **actual stack** (formerly `docker-compose.yml`):
+  core `project` + `api` and the `include:` of each sidecar. The api drives
+  nested compose with this file (via `MC_COMPOSE_FILE`), talking to the inner
+  socket with `MC_ROOT=/magic-closet`.
+
+Everyday commands:
+```bash
+docker compose up -d                 # start the DinD (first run builds the stack inside)
+docker compose logs -f               # inner dockerd + "compose up" progress
+docker exec -it magic-closet sh      # shell in; `docker ps` shows the nested stack
+docker compose down                  # stop all (nested data kept in mc-docker)
+docker compose down -v               # also wipe nested docker data
+```
+Provisioned closets are reachable from the host only within `8500-8519`; they
+still talk to each other over the inner docker network regardless.
+
 ## Layout
 
 ```
 magic-closet/
-├── docker-compose.yml   # core services (project, api) + include: of each sidecar
+├── docker-compose.yml   # DinD wrapper: one privileged docker:dind container
+├── compose.stack.yml    # the actual stack (project, api) + include: of each sidecar
+├── dind-entrypoint.sh   # inner dockerd + `compose up` of the stack
 ├── .env                 # profiles, host ports, sidecar parameters
 ├── workspace/           # THE source code — bind-mounted into project + vscode
 ├── tools/               # shared CLI tools, mounted into every container
