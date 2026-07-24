@@ -929,12 +929,16 @@ async function streamLogs(name) {
     if (ctrl.signal.aborted) return; // modal closed or superseded
   }
   // The stream ended — the sidecar was still starting, got recreated, or
-  // `docker logs -f` exited. Reconnect while the modal is open AND the sidecar
-  // is still running (a stopped container's `logs -f` exits at once — don't
-  // loop on it), so logs go live without a manual close/reopen.
-  const running = (lastSidecars.find((x) => x.name === name) || {}).status === 'running';
-  if (!ctrl.signal.aborted && logsName === name && running) {
-    setTimeout(() => { if (logsName === name && logsAbort === ctrl) { logsBody.textContent = ''; streamLogs(name); } }, 1000);
+  // `docker logs -f` exited (e.g. we deleted+recreated the container). Keep
+  // retrying while the modal is open; do NOT gate on `lastSidecars` status —
+  // during a recreate that snapshot briefly shows the sidecar as not-running,
+  // and gating on it made the view give up permanently ("stuck until reopen").
+  // The 2s delay keeps a genuinely-stopped container from busy-looping, and
+  // each attempt clears the body so reconnects don't stack duplicate dumps.
+  if (!ctrl.signal.aborted && logsName === name) {
+    setTimeout(() => {
+      if (logsName === name && logsAbort === ctrl) { logsBody.textContent = ''; streamLogs(name); }
+    }, 2000);
   }
 }
 
