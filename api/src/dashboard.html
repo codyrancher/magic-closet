@@ -586,9 +586,12 @@ function render(sidecars) {
       const a = document.createElement('a');
       a.className = 'card-link';
       const scheme = s.scheme || 'http';
-      a.href = `${scheme}://${location.hostname}:${s.hostPort}`;
+      const base = `${scheme}://${location.hostname}:${s.hostPort}`;
+      // vscode-web won't reliably open the workspace from the positional folder
+      // arg (browser-saved window state wins), so force it via ?folder
+      a.href = s.name === 'vscode' ? `${base}/?folder=/workspace` : base;
       a.target = '_blank';
-      a.textContent = `${scheme}://${location.hostname}:${s.hostPort}`;
+      a.textContent = base;
       card.appendChild(a);
     } else if ((s.proxy || s.external) && s.status === 'running') {
       // In-cluster: either the Rancher service proxy this dashboard is
@@ -602,6 +605,19 @@ function render(sidecars) {
       a.target = '_blank';
       a.textContent = useExternal ? s.external : `open ${s.name}`;
       card.appendChild(a);
+    }
+
+    // "open in rancher-browser": queue the sidecar's in-network URL (service
+    // names resolve inside the browser sidecar) as a tab, then open the browser.
+    const browser = lastSidecars.find(x => x.name === 'rancher-browser');
+    if (s.internal && s.status === 'running' && s.name !== 'rancher-browser'
+        && browser && browser.status === 'running') {
+      const b = document.createElement('a');
+      b.className = 'card-link';
+      b.href = '#';
+      b.textContent = 'open in rancher-browser';
+      b.onclick = (ev) => { ev.preventDefault(); openInBrowser(s, browser); };
+      card.appendChild(b);
     }
 
     const inputs = {};
@@ -730,6 +746,35 @@ function makeAuthApply(s) {
   syncBtn();
   row.appendChild(btn);
   return row;
+}
+
+// Host-reachable link for the rancher-browser sidecar (where we open the tab)
+function browserHostLink(browser) {
+  if (!browser || browser.status !== 'running') return null;
+  if (browser.hostPort) {
+    const scheme = browser.scheme || 'http';
+    return `${scheme}://${location.hostname}:${browser.hostPort}`;
+  }
+  return browser.external || null;
+}
+
+async function openInBrowser(s, browser) {
+  try {
+    const resp = await fetch('browser/open', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ url: s.internal }),
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      showError(data.detail || data.error || `open ${s.name} in browser failed`);
+      return;
+    }
+    const link = browserHostLink(browser);
+    if (link) window.open(link, '_blank', 'noopener');
+  } catch (err) {
+    showError(`open ${s.name} in browser failed: ${err.message}`);
+  }
 }
 
 async function act(name, label, url, method, body) {

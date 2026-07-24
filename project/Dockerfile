@@ -29,6 +29,9 @@ RUN CLAUDE_VERSION=$(curl -fsSL https://storage.googleapis.com/claude-code-dist-
 
 # Shared tools directory (bind-mounted at runtime, on PATH everywhere)
 ENV PATH="/opt/magic-closet/tools/bin:${PATH}"
+# Login shells reset PATH via /etc/profile — re-add the tools dir so `mc` (and
+# the other tools) resolve in interactive terminals too.
+RUN echo 'export PATH="/opt/magic-closet/tools/bin:$PATH"' > /etc/profile.d/magic-closet-tools.sh
 
 COPY --chmod=755 entrypoint.sh /entrypoint.sh
 

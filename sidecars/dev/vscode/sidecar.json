@@ -21,12 +21,6 @@
         "branchPrefix": "release-2.",
         "limit": 6
       }
-    },
-    {
-      "id": "ghToken",
-      "env": "GH_TOKEN",
-      "default": "",
-      "description": "GitHub token for the gh CLI (also wired into git via gh auth setup-git)"
     }
   ]
 }
