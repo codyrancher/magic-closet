@@ -21,7 +21,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { execFileSync, execFile } = require('child_process');
+const { execFileSync, execFile, spawn } = require('child_process');
 
 const MC_ROOT = process.env.MC_ROOT || process.cwd();
 const SIDECARS_DIR = fs.existsSync(path.join(MC_ROOT, 'sidecars'))
@@ -1579,6 +1579,44 @@ function handleDelete(name, res) {
   }, sidecarFiles(def));
 }
 
+function handleLogs(name, params, res) {
+  const def = getSidecarDef(name);
+  if (!def) return sendJson(res, 404, { error: `unknown sidecar: ${name}` });
+  if (K8S) return sendJson(res, 200, { logs: '(sidecar logs are compose-mode only; use Rancher/kubectl in-cluster)' });
+  const tail = Math.min(parseInt(params.get('tail'), 10) || 500, 5000);
+  const id = containerIdOf(name);
+  if (!id) return sendJson(res, 200, { logs: '(no container — sidecar not created)' });
+  execFile('docker', ['logs', '--tail', String(tail), '--timestamps', id],
+    { encoding: 'utf-8', maxBuffer: 16 * 1024 * 1024, timeout: 15000 },
+    (err, stdout, stderr) => {
+      // container stdout + stderr (docker keeps them on separate streams)
+      const out = `${stdout || ''}${stderr || ''}`.trim();
+      sendJson(res, 200, { logs: out || '(no output yet)' });
+    });
+}
+
+// Live logs: stream `docker logs -f` over a chunked response. The child is
+// killed when the client disconnects (closes the modal / navigates away).
+function handleLogsStream(name, params, res) {
+  const def = getSidecarDef(name);
+  if (!def) return sendJson(res, 404, { error: `unknown sidecar: ${name}` });
+  res.writeHead(200, {
+    'Content-Type':  'text/plain; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    'X-Accel-Buffering': 'no', // don't let any proxy buffer the stream
+  });
+  if (K8S) return res.end('(sidecar logs are compose-mode only; use Rancher/kubectl in-cluster)');
+  const tail = Math.min(parseInt(params.get('tail'), 10) || 1000, 5000);
+  const id = containerIdOf(name);
+  if (!id) return res.end('(no container — sidecar not created)');
+  const child = spawn('docker', ['logs', '-f', '--tail', String(tail), '--timestamps', id]);
+  child.stdout.on('data', (d) => res.write(d));
+  child.stderr.on('data', (d) => res.write(d));
+  child.on('error', (e) => { try { res.end(`\n[logs error: ${ e.message }]`); } catch { /* closed */ } });
+  child.on('close', () => { try { res.end(); } catch { /* closed */ } });
+  res.on('close', () => { try { child.kill('SIGKILL'); } catch { /* already gone */ } });
+}
+
 // ---------- custom sidecar definitions (created/edited from within a closet) ----------
 //
 // A spec ({name, image|compose, port, containerPort, params, secrets, ...}) is
@@ -1736,6 +1774,12 @@ const handler = (async (req, res) => {
       }
       if (req.method === 'GET' && parts[2] === 'params' && parts[3] && parts[4] === 'options') {
         return handleParamOptions(name, parts[3], res);
+      }
+      if (req.method === 'GET' && parts[2] === 'logs' && parts[3] === 'stream') {
+        return handleLogsStream(name, url.searchParams, res);
+      }
+      if (req.method === 'GET' && parts[2] === 'logs') {
+        return handleLogs(name, url.searchParams, res);
       }
       if (req.method === 'POST' && parts[2] === 'start') {
         return handleStart(name, await readBody(req), res);

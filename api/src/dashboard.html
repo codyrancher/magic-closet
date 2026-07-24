@@ -407,6 +407,60 @@
     padding: var(--spacing-xxl);
     text-align: center;
   }
+
+  /* Logs modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-xl);
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--color-bg-secondary);
+    border: var(--border-width-sm) solid var(--color-border-medium);
+    border-radius: var(--radius-lg);
+    width: min(1000px, 94vw);
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 32px var(--color-shadow-medium);
+  }
+  .modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-bottom: var(--border-width-sm) solid var(--color-border-dark);
+  }
+  .modal-title {
+    font-weight: 600;
+    color: var(--color-text-bright);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .modal-buttons { display: flex; gap: var(--spacing-sm); flex-shrink: 0; }
+  .modal-logs {
+    margin: 0;
+    padding: var(--spacing-lg);
+    overflow: auto;
+    flex: 1;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: var(--font-size-xs);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--color-text-primary);
+    background: var(--color-bg-primary);
+    border-bottom-left-radius: var(--radius-lg);
+    border-bottom-right-radius: var(--radius-lg);
+  }
 </style>
 </head>
 <body>
@@ -420,6 +474,18 @@
     <div class="grid" id="grid"><div class="empty">Loading…</div></div>
   </main>
   <div class="toast" id="toast"></div>
+
+  <div class="modal-overlay" id="logs-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <span class="modal-title" id="logs-title"></span>
+        <div class="modal-buttons">
+          <button class="btn-stop" id="logs-close">Close</button>
+        </div>
+      </div>
+      <pre class="modal-logs" id="logs-body"></pre>
+    </div>
+  </div>
 
 <script>
 const grid = document.getElementById('grid');
@@ -620,6 +686,16 @@ function render(sidecars) {
       card.appendChild(b);
     }
 
+    // logs link — available whenever a container exists
+    if (s.status !== 'not_created') {
+      const lg = document.createElement('a');
+      lg.className = 'card-link';
+      lg.href = '#';
+      lg.textContent = 'logs';
+      lg.onclick = (ev) => { ev.preventDefault(); openLogs(s.name); };
+      card.appendChild(lg);
+    }
+
     const inputs = {};
     if (s.params.length) {
       const params = document.createElement('div');
@@ -674,13 +750,6 @@ function render(sidecars) {
       stopBtn.disabled = isBusy || !running;
       stopBtn.onclick = () => act(s.name, 'stopping', `sidecars/${s.name}/stop`, 'POST');
       actions.appendChild(stopBtn);
-
-      const delBtn = document.createElement('button');
-      delBtn.className = 'btn-delete';
-      delBtn.textContent = 'Delete';
-      delBtn.disabled = isBusy;
-      delBtn.onclick = () => act(s.name, 'deleting', `sidecars/${s.name}`, 'DELETE');
-      actions.appendChild(delBtn);
     }
 
     card.appendChild(actions);
@@ -795,6 +864,55 @@ async function act(name, label, url, method, body) {
     refresh();
   }
 }
+
+// ---- Logs modal (live stream) ----
+const logsModal = document.getElementById('logs-modal');
+const logsTitle = document.getElementById('logs-title');
+const logsBody = document.getElementById('logs-body');
+let logsName = null;
+let logsAbort = null;
+
+async function streamLogs(name) {
+  logsAbort = new AbortController();
+  logsBody.textContent = 'Connecting…\n';
+  try {
+    const resp = await fetch(`sidecars/${name}/logs/stream?tail=1000`, { signal: logsAbort.signal });
+    if (!resp.ok || !resp.body) { logsBody.textContent = 'Failed to load logs'; return; }
+    logsBody.textContent = '';
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      // follow the tail only when already scrolled to the bottom
+      const atBottom = logsBody.scrollHeight - logsBody.scrollTop - logsBody.clientHeight < 40;
+      logsBody.textContent += dec.decode(value, { stream: true });
+      if (atBottom) logsBody.scrollTop = logsBody.scrollHeight;
+    }
+  } catch (err) {
+    if (err.name !== 'AbortError') logsBody.textContent += `\n[stream error: ${err.message}]`;
+  }
+}
+
+function openLogs(name) {
+  logsName = name;
+  logsTitle.textContent = `${name} — logs (live)`;
+  logsModal.classList.add('show');
+  document.body.style.overflow = 'hidden'; // lock page scroll while open
+  streamLogs(name);
+}
+
+function closeLogs() {
+  logsAbort?.abort();
+  logsAbort = null;
+  logsName = null;
+  logsModal.classList.remove('show');
+  document.body.style.overflow = ''; // restore page scroll
+}
+
+document.getElementById('logs-close').onclick = closeLogs;
+logsModal.addEventListener('click', (e) => { if (e.target === logsModal) closeLogs(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && logsName) closeLogs(); });
 
 refresh();
 setInterval(() => { if (!busy.size) refresh(); }, 4000);
