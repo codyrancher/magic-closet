@@ -135,6 +135,7 @@
     flex-direction: column;
     gap: var(--spacing-md);
     transition: border-color var(--transition-fast);
+    position: relative; /* for the logs icon */
   }
 
   .card:hover { border-color: var(--color-accent); }
@@ -143,6 +144,7 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
+    padding-right: 24px; /* leave room for the logs icon */
   }
 
   .status-dot {
@@ -201,6 +203,27 @@
     text-decoration: none;
   }
   .card-link:hover { text-decoration: underline; }
+
+  .links {
+    display: flex;
+    gap: var(--spacing-lg);
+    flex-wrap: wrap;
+  }
+
+  .logs-icon {
+    position: absolute;
+    top: var(--spacing-lg);
+    right: var(--spacing-lg);
+    padding: 3px;
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    line-height: 0;
+    border-radius: var(--radius-sm);
+    transition: color var(--transition-fast), background var(--transition-fast);
+  }
+  .logs-icon:hover { color: var(--color-accent); background: var(--color-bg-element-hover); }
 
   .params {
     display: flex;
@@ -648,51 +671,51 @@ function render(sidecars) {
     desc.textContent = s.description || '';
     card.appendChild(desc);
 
+    // Launch links row: "Launch" (host/direct) + "Internal Launch" (browser sidecar)
+    const links = document.createElement('div');
+    links.className = 'links';
+    let launchHref = null;
     if (s.hostPort && s.status === 'running') {
-      const a = document.createElement('a');
-      a.className = 'card-link';
       const scheme = s.scheme || 'http';
       const base = `${scheme}://${location.hostname}:${s.hostPort}`;
-      // vscode-web won't reliably open the workspace from the positional folder
-      // arg (browser-saved window state wins), so force it via ?folder
-      a.href = s.name === 'vscode' ? `${base}/?folder=/workspace` : base;
-      a.target = '_blank';
-      a.textContent = base;
-      card.appendChild(a);
+      // vscode-web needs ?folder to reliably open the workspace (it ignores the
+      // positional folder arg when the browser has saved window state)
+      launchHref = s.name === 'vscode' ? `${base}/?folder=/workspace` : base;
     } else if ((s.proxy || s.external) && s.status === 'running') {
-      // In-cluster: either the Rancher service proxy this dashboard is
-      // served from (same-origin, path-prefixed) or the node-IP NodePort —
-      // per-sidecar preference from the api, falling back to what exists
+      // In-cluster: the Rancher service proxy (same-origin) or the node-IP NodePort
       const proxyHref = s.proxy ? `../../${s.proxy.scheme}:${s.name}:${s.proxy.port}/proxy/` : null;
       const useExternal = s.external && (!s.proxy || s.proxy.prefer === 'external');
+      launchHref = useExternal ? s.external : proxyHref;
+    }
+    if (launchHref) {
       const a = document.createElement('a');
       a.className = 'card-link';
-      a.href = useExternal ? s.external : proxyHref;
+      a.href = launchHref;
       a.target = '_blank';
-      a.textContent = useExternal ? s.external : `open ${s.name}`;
-      card.appendChild(a);
+      a.textContent = 'Launch';
+      links.appendChild(a);
     }
-
-    // "open in rancher-browser": queue the sidecar's in-network URL (service
-    // names resolve inside the browser sidecar) as a tab, then open the browser.
+    // Internal Launch: open the sidecar's in-network URL inside the rancher-browser
+    // sidecar, where compose service names resolve
     const browser = lastSidecars.find(x => x.name === 'rancher-browser');
     if (s.internal && s.status === 'running' && s.name !== 'rancher-browser'
         && browser && browser.status === 'running') {
       const b = document.createElement('a');
       b.className = 'card-link';
       b.href = '#';
-      b.textContent = 'open in rancher-browser';
+      b.textContent = 'Internal Launch';
       b.onclick = (ev) => { ev.preventDefault(); openInBrowser(s, browser); };
-      card.appendChild(b);
+      links.appendChild(b);
     }
+    if (links.children.length) card.appendChild(links);
 
-    // logs link — available whenever a container exists
+    // logs — a logbook icon in the top-right corner (whenever a container exists)
     if (s.status !== 'not_created') {
-      const lg = document.createElement('a');
-      lg.className = 'card-link';
-      lg.href = '#';
-      lg.textContent = 'logs';
-      lg.onclick = (ev) => { ev.preventDefault(); openLogs(s.name); };
+      const lg = document.createElement('button');
+      lg.className = 'logs-icon';
+      lg.title = 'View logs';
+      lg.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h12a2 2 0 0 1 2 2v13a1 1 0 0 1-1 1H7a2 2 0 0 1-2-2V4z"/><path d="M9 4v16"/><line x1="12" y1="9" x2="16" y2="9"/><line x1="12" y1="13" x2="16" y2="13"/></svg>';
+      lg.onclick = () => openLogs(s.name);
       card.appendChild(lg);
     }
 
