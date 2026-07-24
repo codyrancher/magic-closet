@@ -33,6 +33,13 @@ const SIDECARS_DIR = fs.existsSync(path.join(MC_ROOT, 'sidecars'))
 const MC_PROJECT = process.env.MC_PROJECT || 'magic-closet';
 const MC_ENV_FILE = process.env.MC_ENV_FILE || '.env';
 const ENV_FILE = path.isAbsolute(MC_ENV_FILE) ? MC_ENV_FILE : path.join(MC_ROOT, MC_ENV_FILE);
+// Generated login secrets are kept OUT of the human-facing .env: for the
+// default closet they live in this gitignored runtime file, which the
+// dind-entrypoint generates at init and loads into compose interpolation, and
+// which we read/merge here. Provisioned closets carry their secrets inside
+// their own .state env file (SECRETS_FILE null → same-file behaviour).
+const IS_DEFAULT_ENV = ENV_FILE === path.join(MC_ROOT, '.env');
+const SECRETS_FILE = IS_DEFAULT_ENV ? path.join(MC_ROOT, '.state', 'secrets.env') : null;
 const PORT = 8080;
 
 // ---------- kubernetes mode ----------
@@ -257,7 +264,7 @@ function ensureGeneratedSecrets() {
     }
   }
   if (Object.keys(updates).length) {
-    writeEnvValues(updates);
+    writeSecretValues(updates);
     console.log(`generated secrets for: ${Object.keys(updates).join(', ')}`);
   }
 }
@@ -426,17 +433,21 @@ function readEnvValues() {
     return { ...env, ...k8sConfigCache };
   }
   const values = {};
-  try {
-    for (const line of fs.readFileSync(ENV_FILE, 'utf-8').split('\n')) {
-      const m = line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
-      if (!m) continue;
-      let value = m[2].trim();
-      const quoted = value.match(/^"([^"]*)"|^'([^']*)'/);
-      if (quoted) value = quoted[1] ?? quoted[2];
-      else value = value.replace(/\s+#.*$/, '').trim(); // inline comment (dotenv style)
-      values[m[1]] = value;
-    }
-  } catch { /* no .env yet */ }
+  // .env first, then the generated-secrets file (secrets supplement params).
+  for (const file of [ENV_FILE, SECRETS_FILE]) {
+    if (!file) continue;
+    try {
+      for (const line of fs.readFileSync(file, 'utf-8').split('\n')) {
+        const m = line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+        if (!m) continue;
+        let value = m[2].trim();
+        const quoted = value.match(/^"([^"]*)"|^'([^']*)'/);
+        if (quoted) value = quoted[1] ?? quoted[2];
+        else value = value.replace(/\s+#.*$/, '').trim(); // inline comment (dotenv style)
+        values[m[1]] = value;
+      }
+    } catch { /* file may not exist yet */ }
+  }
   // Derive host ports from API_PORT for any not explicitly set — mirrors
   // dind-entrypoint.sh, which only exports the derived ports into the compose
   // process (they're not written to .env), so without this the api wouldn't
@@ -459,8 +470,14 @@ function writeEnvValues(updates) {
     });
     return;
   }
+  writeKeyValues(ENV_FILE, updates);
+}
+
+// Upsert KEY=VALUE lines into an env file (creating it + parent dir if needed).
+function writeKeyValues(file, updates) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
   let lines = [];
-  try { lines = fs.readFileSync(ENV_FILE, 'utf-8').split('\n'); } catch { /* create fresh */ }
+  try { lines = fs.readFileSync(file, 'utf-8').split('\n'); } catch { /* create fresh */ }
   for (const [key, value] of Object.entries(updates)) {
     const idx = lines.findIndex(l => l.startsWith(`${key}=`));
     if (idx !== -1) lines[idx] = `${key}=${value}`;
@@ -469,7 +486,14 @@ function writeEnvValues(updates) {
       lines.push(`${key}=${value}`, '');
     }
   }
-  fs.writeFileSync(ENV_FILE, lines.join('\n'));
+  fs.writeFileSync(file, lines.join('\n'));
+}
+
+// Persist generated login secrets. Default closet → the gitignored secrets
+// file (keeps them out of .env); provisioned closets → their own env file.
+function writeSecretValues(updates) {
+  if (K8S) return writeEnvValues(updates); // the chart owns secrets in k8s
+  writeKeyValues(SECRETS_FILE || ENV_FILE, updates);
 }
 
 // ---------- compose invocation ----------
@@ -486,7 +510,14 @@ function composeFor(project, envFile, args, cb, extraFiles = []) {
   const fileArgs = [];
   if (MC_COMPOSE_FILE) fileArgs.push('-f', MC_COMPOSE_FILE);
   for (const f of extraFiles) fileArgs.push('-f', f); // e.g. a custom sidecar's fragment
-  execFile('docker', ['compose', ...fileArgs, '-p', project, '--env-file', envFile, ...args],
+  // Interpolate from .env plus, for the default closet, the generated-secrets
+  // file (compose merges multiple --env-file, later wins) so ${*_PASSWORD}
+  // resolve even though they no longer live in .env.
+  const envFileArgs = ['--env-file', envFile];
+  if (envFile === ENV_FILE && SECRETS_FILE && fs.existsSync(SECRETS_FILE)) {
+    envFileArgs.push('--env-file', SECRETS_FILE);
+  }
+  execFile('docker', ['compose', ...fileArgs, '-p', project, ...envFileArgs, ...args],
     { cwd: MC_ROOT, encoding: 'utf-8', maxBuffer: 16 * 1024 * 1024, env },
     (err, stdout, stderr) => cb(err, stdout, stderr));
 }

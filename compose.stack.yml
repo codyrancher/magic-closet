@@ -23,8 +23,11 @@ services:
   closet:
     image: magic-closet-closet
     build: ./closet
-    # All params/secrets live in .env and are injected into every container,
-    # so any argument passed to one sidecar is visible to all of them.
+    # Params live in .env (env_file below) and are injected into every
+    # container, so any argument passed to one sidecar is visible to all.
+    # Generated login secrets are NOT here — they live in .state/secrets.env
+    # and reach containers via ${*_PASSWORD} interpolation (dind-entrypoint.sh
+    # exports them; the api adds it as a second --env-file).
     env_file:
       - path: ${MC_ENV_FILE:-./.env}
         required: false

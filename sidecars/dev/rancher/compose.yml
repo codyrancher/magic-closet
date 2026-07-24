@@ -9,7 +9,7 @@ services:
       - path: ${MC_ENV_FILE:-./.env}
         required: false
     environment:
-      # Auto-generated into .env by setup.sh / the api — never set by hand
+      # Generated at init into .state/secrets.env (not .env) — never set by hand
       - CATTLE_BOOTSTRAP_PASSWORD=${RANCHER_BOOTSTRAP_PASSWORD:-}
       # Rancher Prime: when RANCHER_PRIME is non-empty these become
       # prime/suse; empty otherwise

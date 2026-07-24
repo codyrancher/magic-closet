@@ -43,6 +43,29 @@ for pair in API_HTTPS_PORT:1 DEV_PORT:5 VSCODE_PORT:10 RANCHER_BROWSER_PORT:20 K
   grep -qE "^${var}=" .env 2>/dev/null || export "${var}=$((base + off))"
 done
 
+# Generate login secrets (Rancher/Keycloak/OpenLDAP admin + user passwords)
+# into a gitignored runtime file — NOT .env, which stays human-authored. Every
+# env var listed in a sidecar's "secrets" array is generated here once and
+# reused on later boots: rancher/keycloak persist their own copy in volumes, so
+# regenerating each start would break login. Sourcing first, then exporting,
+# lets the `compose up` below (and the api's --env-file) interpolate them.
+mkdir -p .state
+SECRETS_FILE=.state/secrets.env
+[ -f "$SECRETS_FILE" ] || : > "$SECRETS_FILE"
+set -a; . "./$SECRETS_FILE"; set +a
+for key in $(for f in sidecars/*/sidecar.json sidecars/*/*/sidecar.json; do
+    [ -f "$f" ] || continue
+    tr '\n' ' ' < "$f" | grep -oE '"secrets"[[:space:]]*:[[:space:]]*\[[^]]*\]' \
+      | grep -oE '[A-Z0-9_]+_(PASSWORD|SECRET)'
+  done | sort -u); do
+  eval "cur=\${$key:-}"
+  [ -n "$cur" ] && continue
+  val=$(tr -dc 'a-zA-Z0-9@#%^*_+=-' < /dev/urandom | head -c 15)
+  echo "${key}=${val}" >> "$SECRETS_FILE"
+  export "${key}=${val}"
+  echo "[dind] generated secret ${key}"
+done
+
 echo "[dind] bringing up the magic-closet stack (first run builds images)..."
 docker compose -f compose.stack.yml up -d --build \
   || echo "[dind] 'compose up' returned non-zero — check 'docker compose logs' inside the container"

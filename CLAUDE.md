@@ -117,12 +117,16 @@ names stay flat (`keycloak`) — the group is purely organizational.
    Internal secrets are not params and are never authored by hand — list their
    env vars in a top-level `"secrets"` array instead (see rancher's
    `RANCHER_BOOTSTRAP_PASSWORD`). Name them `*_PASSWORD` / `*_SECRET`. They
-   never appear in the dashboard, the start API, or `.env.example`; every
-   `secrets`-array entry is generated at startup — `setup.sh` scans the
-   sidecar.json files and appends any missing one to `.env` before the first
-   `docker compose up -d` (which creates sidecar containers before the api
-   could write `.env`), and the api regenerates any still-missing at boot and
-   before any start. Look the value up in `.env` when you need to log in.
+   never appear in the dashboard, the start API, `.env`, or `.env.example`.
+   Every `secrets`-array entry is generated at init into the gitignored
+   `.state/secrets.env` (kept out of the human `.env`): `dind-entrypoint.sh`
+   scans the sidecar.json files, generates any missing one there **once** —
+   reused on later boots so rancher/keycloak (which persist their own copy in
+   volumes) don't break on restart — and exports them so `compose up`
+   interpolates `${*_PASSWORD}`. The api reads `.env` **and** `.state/secrets.env`
+   (and passes the latter as a second `--env-file` when it starts a sidecar),
+   and regenerates any still-missing into `.state/secrets.env` before a start.
+   Look a value up in `.state/secrets.env` when you need to log in.
 2. Add it to the `include:` list in `docker-compose.yml`.
 3. Optionally add its profile to `COMPOSE_PROFILES` and its port/params to
    `.env` / `.env.example`.
@@ -188,12 +192,14 @@ GET    /browser/queue           tabs still waiting for the browser
 
 - `start` params are validated against `sidecar.json` and **persisted to
   `.env`**, so a later `docker compose up -d` keeps them.
-- **All params and secrets are global**: every container (project + every
-  sidecar) loads `.env` via `env_file`, so an argument passed for one sidecar
-  is readable as an env var in all of them (e.g. `RANCHER_TAG`,
-  `RANCHER_BOOTSTRAP_PASSWORD`). A container picks up changed values the next
-  time it is recreated — starting a sidecar through the API does that for the
-  sidecar itself; others follow on their next `docker compose up -d`.
+- **Params are global**: every container (closet + every sidecar) loads
+  `.env` via `env_file`, so an argument passed for one sidecar is readable as
+  an env var in all of them (e.g. `RANCHER_TAG`). Generated login secrets live
+  in `.state/secrets.env` instead and reach containers via `${*_PASSWORD}`
+  interpolation in each service's `environment:` (see the secrets note above).
+  A container picks up changed values the next time it is recreated — starting
+  a sidecar through the API does that for the sidecar itself; others follow on
+  their next `docker compose up -d`.
 - `"wait": true` blocks until the container is healthy (uses the compose
   healthcheck if the sidecar defines one).
 - From the host: `http://localhost:${API_PORT}` (default 8300) or
