@@ -15,6 +15,13 @@ services:
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
+      # Quick-login credentials for ext-init — secrets live in .state/secrets.env
+      # (not .env), so pull them in explicitly via interpolation.
+      - RANCHER_BOOTSTRAP_PASSWORD=${RANCHER_BOOTSTRAP_PASSWORD:-}
+      - RANCHER_USER1_PASSWORD=${RANCHER_USER1_PASSWORD:-}
+      - RANCHER_USER2_PASSWORD=${RANCHER_USER2_PASSWORD:-}
+      - RANCHER_USER3_PASSWORD=${RANCHER_USER3_PASSWORD:-}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-}
       - CUSTOM_PORT=3000
       - SELKIES_JPEG_QUALITY=100
       - SELKIES_H264_FULLCOLOR=true
