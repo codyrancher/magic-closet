@@ -2,12 +2,5 @@
   "name": "vscode",
   "description": "VS Code in the browser, editing /workspace.",
   "port": "VSCODE_PORT",
-  "params": [
-    {
-      "id": "githubUrl",
-      "env": "GITHUB_URL",
-      "default": "",
-      "description": "GitHub repo/PR/issue URL cloned into /workspace/dashboard (defaults to rancher/dashboard master). PRs check out the PR branch; issues branch off master. Node is picked from the repo's .nvmrc."
-    }
-  ]
+  "params": []
 }
