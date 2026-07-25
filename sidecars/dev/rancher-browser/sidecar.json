@@ -1,6 +1,6 @@
 {
   "name": "rancher-browser",
-  "description": "Chromium with Rancher quick-login and automation.",
+  "description": "Chromium with Rancher quick-login.",
   "port": "RANCHER_BROWSER_PORT",
   "scheme": "https",
   "params": []

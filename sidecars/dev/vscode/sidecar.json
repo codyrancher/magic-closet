@@ -1,6 +1,6 @@
 {
   "name": "vscode",
-  "description": "VS Code in the browser, editing /workspace.",
+  "description": "VS Code editing /workspace.",
   "port": "VSCODE_PORT",
   "params": []
 }

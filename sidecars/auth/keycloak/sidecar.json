@@ -1,6 +1,6 @@
 {
   "name": "keycloak",
-  "description": "Keycloak identity provider with users user1-3.",
+  "description": "Keycloak OIDC/SAML provider.",
   "rancherAuth": { "modes": [{ "value": "keycloak", "label": "OIDC" }, { "value": "keycloak-saml", "label": "SAML" }] },
   "port": "KEYCLOAK_PORT",
   "params": [],
