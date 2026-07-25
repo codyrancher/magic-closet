@@ -234,22 +234,23 @@
 
   .param {
     display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-xs);
   }
 
   .param label {
     font-size: var(--font-size-xs);
     color: var(--color-text-muted);
-    width: 40%;
+    text-transform: capitalize;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .param input {
-    flex: 1;
-    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
     background: var(--color-bg-primary);
     border: var(--border-width-sm) solid var(--color-border-medium);
     border-radius: var(--radius-sm);
@@ -265,6 +266,7 @@
   .param input[type="checkbox"] {
     appearance: none;
     flex: none;
+    align-self: start;
     width: 34px;
     height: 18px;
     border-radius: 9px;
@@ -351,14 +353,22 @@
   /* "Apply to Rancher" row on auth sidecar cards */
   .auth-apply {
     display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-xs);
   }
 
   .auth-apply label {
     font-size: var(--font-size-xs);
     color: var(--color-text-muted);
+    text-transform: capitalize;
     white-space: nowrap;
+  }
+
+  .auth-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
   }
 
   .auth-apply select {
@@ -852,7 +862,11 @@ function makeAuthProvider() {
   const firstAvail = providers.find(p => p.available);
   if (active) select.value = active.value;
   else if (firstAvail) select.value = firstAvail.value;
-  row.appendChild(select);
+
+  // Label on its own line; select + Apply share the next line.
+  const controls = document.createElement('div');
+  controls.className = 'auth-controls';
+  controls.appendChild(select);
 
   const btn = document.createElement('button');
   btn.className = 'btn-secondary';
@@ -871,7 +885,8 @@ function makeAuthProvider() {
     act(sel ? sel.sidecar : 'rancher', 'applying', 'auth/apply', 'POST', { provider: select.value });
   };
   syncBtn();
-  row.appendChild(btn);
+  controls.appendChild(btn);
+  row.appendChild(controls);
   return row;
 }
 
