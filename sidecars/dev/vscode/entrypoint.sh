@@ -81,6 +81,24 @@ gosu "$USER_NAME" env \
     --install-extension anthropic.claude-code 2>/dev/null || true
 echo "Extensions updated"
 
+# HTTPS front door: VS Code web webviews need a secure context, which plain
+# http:// on a remote IP isn't. openvscode has no TLS of its own, so terminate
+# TLS in a tiny proxy (openvscode's bundled node) and forward to it on 9000.
+# The published host port maps to 9443 (see compose.yml); 9000 stays http for
+# in-network use and the healthcheck.
+TLS_DIR=/data/tls
+mkdir -p "$TLS_DIR"
+if [ ! -f "$TLS_DIR/crt.pem" ]; then
+    openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
+        -keyout "$TLS_DIR/key.pem" -out "$TLS_DIR/crt.pem" \
+        -subj "/CN=magic-closet-vscode" \
+        -addext "subjectAltName=DNS:localhost,DNS:vscode,IP:127.0.0.1" >/dev/null 2>&1
+    echo "generated vscode TLS cert ($TLS_DIR)"
+fi
+chown -R "$USER_ID:$GROUP_ID" "$TLS_DIR"
+VSCODE_TLS_KEY="$TLS_DIR/key.pem" VSCODE_TLS_CERT="$TLS_DIR/crt.pem" \
+    /opt/openvscode-server/node /opt/vscode-tls-proxy.mjs &
+
 # Optional --server-base-path for running behind a path-based reverse proxy
 BASE_PATH_ARGS=()
 if [ -n "$VSCODE_BASE_PATH" ]; then
