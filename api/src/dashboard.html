@@ -742,7 +742,12 @@ function render(sidecars) {
       card.appendChild(params);
     }
 
-    if (s.rancherAuth) card.appendChild(makeAuthApply(s));
+    // The auth-provider selector lives on the rancher card (one dropdown over
+    // every provider; unavailable ones disabled), not on each auth sidecar.
+    if (s.name === 'rancher') {
+      const ap = makeAuthProvider();
+      if (ap) card.appendChild(ap);
+    }
 
     if (s.unsupported) {
       const note = document.createElement('div');
@@ -811,41 +816,60 @@ function safeRender() {
   render(lastSidecars);
 }
 
-// "Apply to Rancher" row for auth sidecars: mode dropdown (when the sidecar
-// maps to several Rancher providers) + Apply button. Only actionable while
-// rancher and the sidecar itself are running.
-function makeAuthApply(s) {
-  const modes = s.rancherAuth.modes || [];
+// "Auth Provider" row on the rancher card: one dropdown aggregating every
+// Rancher auth provider across the auth sidecars. Options whose backing sidecar
+// isn't running are disabled. Apply configures Rancher (POST /auth/apply) and
+// is actionable only while rancher and the selected provider's sidecar run.
+function makeAuthProvider() {
+  // Every provider mode across the auth sidecars, tagged with its backing
+  // sidecar and whether that sidecar is currently running.
+  const providers = [];
+  for (const sc of lastSidecars) {
+    if (!sc.rancherAuth) continue;
+    for (const m of (sc.rancherAuth.modes || [])) {
+      providers.push({ value: m.value, label: m.label, sidecar: sc.name, available: sc.status === 'running' });
+    }
+  }
+  if (!providers.length) return null;
+
   const row = document.createElement('div');
   row.className = 'auth-apply';
 
   const label = document.createElement('label');
-  label.textContent = 'rancher auth';
+  label.textContent = 'Auth Provider';
   row.appendChild(label);
 
   const select = document.createElement('select');
-  for (const m of modes) {
+  for (const p of providers) {
     const opt = document.createElement('option');
-    opt.value = m.value;
-    opt.textContent = m.label;
+    opt.value = p.value;
+    opt.textContent = p.available ? p.label : `${p.label} (not running)`;
+    opt.disabled = !p.available;
     select.appendChild(opt);
   }
-  const activeMode = modes.find(m => m.value === rancherInfo.authProvider);
-  if (activeMode) select.value = activeMode.value;
+  // Prefer the currently-applied provider; otherwise the first available one.
+  const active = providers.find(p => p.value === rancherInfo.authProvider);
+  const firstAvail = providers.find(p => p.available);
+  if (active) select.value = active.value;
+  else if (firstAvail) select.value = firstAvail.value;
   row.appendChild(select);
 
   const btn = document.createElement('button');
   btn.className = 'btn-secondary';
   const syncBtn = () => {
+    const sel = providers.find(p => p.value === select.value);
     const isApplied = select.value === rancherInfo.authProvider;
     btn.textContent = isApplied ? 'Applied' : 'Apply';
-    btn.disabled = isApplied || busy.has(s.name) ||
-      !rancherInfo.running || s.status !== 'running';
+    btn.disabled = isApplied || !rancherInfo.running || !sel || !sel.available
+      || busy.has(sel.sidecar);
     btn.title = !rancherInfo.running ? 'rancher is not running'
-      : s.status !== 'running' ? `${s.name} is not running` : '';
+      : (sel && !sel.available) ? `${sel.sidecar} is not running` : '';
   };
   select.addEventListener('change', syncBtn);
-  btn.onclick = () => act(s.name, 'applying', 'auth/apply', 'POST', { provider: select.value });
+  btn.onclick = () => {
+    const sel = providers.find(p => p.value === select.value);
+    act(sel ? sel.sidecar : 'rancher', 'applying', 'auth/apply', 'POST', { provider: select.value });
+  };
   syncBtn();
   row.appendChild(btn);
   return row;
