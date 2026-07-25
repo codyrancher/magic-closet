@@ -1,7 +1,7 @@
 {
   "name": "keycloak",
   "description": "Keycloak OIDC/SAML provider.",
-  "rancherAuth": { "modes": [{ "value": "keycloak", "label": "OIDC" }, { "value": "keycloak-saml", "label": "SAML" }] },
+  "rancherAuth": { "modes": [{ "value": "keycloak", "label": "Keycloak (OIDC)" }, { "value": "keycloak-saml", "label": "Keycloak (SAML)" }] },
   "port": "KEYCLOAK_PORT",
   "params": [],
   "secrets": ["KEYCLOAK_ADMIN_PASSWORD", "KEYCLOAK_CLIENT_SECRET"]
