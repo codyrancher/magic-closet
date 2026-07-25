@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>magic closet</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
+<!-- Title display font (falls back to the system stack if offline). To try a
+     different one, swap the family name here and in `header h1`. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
 <style>
   /* Design tokens shared with the claude-harness portal (theme.css) */
   :root {
@@ -96,8 +101,9 @@
   }
 
   header h1 {
-    font-size: 24px;
-    font-weight: 600;
+    font-family: 'Pacifico', var(--font-family);
+    font-size: 26px;
+    font-weight: 400; /* Pacifico ships a single weight */
     color: var(--color-text-bright);
   }
 
