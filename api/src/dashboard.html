@@ -737,26 +737,24 @@ function render(sidecars) {
     }
 
     const inputs = {};
-    if (s.params.length) {
-      const params = document.createElement('div');
-      params.className = 'params';
-      // Ungrouped params render flat; each group becomes an accordion section
-      for (const p of s.params.filter(p => !p.group)) {
-        params.appendChild(makeParamRow(s.name, p, inputs));
-      }
-      for (const group of [...new Set(s.params.filter(p => p.group).map(p => p.group))]) {
-        const rows = s.params.filter(p => p.group === group)
-          .map(p => makeParamRow(s.name, p, inputs));
-        params.appendChild(makeAccordion(s.name, group, rows));
-      }
-      card.appendChild(params);
+    // All configurable controls sit under one "Configuration" accordion:
+    // ungrouped params (flat rows), grouped params (nested accordions), and —
+    // on the rancher card — the auth-provider selector.
+    const configItems = [];
+    for (const p of s.params.filter(p => !p.group)) {
+      configItems.push(makeParamRow(s.name, p, inputs));
     }
-
-    // The auth-provider selector lives on the rancher card (one dropdown over
-    // every provider; unavailable ones disabled), not on each auth sidecar.
+    for (const group of [...new Set(s.params.filter(p => p.group).map(p => p.group))]) {
+      const rows = s.params.filter(p => p.group === group)
+        .map(p => makeParamRow(s.name, p, inputs));
+      configItems.push(makeAccordion(s.name, group, rows));
+    }
     if (s.name === 'rancher') {
       const ap = makeAuthProvider();
-      if (ap) card.appendChild(ap);
+      if (ap) configItems.push(ap);
+    }
+    if (configItems.length) {
+      card.appendChild(makeAccordion(s.name, 'Configuration', configItems));
     }
 
     if (s.unsupported) {
