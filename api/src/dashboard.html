@@ -195,6 +195,9 @@
     color: var(--color-text-muted);
     line-height: 1.4;
     flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .card-link {
@@ -687,6 +690,7 @@ function render(sidecars) {
     const desc = document.createElement('div');
     desc.className = 'card-desc';
     desc.textContent = s.description || '';
+    desc.title = s.description || ''; // full text on hover (it's clamped to one line)
     card.appendChild(desc);
 
     // Launch links row: "Launch" (host/direct) + "Internal Launch" (browser sidecar)
@@ -761,6 +765,7 @@ function render(sidecars) {
       const note = document.createElement('div');
       note.className = 'card-desc';
       note.style.fontStyle = 'italic';
+      note.style.whiteSpace = 'normal'; // let the "why unsupported" note wrap fully
       note.textContent = s.unsupported;
       card.appendChild(note);
       // No deployment exists at all -> nothing to start; otherwise keep the
