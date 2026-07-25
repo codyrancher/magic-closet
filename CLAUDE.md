@@ -136,21 +136,35 @@ changes needed.
 
 A param can also declare a suggested-values source; the dashboard then renders
 it as a taggable dropdown (suggestions + free text) and the API serves them at
-`GET /sidecars/<name>/params/<id>/options`. Currently supported source —
-Docker Hub image tags (see the rancher `tag` param):
+`GET /sidecars/<name>/params/<id>/options`.
+
+`github-releases` lists a repo's actual GA releases — prereleases (rc/alpha) and
+drafts excluded — newest first. This is what the rancher `tag` param uses, so
+the picker only offers real releases (`head` and `vX.Y-head` dev builds are not
+releases — type `head` in the field to run the dev build):
 
 ```json
 "options": {
-  "source": "dockerhub",
-  "repo": "rancher/rancher",     // image to list tags for
-  "filter": "head",              // server-side name filter (contains)
-  "pattern": "^v2\\.\\d+-head$", // keep only matching tags
-  "nextMinor": true,             // also suggest one minor past the newest (v2.15-head -> v2.16-head)
-  "prepend": ["head"]            // fixed values, listed first
+  "source": "github-releases",
+  "repo": "rancher/rancher",  // owner/repo
+  "limit": 15,                // keep the newest N GA tags
+  "pattern": "^v\\d+\\.\\d+\\.\\d+$", // optional; default GA-semver filter
+  "prepend": ["head"]         // optional fixed values, listed first
 }
 ```
 
-A second source, `github-node-engines`, lists the node major versions a
+`dockerhub` lists a Docker image's tags (server-side `filter`, `pattern` to
+keep, `nextMinor` to also suggest one minor past the newest, `prepend` for
+fixed values):
+
+```json
+"options": {
+  "source": "dockerhub", "repo": "rancher/rancher",
+  "filter": "head", "pattern": "^v2\\.\\d+-head$", "nextMinor": true, "prepend": ["head"]
+}
+```
+
+A third source, `github-node-engines`, lists the node major versions a
 GitHub repo's branches declare in `package.json` `engines.node` (main branch's
 version first, then the last `limit` `branchPrefix` branches):
 

@@ -8,14 +8,11 @@
       "id": "tag",
       "env": "RANCHER_TAG",
       "default": "head",
-      "description": "rancher/rancher image tag (e.g. head, v2.11-head)",
+      "description": "rancher/rancher image tag (e.g. v2.14.3, or head for the dev build)",
       "options": {
-        "source": "dockerhub",
+        "source": "github-releases",
         "repo": "rancher/rancher",
-        "filter": "head",
-        "pattern": "^v2\\.\\d+-head$",
-        "nextMinor": true,
-        "prepend": ["head"]
+        "limit": 15
       }
     },
     {

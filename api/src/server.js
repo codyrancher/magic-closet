@@ -374,11 +374,47 @@ async function githubNodeEngineOptions(cfg) {
   return options;
 }
 
+// github-releases: a repo's actual GA releases (prereleases + drafts excluded),
+// newest first. Rancher publishes many alpha/rc prereleases between GA releases,
+// so we page a few deep until we've gathered `limit` GA tags (or run out).
+async function githubReleasesOptions(cfg) {
+  const key = JSON.stringify(cfg);
+  const cached = optionsCache.get(key);
+  if (cached && Date.now() - cached.at < OPTIONS_TTL) return cached.options;
+
+  const headers = { 'User-Agent': 'magic-closet' };
+  const ghToken = readEnvValues().GH_TOKEN;
+  if (ghToken) headers.Authorization = `Bearer ${ghToken}`;
+
+  const re = cfg.pattern ? new RegExp(cfg.pattern) : /^v\d+\.\d+\.\d+$/;
+  const semver = t => t.replace(/^v/, '').split('.').map(Number);
+  const limit = cfg.limit || 15;
+  const releases = [];
+  for (let page = 1; page <= (cfg.maxPages || 5); page++) {
+    const resp = await fetch(`https://api.github.com/repos/${cfg.repo}/releases?per_page=100&page=${page}`,
+      { headers, signal: AbortSignal.timeout(10000) });
+    if (!resp.ok) { if (releases.length) break; throw new Error(`GitHub returned ${resp.status}`); }
+    const data = await resp.json();
+    if (!data.length) break;
+    for (const r of data) {
+      if (!r.prerelease && !r.draft && re.test(r.tag_name)) releases.push(r.tag_name);
+    }
+    if (new Set(releases).size >= limit) break;
+  }
+  const sorted = [...new Set(releases)]
+    .sort((a, b) => { const A = semver(a), B = semver(b); return (B[0] - A[0]) || (B[1] - A[1]) || (B[2] - A[2]); })
+    .slice(0, limit);
+  const options = [...(cfg.prepend || []), ...sorted.filter(o => !(cfg.prepend || []).includes(o))];
+  if (options.length) optionsCache.set(key, { at: Date.now(), options });
+  return options;
+}
+
 // Always resolves to [{ value, label }] regardless of source
 async function resolveOptions(cfg) {
   let options;
   if (cfg.source === 'static') options = cfg.values || [];
   else if (cfg.source === 'dockerhub') options = await dockerHubOptions(cfg);
+  else if (cfg.source === 'github-releases') options = await githubReleasesOptions(cfg);
   else if (cfg.source === 'github-node-engines') options = await githubNodeEngineOptions(cfg);
   else throw new Error(`unknown options source: ${cfg.source}`);
   return options.map(o => (typeof o === 'string' ? { value: o, label: o } : o));
