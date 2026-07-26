@@ -1,20 +1,37 @@
 # magic closet
 
-A dev environment as a closet of optional containers: one **project**
-container with the source code and node, plus opt-in **sidecars** (VS Code,
-Chromium, Rancher, Figma MCP) each in its own directory, plus a small API to
-start/stop/delete them at runtime.
+A dev environment as a closet of optional containers — one **closet** container
+(your source + node) plus opt-in **sidecars** (VS Code, a Chromium browser,
+Rancher, Keycloak, ...), all managed from a small dashboard. The whole stack
+runs inside a single Docker-in-Docker container, so nothing but that one
+container lands on your host.
+
+## Start
+
+Requires Docker. From this directory:
 
 ```bash
-./setup.sh             # first time only — creates .env and generates secrets
-docker compose up -d   # starts project + api + the sidecars in COMPOSE_PROFILES
+docker compose up -d
 ```
 
-Then:
-- VS Code: http://localhost:8310
-- Rancher browser (Chromium): https://localhost:8320 (self-signed cert)
-- Rancher: https://localhost:8444
-- Dashboard + control API: http://localhost:8300
+The first run creates `.env`, generates secrets, and builds the stack inside the
+container (give it a few minutes — watch with `docker compose logs -f`). Then
+open the dashboard:
 
-See [CLAUDE.md](CLAUDE.md) for the full configuration guide (ports, profiles,
-sidecar parameters, adding sidecars, the `mc` CLI, the Rancher UI extension).
+**http://localhost:8300**
+
+Start/stop sidecars and open them (VS Code, Rancher, ...) from there. To
+customize first — ports, tokens, or which sidecars start — copy `.env.example`
+to `.env` and edit before running.
+
+## Everyday commands
+
+```bash
+docker compose logs -f            # boot + build progress
+docker exec -it magic-closet sh   # shell inside; `docker ps` shows the sidecars
+docker compose down               # stop (nested data kept)
+docker compose down -v            # stop + wipe all nested data
+```
+
+See [CLAUDE.md](CLAUDE.md) for the full guide — ports, profiles, sidecar
+parameters, adding sidecars, the `mc` CLI, and the Rancher UI extension.
