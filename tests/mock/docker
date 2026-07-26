@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Mock `docker` for the integration suite. Records every invocation to
+# $MOCK_DOCKER_LOG and answers just enough of what server.js needs:
+#   ps -aq --filter ...service=<svc>  -> an id iff <svc> is listed in the state file
+#   inspect -f <fmt> <id>             -> "running|healthy" for our mock ids
+#   exec ... bash -lc <cmd>           -> echoes the command back
+#   compose … / logs … / anything     -> exit 0 (just recorded)
+set -u
+: "${MOCK_DOCKER_LOG:=/dev/null}"
+: "${MOCK_DOCKER_STATE:=/dev/null}"
+echo "docker $*" >> "$MOCK_DOCKER_LOG" 2>/dev/null || true
+
+running() { grep -qxF "$1" "$MOCK_DOCKER_STATE" 2>/dev/null; }
+
+case "${1:-}" in
+  ps)
+    svc=""
+    for a in "$@"; do
+      case "$a" in *com.docker.compose.service=*) svc="${a##*com.docker.compose.service=}";; esac
+    done
+    [ -n "$svc" ] && running "$svc" && echo "mockid-$svc"
+    exit 0
+    ;;
+  inspect)
+    id="${*: -1}"
+    case "$id" in
+      mockid-*) echo "running|healthy"; exit 0 ;;
+      *) echo "Error: No such object: $id" >&2; exit 1 ;;
+    esac
+    ;;
+  exec)
+    echo "mock-exec: ${*: -1}"   # last arg is the command passed to bash -lc
+    exit 0
+    ;;
+  logs)
+    echo "2020-01-01T00:00:00.000000000Z mock log line"
+    exit 0
+    ;;
+  *)   # compose, image, volume, network, ...
+    exit 0
+    ;;
+esac
