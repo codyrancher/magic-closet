@@ -6,7 +6,7 @@ RUN apk add --no-cache docker-cli docker-cli-compose bash openldap-clients opens
 
 COPY closet/api/src /app/src
 # sidecar metadata for kubernetes mode (no repo mount in-cluster)
-COPY sidecars /app/sidecars
+COPY closet/sidecars /app/sidecars
 
 EXPOSE 8080
 CMD ["node", "/app/src/server.js"]

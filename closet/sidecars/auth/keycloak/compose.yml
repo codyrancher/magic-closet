@@ -20,7 +20,7 @@ services:
     ports:
       - "${KEYCLOAK_PORT:-8330}:8080"
     volumes:
-      - ./shared:/shared:ro
+      - ./closet/shared:/shared:ro
       - keycloak-data:/opt/keycloak/data
     healthcheck:
       # The keycloak image ships no curl/wget; a TCP connect is enough here

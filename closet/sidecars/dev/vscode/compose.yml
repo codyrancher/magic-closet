@@ -5,7 +5,7 @@
 services:
   vscode:
     image: magic-closet-vscode
-    build: ./sidecars/dev/vscode
+    build: ./closet/sidecars/dev/vscode
     profiles: ["vscode"]
     env_file:
       - path: ${MC_ENV_FILE:-./.env}
@@ -21,7 +21,7 @@ services:
       - "${VSCODE_PORT:-8310}:9443"
     volumes:
       - ${MC_WORKSPACE:-/magic-closet-data/workspace}:/workspace
-      - ./shared:/shared:ro
+      - ./closet/shared:/shared:ro
       # Node + nvm, populated by the closet container (shared toolchain)
       - toolchain:/opt/toolchain
       - vscode-data:/data

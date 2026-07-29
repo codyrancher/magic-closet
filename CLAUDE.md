@@ -59,13 +59,13 @@ magic-closet/
 ├── compose.stack.yml    # the actual stack (closet, api) + include: of each sidecar
 ├── dind-entrypoint.sh   # inner dockerd + `compose up` of the stack
 ├── .env                 # profiles, host ports, sidecar parameters
-├── closet/              # main container image (node via nvm, git, gh, claude)
+├── closet/              # the closet: its container image + everything it & the sidecars use
 │   ├── api/             # sidecar control API (port ${API_PORT}, default 8300)
-│   └── template/        # scaffold seeded into the closet root (/workspace) at start
-├── sidecars/            # one dir per sidecar (compose.yml + sidecar.json [+ Dockerfile])
+│   ├── template/        # scaffold seeded into the closet root (/workspace) at start
+│   ├── sidecars/        # one dir per sidecar (compose.yml + sidecar.json [+ Dockerfile])
+│   └── shared/          # artifacts shared into every container at /shared (tools/bin/mc, ...)
 ├── rancher-extension/   # Rancher UI extension (Vue plugin) + charts/ (Helm chart)
-├── tests/               # integration tests for the control API
-└── shared/              # artifacts shared into every container at /shared (tools/bin/mc, ...)
+└── tests/               # integration tests for the control API
 ```
 
 Runtime/instance state — the cloned `/workspace` (the closet clones

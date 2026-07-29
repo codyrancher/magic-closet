@@ -16,7 +16,7 @@ export const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-itest-'));
 const stateFile = path.join(root, 'mock-docker.state');
 const logFile = path.join(root, 'mock-docker.log');
 
-fs.cpSync(path.join(repoRoot, 'sidecars'), path.join(root, 'sidecars'), { recursive: true });
+fs.cpSync(path.join(repoRoot, 'closet', 'sidecars'), path.join(root, 'closet', 'sidecars'), { recursive: true });
 try { fs.copyFileSync(path.join(repoRoot, 'compose.stack.yml'), path.join(root, 'compose.stack.yml')); } catch {}
 fs.writeFileSync(path.join(root, '.env'), 'API_PORT=8300\nCOMPOSE_PROFILES=vscode,rancher,keycloak\n');
 fs.writeFileSync(stateFile, '');

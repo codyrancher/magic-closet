@@ -3,17 +3,17 @@ name: magic-closet
 # Each sidecar lives in its own directory under sidecars/ and ships its own
 # compose fragment. Adding a sidecar = create the directory + list it here.
 include:
-  - path: sidecars/dev/vscode/compose.yml
+  - path: closet/sidecars/dev/vscode/compose.yml
     project_directory: .
-  - path: sidecars/dev/rancher-browser/compose.yml
+  - path: closet/sidecars/dev/rancher-browser/compose.yml
     project_directory: .
-  - path: sidecars/dev/rancher/compose.yml
+  - path: closet/sidecars/dev/rancher/compose.yml
     project_directory: .
-  - path: sidecars/design/figma/compose.yml
+  - path: closet/sidecars/design/figma/compose.yml
     project_directory: .
-  - path: sidecars/auth/keycloak/compose.yml
+  - path: closet/sidecars/auth/keycloak/compose.yml
     project_directory: .
-  - path: sidecars/auth/openldap/compose.yml
+  - path: closet/sidecars/auth/openldap/compose.yml
     project_directory: .
 
 services:
@@ -40,7 +40,7 @@ services:
       - "${DEV_PORT:-8305}:8005"
     volumes:
       - ${MC_WORKSPACE:-/magic-closet-data/workspace}:/workspace
-      - ./shared:/shared
+      - ./closet/shared:/shared
       - claude-data:/claude-data
       # Node + nvm, shared with the (slim) vscode sidecar
       - toolchain:/opt/toolchain

@@ -27,8 +27,8 @@ const MC_ROOT = process.env.MC_ROOT || process.cwd();
 // Runtime/instance state (.state, custom-sidecars, workspaces) lives here so it
 // can be kept out of the source tree. Defaults to MC_ROOT (in-tree) when unset.
 const DATA_DIR = process.env.MC_DATA_DIR || MC_ROOT;
-const SIDECARS_DIR = fs.existsSync(path.join(MC_ROOT, 'sidecars'))
-  ? path.join(MC_ROOT, 'sidecars')
+const SIDECARS_DIR = fs.existsSync(path.join(MC_ROOT, 'closet', 'sidecars'))
+  ? path.join(MC_ROOT, 'closet', 'sidecars')
   : path.join(__dirname, '..', 'sidecars');
 // Which closet this api instance manages: compose project + env file.
 // The default deployment is project "magic-closet" with ./.env; provisioned
