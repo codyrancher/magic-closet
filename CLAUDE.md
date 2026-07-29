@@ -97,6 +97,15 @@ conventions are:
 4. Tunables are exposed as env vars with defaults (`${RANCHER_TAG:-head}`) and
    declared in `sidecar.json` so the API can set them.
 
+### Seeding startup files (`template/`)
+A sidecar that **builds its own image** carries a `template/` dir, baked in and
+copied into the container at startup — the convention for initializing data:
+the **closet** seeds `closet/template/` into its root (`/workspace`), and
+**vscode** seeds `sidecars/dev/vscode/template/` (VS Code defaults) into its
+data dir. **Stock-image sidecars** can't bake a template, so they initialize
+another way: rancher/keycloak/openldap via the API bootstrap, rancher-browser
+via the image's `custom-cont-init.d` hook (`ext-init`, which renders creds).
+
 ### Sidecar groups
 A directory under `sidecars/` **without** a `compose.yml` is a group; its
 subdirectories are sidecars (e.g. `sidecars/auth/keycloak`,

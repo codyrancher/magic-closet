@@ -37,7 +37,7 @@ fi
 # Server state (settings, sessions) persists in the vscode-data volume
 DATA_DIR=/data/openvscode-server
 USER_DIR="$DATA_DIR/data/User"
-DEFAULTS=/opt/vscode-defaults
+DEFAULTS=/opt/magic-closet/template
 
 # Clear cached state so fresh settings are applied on every boot
 rm -rf "$USER_DIR/workspaceStorage" 2>/dev/null || true

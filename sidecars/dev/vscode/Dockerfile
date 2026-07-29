@@ -41,7 +41,7 @@ RUN L='export PATH="/opt/toolchain/node/bin:/shared/tools/bin:$PATH"'; \
     printf '%s\n' "$L" >> /etc/bash.bashrc
 
 COPY --chmod=755 entrypoint.sh /entrypoint.sh
-COPY config/ /opt/vscode-defaults/
+COPY template/ /opt/magic-closet/template/
 # Transparent TLS terminator (run with openvscode's bundled node) so the host
 # port is HTTPS — a secure context, required for VS Code web webviews to work.
 COPY tls-proxy.mjs /opt/vscode-tls-proxy.mjs
