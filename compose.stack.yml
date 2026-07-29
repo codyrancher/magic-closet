@@ -45,7 +45,7 @@ services:
       # Node + nvm, shared with the (slim) vscode sidecar
       - toolchain:/opt/toolchain
       # Rancher UI extension source — built with the closet container's node
-      - ./rancher-extension:/rancher-extension
+      - ./extension:/extension
     restart: unless-stopped
 
   # Sidecar control plane: start/stop/delete sidecars over HTTP.
@@ -53,7 +53,7 @@ services:
     image: magic-closet-api
     build:
       context: .
-      dockerfile: api/Dockerfile
+      dockerfile: closet/api/Dockerfile
     environment:
       # Host path of this repo — needed so compose commands issued through the
       # host docker socket resolve bind mounts correctly.

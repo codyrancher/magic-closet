@@ -15,7 +15,7 @@ not by the mocked suite.
 | Generated login secrets at init into gitignored `.state/secrets.env` (not `.env`) | ✅ |
 | Public-host auto-detection for Rancher `server-url` (EC2 IMDS → echo service) | live |
 
-## Control API (`api/src/server.js`)
+## Control API (`closet/api/src/server.js`)
 | Endpoint / behavior | T |
 |---|---|
 | `GET /health` | ✅ |

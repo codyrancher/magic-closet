@@ -1,0 +1,8 @@
+.git
+**/node_modules
+.state
+workspaces
+custom-sidecars
+videos
+extension
+tests

@@ -1,4 +1,4 @@
-// Integration-test harness: boots the REAL api server (api/src/server.js) in
+// Integration-test harness: boots the REAL api server (closet/api/src/server.js) in
 // this process against a throwaway MC_ROOT, with `docker` mocked (a shim on
 // PATH) and `fetch` mocked (Docker Hub / GitHub). No real containers, Rancher,
 // or AWS involved. Import this first from a test file; it sets everything up and
@@ -87,7 +87,7 @@ export async function waitFor(fn, ms = 3000) {
 }
 
 // ---- boot the server (AFTER env + fetch are set) and wait for it ----
-await import(path.join(repoRoot, 'api', 'src', 'server.js'));
+await import(path.join(repoRoot, 'closet', 'api', 'src', 'server.js'));
 for (let i = 0; i < 100; i++) {
   try { const r = await realFetch(`${BASE}/health`); if (r.ok) break; } catch {}
   await new Promise((r) => setTimeout(r, 50));

@@ -1,7 +1,7 @@
 # tests
 
 Integration tests for the magic-closet control API. They boot the **real**
-`api/src/server.js` in-process against a throwaway `MC_ROOT`, with `docker` and
+`closet/api/src/server.js` in-process against a throwaway `MC_ROOT`, with `docker` and
 `fetch` **mocked** — so no containers, Rancher, or AWS are needed and nothing on
 your machine is touched.
 

@@ -1914,9 +1914,9 @@ const handler = (async (req, res) => {
       return handleClosetDelete(decodeURIComponent(parts[1]), res);
     }
     // Built Rancher extension assets (for developer-load):
-    // /extension/<pkg-version>/<file> -> rancher-extension/dist-pkg/...
+    // /extension/<pkg-version>/<file> -> extension/dist-pkg/...
     if (req.method === 'GET' && parts[0] === 'extension') {
-      const distRoot = path.join(MC_ROOT, 'rancher-extension', 'dist-pkg');
+      const distRoot = path.join(MC_ROOT, 'extension', 'dist-pkg');
       const file = path.join(distRoot, ...parts.slice(1));
       if (!file.startsWith(distRoot + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
         return sendJson(res, 404, { error: 'not found' });

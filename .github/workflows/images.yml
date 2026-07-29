@@ -17,7 +17,7 @@ jobs:
         include:
           - name: api
             context: .
-            dockerfile: api/Dockerfile
+            dockerfile: closet/api/Dockerfile
           - name: closet
             context: closet
             dockerfile: closet/Dockerfile

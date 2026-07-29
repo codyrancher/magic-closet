@@ -46,22 +46,22 @@ still talk to each other over the inner docker network regardless.
 
 ## Layout
 
+The four things worth caring about first — `closet/`, `sidecars/`,
+`extension/`, `tests/` — plus the orchestration files:
+
 ```
 magic-closet/
 ├── docker-compose.yml   # DinD wrapper: one privileged docker:dind container
 ├── compose.stack.yml    # the actual stack (closet, api) + include: of each sidecar
 ├── dind-entrypoint.sh   # inner dockerd + `compose up` of the stack
 ├── .env                 # profiles, host ports, sidecar parameters
-├── workspace/           # THE source code — bind-mounted into closet + vscode
-├── tools/               # shared CLI tools, mounted into every container
-│   └── bin/mc           # control CLI (list/start/stop/rm/run)
 ├── closet/              # main container image (node via nvm, git, gh, claude)
-├── api/                 # sidecar control API (port ${API_PORT}, default 8300)
-└── sidecars/
-    └── <name>/          # one directory per sidecar
-        ├── compose.yml  # its service definition (compose fragment)
-        ├── sidecar.json # metadata: description, params, port var
-        └── ...          # Dockerfile / entrypoint / config if it builds an image
+│   └── api/             # sidecar control API (port ${API_PORT}, default 8300)
+├── sidecars/            # one dir per sidecar (compose.yml + sidecar.json [+ Dockerfile])
+├── extension/           # Rancher UI extension (Vue plugin) + charts/ (Helm chart)
+├── tests/               # integration tests for the control API
+├── tools/               # shared CLI tools, mounted into every container (bin/mc)
+└── workspace/           # THE source code — bind-mounted into closet + vscode
 ```
 
 ## Editing the configuration
@@ -364,7 +364,7 @@ with "failed to find interface with specified node ip". Fix: remove that
 closet's `rancher-data` volume and start rancher again; the bootstraps
 re-provision users/auth automatically.
 
-## Rancher UI extension (rancher-extension/)
+## Rancher UI extension (extension/)
 
 A Rancher dashboard extension (pkg `magic-closet`, scaffolded per
 extensions.rancher.io) that adds a **Magic Closet** page to the cluster
@@ -374,7 +374,7 @@ Closet** (provisions via the controller), and a detail page embedding the
 closet's dashboard in an iframe.
 
 - Build (node 24 — use the vscode sidecar, which mounts the source):
-  `docker exec -u 1000 magic-closet-vscode bash -c 'cd /rancher-extension && yarn build-pkg magic-closet'`
+  `docker exec -u 1000 magic-closet-vscode bash -c 'cd /extension && yarn build-pkg magic-closet'`
 - The api serves the build at
   `/extension/magic-closet-<version>/magic-closet-<version>.umd.min.js`.
 - Load into the rancher sidecar: Extensions → ⋮ → Developer Load (enable

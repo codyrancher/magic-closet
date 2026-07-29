@@ -29,7 +29,7 @@ services:
       # the Claude extension is logged in with the same session
       - claude-data:/claude-data
       # Rancher UI extension source
-      - ./rancher-extension:/rancher-extension
+      - ./extension:/extension
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:9000"]
       interval: 5s
