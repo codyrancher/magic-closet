@@ -86,10 +86,11 @@ async function createEc2Cluster(setStatus) {
     zone: 'a',
     instanceType: 'c5d.xlarge',
     rootSize: '50',
+    // No hardcoded vpc/subnet — let the amazonec2 driver use the account's
+    // default VPC so this is portable across accounts. readonly:false so the
+    // driver creates the rancher-nodes security group if it doesn't exist.
     securityGroup: ['default', 'rancher-nodes'],
-    securityGroupReadonly: true,
-    subnetId: 'subnet-0c97a9f441ca3c895',
-    vpcId: 'vpc-0c618e3a2ec9df47b',
+    securityGroupReadonly: false,
   });
 
   // 3. Create RKE2 cluster with machine pool

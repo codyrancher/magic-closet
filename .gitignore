@@ -6,3 +6,11 @@ workspaces/
 # Sidecars created/edited from within a closet — runtime state, shared with
 # future compose closets via the bind-mounted repo (git add -f to version one).
 custom-sidecars/
+
+# EC2 verification recordings (local deliverables, not source)
+videos/
+tests/verify-ec2/videos-out/
+tests/verify-ec2/node_modules/
+tests/verify-ec2/pw-browsers/
+tests/verify-ec2/verify.env
+tests/verify-ec2/package*.json
