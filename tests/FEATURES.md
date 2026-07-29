@@ -65,7 +65,7 @@ not by the mocked suite.
 | Tag picker sourced from actual GA releases | ✅ (options endpoint) |
 | Start / Stop / Restart actions | ✅ (endpoints) |
 
-## `mc` CLI (`tools/bin/mc`)
+## `mc` CLI (`shared/tools/bin/mc`)
 `list`, `start`, `stop`, `rm`, `run`, `open`, `create-sidecar`, `edit-sidecar`,
 `rm-sidecar` — thin wrappers over the API. Covered indirectly (they call the
 tested endpoints); a live smoke test lives in the stack.

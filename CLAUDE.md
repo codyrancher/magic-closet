@@ -60,13 +60,18 @@ magic-closet/
 ├── dind-entrypoint.sh   # inner dockerd + `compose up` of the stack
 ├── .env                 # profiles, host ports, sidecar parameters
 ├── closet/              # main container image (node via nvm, git, gh, claude)
-│   └── api/             # sidecar control API (port ${API_PORT}, default 8300)
+│   ├── api/             # sidecar control API (port ${API_PORT}, default 8300)
+│   └── template/        # scaffold seeded into the closet root (/workspace) at start
 ├── sidecars/            # one dir per sidecar (compose.yml + sidecar.json [+ Dockerfile])
-├── rancher-extension/           # Rancher UI extension (Vue plugin) + charts/ (Helm chart)
+├── rancher-extension/   # Rancher UI extension (Vue plugin) + charts/ (Helm chart)
 ├── tests/               # integration tests for the control API
-├── tools/               # shared CLI tools, mounted into every container (bin/mc)
-└── workspace/           # THE source code — bind-mounted into closet + vscode
+└── shared/              # artifacts shared into every container at /shared (tools/bin/mc, ...)
 ```
+
+Runtime/instance state — the cloned `/workspace` (the closet clones
+rancher/dashboard into `/workspace/dashboard`), `.state`, `custom-sidecars`,
+`workspaces` — lives in the sibling `../instance/magic-closet` (see the DinD
+wrapper note above), not in the source tree.
 
 ## Editing the configuration
 
@@ -228,10 +233,11 @@ GET    /browser/queue           tabs still waiting for the browser
   `http://api:8080` / `https://api:8443`.
 
 ### The `mc` CLI
-`tools/` is mounted into every container at `/opt/magic-closet/tools` (and on
-PATH in the images we build), so all sidecars share the same CLI tools —
+`shared/` is mounted into every container at `/shared` (and `/shared/tools/bin`
+is on PATH in the images we build), so all sidecars share the same CLI tools —
 including `claude` and `gh`, which the closet container copies into
-`tools/bin` at startup.
+`/shared/tools/bin` at startup. `shared/` is the place for any artifact meant to
+be reachable from the closet and the sidecars.
 
 ```bash
 mc list                          # sidecars + status

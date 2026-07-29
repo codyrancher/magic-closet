@@ -39,8 +39,8 @@ services:
       # Dev server (vite etc.) — run it on 0.0.0.0:8005 inside the container
       - "${DEV_PORT:-8305}:8005"
     volumes:
-      - ${MC_WORKSPACE:-./workspace}:/workspace
-      - ./tools:/opt/magic-closet/tools
+      - ${MC_WORKSPACE:-/magic-closet-data/workspace}:/workspace
+      - ./shared:/shared
       - claude-data:/claude-data
       # Node + nvm, shared with the (slim) vscode sidecar
       - toolchain:/opt/toolchain

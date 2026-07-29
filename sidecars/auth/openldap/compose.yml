@@ -17,7 +17,7 @@ services:
     ports:
       - "${OPENLDAP_PORT:-8340}:389"
     volumes:
-      - ./tools:/opt/magic-closet/tools:ro
+      - ./shared:/shared:ro
       - openldap-data:/var/lib/ldap
       - openldap-config:/etc/ldap/slapd.d
     healthcheck:

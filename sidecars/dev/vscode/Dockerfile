@@ -32,11 +32,11 @@ RUN /opt/openvscode-server/bin/openvscode-server --extensions-dir /opt/vscode-ex
 RUN chmod -R 755 /opt/vscode-extensions
 
 # Shared node (from the closet's /opt/toolchain volume) + the tools bin on PATH.
-ENV PATH="/opt/toolchain/node/bin:/opt/magic-closet/tools/bin:${PATH}"
+ENV PATH="/opt/toolchain/node/bin:/shared/tools/bin:${PATH}"
 # The openvscode terminal is an interactive non-login shell that inherits a PATH
 # without these dirs, so re-add them where those shells look (/etc/bash.bashrc)
 # plus /etc/profile.d for login shells — otherwise node/`mc` aren't found.
-RUN L='export PATH="/opt/toolchain/node/bin:/opt/magic-closet/tools/bin:$PATH"'; \
+RUN L='export PATH="/opt/toolchain/node/bin:/shared/tools/bin:$PATH"'; \
     printf '%s\n' "$L" > /etc/profile.d/magic-closet-tools.sh; \
     printf '%s\n' "$L" >> /etc/bash.bashrc
 

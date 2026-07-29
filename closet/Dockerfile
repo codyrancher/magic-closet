@@ -35,14 +35,16 @@ RUN mkdir -p /opt/nvm /opt/toolchain \
 COPY --chmod=755 setup-node.sh /usr/local/bin/setup-node
 
 # The shared node (/opt/toolchain/node/bin) + the tools bin on PATH everywhere.
-ENV PATH="/opt/toolchain/node/bin:/opt/magic-closet/tools/bin:${PATH}"
+ENV PATH="/opt/toolchain/node/bin:/shared/tools/bin:${PATH}"
 # Interactive (non-login) and login shells source different files — put both
 # dirs on PATH in each so node/yarn and `mc` resolve in terminals.
-RUN L='export PATH="/opt/toolchain/node/bin:/opt/magic-closet/tools/bin:$PATH"'; \
+RUN L='export PATH="/opt/toolchain/node/bin:/shared/tools/bin:$PATH"'; \
     printf '%s\n' "$L" > /etc/profile.d/magic-closet-tools.sh; \
     printf '%s\n' "$L" >> /etc/bash.bashrc
 
 COPY --chmod=755 entrypoint.sh /entrypoint.sh
+# Scaffold files seeded into the closet root (/workspace) at startup (CLAUDE.md, ...)
+COPY template /opt/magic-closet/template
 
 RUN mkdir -p /workspace
 WORKDIR /workspace

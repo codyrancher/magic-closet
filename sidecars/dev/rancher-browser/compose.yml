@@ -31,7 +31,7 @@ services:
       # UI requires a secure context when accessed from another machine.
       - "${RANCHER_BROWSER_PORT:-8320}:3001"
     volumes:
-      - ./tools:/opt/magic-closet/tools:ro
+      - ./shared:/shared:ro
       - ./sidecars/dev/rancher-browser/cdp-proxy:/custom-services.d/cdp-proxy:ro
       - ./sidecars/dev/rancher-browser/extension:/opt/magic-closet/browser-ext:ro
       - ./sidecars/dev/rancher-browser/ext-init:/custom-cont-init.d/ext-init:ro

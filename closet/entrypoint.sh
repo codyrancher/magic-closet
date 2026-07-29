@@ -27,8 +27,8 @@ if [ -d /claude-data ]; then
 fi
 
 # Publish the heavyweight CLIs into the shared tools mount so every sidecar
-# that mounts /opt/magic-closet/tools gets them too.
-TOOLS_BIN=/opt/magic-closet/tools/bin
+# that mounts /shared gets them too.
+TOOLS_BIN=/shared/tools/bin
 if [ -d "$(dirname "$TOOLS_BIN")" ]; then
     mkdir -p "$TOOLS_BIN"
     cp -f /usr/local/bin/claude "$TOOLS_BIN/claude" 2>/dev/null || true
@@ -63,6 +63,14 @@ WRAPPER
 chmod +x /usr/local/bin/claude-session
 
 chown "$USER_ID:$GROUP_ID" /workspace
+
+# Seed the closet-root scaffold (CLAUDE.md, ...) into /workspace if not already
+# present (baked into the image at /opt/magic-closet/template). -n never
+# clobbers a file the user already has.
+if [ -d /opt/magic-closet/template ]; then
+    cp -rn /opt/magic-closet/template/. /workspace/ 2>/dev/null || true
+    chown -R "$USER_ID:$GROUP_ID" /workspace 2>/dev/null || true
+fi
 
 # ---- Shared node toolchain (nvm, from the repo's .nvmrc) ----
 # Populated into the /opt/toolchain volume that the slim vscode sidecar also

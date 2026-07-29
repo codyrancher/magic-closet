@@ -1,6 +1,6 @@
 #!/bin/sh
 # magic-closet CLI — thin wrapper over the control API.
-# Works from any container that mounts /opt/magic-closet/tools (and from the
+# Works from any container that mounts /shared/tools (and from the
 # host with MC_API_URL=http://localhost:8200).
 #
 #   mc list                          show sidecars, status, params
