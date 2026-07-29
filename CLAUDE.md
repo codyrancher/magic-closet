@@ -50,8 +50,9 @@ still talk to each other over the inner docker network regardless.
 
 ## Layout
 
-The four things worth caring about first — `workspace/`, `sidecars/`,
-`rancher-extension/`, `tests/` — plus the orchestration files:
+The two things worth caring about first — `workspace/` (the control API, the
+sidecars, and the workspace image all live under it) and `rancher-extension/` —
+plus the orchestration files:
 
 ```
 magic-closet/
@@ -60,12 +61,11 @@ magic-closet/
 ├── dind-entrypoint.sh   # inner dockerd + `compose up` of the stack
 ├── .env                 # profiles, host ports, sidecar parameters
 ├── workspace/           # the workspace: its container image + everything it & the sidecars use
-│   ├── api/             # sidecar control API (port ${API_PORT}, default 8300)
+│   ├── api/             # sidecar control API (port ${API_PORT}, default 8300) + its tests/
 │   ├── template/        # scaffold seeded into the workspace root (/workspace) at start
 │   ├── sidecars/        # one dir per sidecar (compose.yml + sidecar.json [+ Dockerfile])
 │   └── shared/          # artifacts shared into every container at /shared (tools/bin/mc, ...)
-├── rancher-extension/   # Rancher UI extension (Vue plugin) + charts/ (Helm chart)
-└── tests/               # integration tests for the control API
+└── rancher-extension/   # Rancher UI extension (Vue plugin) + charts/ (Helm chart)
 ```
 
 Runtime/instance state — the cloned `/workspace` (the workspace container clones

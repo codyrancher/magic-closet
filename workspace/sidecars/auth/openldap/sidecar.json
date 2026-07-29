@@ -1,7 +1,17 @@
 {
   "name": "openldap",
   "description": "OpenLDAP directory server.",
-  "rancherAuth": { "modes": [{ "value": "openldap", "label": "OpenLDAP" }] },
+  "rancherAuth": {
+    "modes": [
+      {
+        "value": "openldap",
+        "label": "OpenLDAP"
+      }
+    ]
+  },
   "params": [],
-  "secrets": ["OPENLDAP_ADMIN_PASSWORD"]
+  "secrets": [
+    "OPENLDAP_ADMIN_PASSWORD"
+  ],
+  "notes": "LDAP directory at ldap://openldap:389 (host :${OPENLDAP_PORT}). Base DN dc=magic-closet,dc=local; directory admin cn=admin,dc=magic-closet,dc=local / $OPENLDAP_ADMIN_PASSWORD. Login users under ou=users: admin, user1-3 (each password = its Rancher password). Enable via POST /auth/apply {\"provider\":\"openldap\"}."
 }

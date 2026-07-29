@@ -158,6 +158,9 @@ function scanSidecarRoot(root, custom, byName, groupOrder) {
       port: meta.port, scheme: meta.scheme,
       params: meta.params || [], secrets: meta.secrets || [],
       rancherAuth: meta.rancherAuth,
+      // Freeform agent-facing guidance (URLs, login, gotchas). Single source of
+      // truth so docs don't drift — surfaced in GET /sidecars and `mc list`.
+      notes: meta.notes || '',
       dir, custom,
     });
   };

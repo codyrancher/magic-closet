@@ -3,5 +3,6 @@
   "description": "VS Code editing /workspace.",
   "port": "VSCODE_PORT",
   "scheme": "https",
-  "params": []
+  "params": [],
+  "notes": "VS Code in the browser editing /workspace, served over HTTPS on the host port (self-signed cert). Shares the workspace and the node toolchain with the core workspace container."
 }

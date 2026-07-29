@@ -23,13 +23,13 @@ services:
   workspace:
     image: magic-closet-workspace
     build: ./workspace
-    # Params live in .env (env_file below) and are injected into every
-    # container, so any argument passed to one sidecar is visible to all.
-    # Generated login secrets are NOT here — they live in .state/secrets.env
-    # and reach containers via ${*_PASSWORD} interpolation (dind-entrypoint.sh
-    # exports them; the api adds it as a second --env-file).
+    # Params come from .env; generated login secrets from .state/secrets.env.
+    # Both are loaded into this container's env so an agent working here can use
+    # them by name (e.g. $RANCHER_BOOTSTRAP_PASSWORD) — see the sidecar `notes`.
     env_file:
       - path: ${MC_ENV_FILE:-./.env}
+        required: false
+      - path: ${MC_DATA_DIR:-/magic-closet}/.state/secrets.env
         required: false
     environment:
       - PUID=${PUID:-1000}

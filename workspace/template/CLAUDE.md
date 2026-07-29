@@ -1,124 +1,70 @@
 # Working inside a magic closet
 
-You are an agent running **inside a magic closet dev environment** — a workspace
-container with the source under `/workspace`, plus a set of optional **sidecar**
-containers (Rancher, a browser, Keycloak, OpenLDAP, Figma, …) you can drive.
-This file tells you what's available and how to use it. (Details of a specific
-checked-out repo live in its own `CLAUDE.md`, e.g. `/workspace/dashboard`.)
+You're an agent in a **workspace container**: your code is under `/workspace`
+(a checked-out repo lives in `/workspace/dashboard`), alongside optional
+**sidecar** containers (Rancher, a browser, Keycloak, OpenLDAP, Figma, …) you
+drive through a small control API.
 
-## The control API and the `mc` CLI
+## Discover what's running — do this first
 
-A control API manages the sidecars. Reach it at `http://api:8080` from any
-container (the `mc` CLI wraps it and is already on your `PATH`):
+Don't assume a fixed set of sidecars; ask the API. `mc` (on your `PATH`) wraps
+it:
 
 ```bash
-mc list                       # sidecars + status, host ports, params (JSON)
-mc start rancher tag=v2.11-head --wait   # start/restart a sidecar (params are k=v)
-mc stop rancher-browser       # stop (kept for fast restart)
-mc rm figma                   # stop + remove the container (named volumes kept)
-mc run "yarn install"         # run a command in the workspace container
-mc open https://rancher       # open a tab in the rancher-browser sidecar
+mc list        # every sidecar: status, host port, scheme, params, and `notes`
 ```
 
-Raw endpoints (same thing) — `http://api:8080`:
+Each sidecar's **`notes`** is the source of truth for its URL, how to log in,
+and any gotchas — read it before using that sidecar (credentials are referenced
+by env var, e.g. `$RANCHER_BOOTSTRAP_PASSWORD`, and are set in your environment).
+`mc list` is just `GET http://api:8080/sidecars`.
+
+## Driving sidecars
+
+```bash
+mc start rancher tag=v2.14.3 --wait   # start/restart (params are k=v)
+mc stop rancher-browser
+mc rm figma                            # stop + remove (named volumes kept)
+mc run "yarn install"                  # run a command in the workspace container
+mc open https://rancher                # open a tab in the rancher-browser sidecar
+```
+
+Raw endpoints at `http://api:8080`:
 
 | Method + path | Purpose |
 |---|---|
-| `GET /sidecars` | list: status, health, host port, params + values, `internal` URL |
-| `POST /sidecars/<name>/start` | body `{ "params": {...}, "wait": true }` |
-| `POST /sidecars/<name>/stop` / `DELETE /sidecars/<name>` | stop / remove |
-| `POST /exec` | `{ "command": "yarn build" }` → runs in the workspace container |
-| `POST /browser/open` | `{ "url": "https://rancher" }` → queue a tab in the browser |
+| `GET /sidecars` | list + per-sidecar `notes`, status, host port, params |
+| `POST /sidecars/<name>/start` · `/stop` · `DELETE /sidecars/<name>` | lifecycle |
+| `POST /exec` | `{ "command": "yarn build" }` → run in the workspace container |
+| `POST /browser/open` | `{ "url": "..." }` → open a tab in the rancher-browser |
 | `POST /auth/apply` | `{ "provider": "keycloak" }` → set Rancher's auth provider |
 
-Params in `.env` are loaded as env vars into every container, so a value set for
-one sidecar is visible to all. The generated **login secrets** (see below) live
-in `.state/secrets.env`, not `.env` — look a value up there when you need one.
-
-## Sidecars
-
-Service names resolve on the shared network (`https://rancher`,
-`http://api:8080`, …). `mc list` shows which are running.
-
-- **rancher** (`https://rancher`, host `:${RANCHER_PORT}` = 8344) — Rancher
-  server. Log in as `admin` / `$RANCHER_BOOTSTRAP_PASSWORD` (local), or
-  `user1`..`user3` / `$RANCHER_USER1_PASSWORD`.. . First boot takes several
-  minutes. **OIDC/LDAP logins and any `https://rancher` URL only resolve inside
-  the network — drive them through the rancher-browser sidecar, not a host
-  browser.**
-- **rancher-browser** — Chromium with a Rancher quick-login bar + a Ctrl+M
-  command menu. Open tabs with `mc open <url>`. For automation, get the CDP
-  endpoint with `cdp-url` and connect Playwright:
-  `node -e '...chromium.connectOverCDP(process.argv[1])...' "$(cdp-url)"`.
-- **keycloak** (`http://keycloak:8080`, host `:${KEYCLOAK_PORT}` = 8330) —
-  OIDC/SAML provider. Realm `rancher`, client `rancher` /
-  `$KEYCLOAK_CLIENT_SECRET`, users `user1`..`user3`. Admin console: `admin` /
-  `$KEYCLOAK_ADMIN_PASSWORD`. Wire it into Rancher with
-  `mc ... ` → `POST /auth/apply {"provider":"keycloak"}` (or `keycloak-saml`).
-- **openldap** (`ldap://openldap:389`, host `:${OPENLDAP_PORT}` = 8340) — LDAP
-  directory. Base DN `dc=magic-closet,dc=local`; directory admin
-  `cn=admin,dc=magic-closet,dc=local` / `$OPENLDAP_ADMIN_PASSWORD`. Login users
-  under `ou=users`: `admin`, `user1`..`user3` (each password = its Rancher
-  password). Apply to Rancher with `{"provider":"openldap"}`.
-- **vscode** — the editor you're likely viewing (`/workspace`).
-- **figma** (`http://figma:8000`) — Figma MCP server; needs `$FIGMA_API_KEY`.
-
-Auth note: Rancher allows **one** external auth provider at a time; `POST
-/auth/apply` disables the others. Logging into Rancher via Keycloak/OpenLDAP
-authenticates as a regular user — for the global admin use "Use a local user"
-with `admin` / `$RANCHER_BOOTSTRAP_PASSWORD`.
-
-## Creating and editing sidecars
-
-You can define new sidecars — or override built-in ones — from inside the
-closet. They persist and are inherited by every future compose closet.
-
-```bash
-# simple: an image, optionally publishing a container port
-mc create-sidecar postgres image=postgres:16 group=data \
-  containerPort=5432 port=POSTGRES_PORT description="Postgres 16"
-# full control: a JSON spec (params, secrets, environment, raw compose overrides)
-mc create-sidecar myapp --file /workspace/myapp-sidecar.json
-mc edit-sidecar postgres image=postgres:17   # edit (built-ins too — writes a shadowing override)
-mc rm-sidecar postgres                        # remove a custom definition (built-in reverts)
-mc list && mc start postgres --wait           # discoverable + startable immediately
-```
-
-Spec fields: `name` (required, `[a-z0-9-]`), `image` (or raw `compose`
-overrides), `description`, `group`, `containerPort`, `port` (`.env` var for the
-host port) / `hostPort`, `scheme`, `environment` {k:v}, `params[]`, `secrets[]`
-(auto-generated). Definitions land in `custom-sidecars/<name>/` under the repo
-root. Same thing over HTTP: `POST /sidecars`, `PUT /sidecars/<name>`,
-`DELETE /sidecars/<name>/definition`.
-
-Reachability: a custom sidecar is always reachable in-network by service name
-(`http://<name>:<port>`); from the **host** only if its published port lands in
-the DinD wrapper's range (`8500-8519`). Most sidecars (a DB/tool the project
-talks to) need no host port.
+Rancher allows **one** external auth provider at a time; `POST /auth/apply`
+switches it (for the global admin, use a local-user login). Anything at
+`https://rancher` (and OIDC/LDAP logins) only resolves in-network — drive it
+through the rancher-browser sidecar, not a host browser.
 
 ## The workspace
 
-- `/workspace` is bind-mounted and shared with the vscode sidecar. A target
-  repo is cloned into **`/workspace/dashboard`** (rancher/dashboard master by
-  default; set `GITHUB_URL` in `.env` to a PR/issue to check that out).
-- **Dev server:** listen on `0.0.0.0:8005` inside this container — it's
-  published to the host as `:${DEV_PORT}` (8305). For rancher/dashboard:
-  `cd /workspace/dashboard && yarn install && API=https://rancher yarn dev`
-  (Vite serves on 8005). Reach the running Rancher at `https://rancher`.
-- `git` and the `gh` CLI are authenticated from `$GH_TOKEN` when it's set.
+- Your target repo is cloned into **`/workspace/dashboard`** (rancher/dashboard
+  by default).
+- **Dev server:** listen on `0.0.0.0:8005` inside this container — it's reachable
+  on the host at `$DEV_PORT`. For rancher/dashboard:
+  `cd /workspace/dashboard && yarn install && API=https://rancher yarn dev`.
+- `git` and `gh` are authenticated when `$GH_TOKEN` is set.
 
-## Credentials quick reference
+## Defining sidecars
 
-The login secrets (top rows) are generated at startup into `.state/secrets.env`;
-the tokens (`GH_TOKEN`, `FIGMA_API_KEY`) are params in `.env`. Both are loaded
-into container envs where referenced:
+Add or override sidecars from here (they persist and are inherited by future
+closets):
 
-| Env var | Used for |
-|---|---|
-| `RANCHER_BOOTSTRAP_PASSWORD` | Rancher local `admin` (also LDAP `admin`) |
-| `RANCHER_USER1_PASSWORD` … `RANCHER_USER3_PASSWORD` | Rancher/Keycloak/LDAP `user1..3` |
-| `KEYCLOAK_ADMIN_PASSWORD` | Keycloak admin console |
-| `KEYCLOAK_CLIENT_SECRET` | Keycloak OIDC client `rancher` |
-| `OPENLDAP_ADMIN_PASSWORD` | LDAP directory admin (`cn=admin`) |
-| `GH_TOKEN` | `gh`/`git` auth |
-| `FIGMA_API_KEY` | Figma MCP sidecar |
+```bash
+mc create-sidecar postgres image=postgres:16 containerPort=5432 port=POSTGRES_PORT
+mc edit-sidecar postgres image=postgres:17      # built-ins too (writes a shadowing override)
+mc rm-sidecar postgres
+```
+
+Same over HTTP: `POST /sidecars`, `PUT /sidecars/<name>`,
+`DELETE /sidecars/<name>/definition`. A custom sidecar is reachable in-network
+by service name (`http://<name>:<port>`); give it a host `port` to reach it from
+outside. Include a `notes` field so the next agent knows how to use it.
