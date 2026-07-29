@@ -25,11 +25,11 @@ jobs:
       - run: corepack enable
 
       - name: Install
-        working-directory: extension
+        working-directory: rancher-extension
         run: yarn install --frozen-lockfile
 
       - name: Build extension package
-        working-directory: extension
+        working-directory: rancher-extension
         run: yarn build-pkg magic-closet
 
       - name: Fetch previous catalog (preserves older versions)
@@ -44,26 +44,26 @@ jobs:
           fi
 
       - name: Build extension catalog (Helm repo for Rancher's extension repositories)
-        working-directory: extension
+        working-directory: rancher-extension
         run: yarn publish-pkgs -s ${{ github.repository }} -b gh-pages
 
       - name: Package closet chart into the catalog
         run: |
-          helm package extension/charts/closet -d extension/assets/closet
-          helm repo index extension/assets --url assets/ --merge extension/assets/index.yaml
+          helm package rancher-extension/charts/closet -d rancher-extension/assets/closet
+          helm repo index rancher-extension/assets --url assets/ --merge rancher-extension/assets/index.yaml
 
       - name: Assemble site
         run: |
-          cp -r extension/dist-pkg/* site/
+          cp -r rancher-extension/dist-pkg/* site/
           for d in assets charts extensions; do
-            [ -d "extension/$d" ] && cp -r "extension/$d" site/
+            [ -d "rancher-extension/$d" ] && cp -r "rancher-extension/$d" site/
           done
           # publish-pkgs writes the freshly merged index to assets/index.yaml;
           # the root index.yaml it leaves behind is the previous (wget'd) one
-          if [ -f extension/assets/index.yaml ]; then
-            cp extension/assets/index.yaml site/index.yaml
-          elif [ -f extension/index.yaml ]; then
-            cp extension/index.yaml site/index.yaml
+          if [ -f rancher-extension/assets/index.yaml ]; then
+            cp rancher-extension/assets/index.yaml site/index.yaml
+          elif [ -f rancher-extension/index.yaml ]; then
+            cp rancher-extension/index.yaml site/index.yaml
           fi
           cp closet/api/src/logo.svg site/logo.svg
           touch site/.nojekyll

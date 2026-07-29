@@ -25,7 +25,11 @@ provisioned closets.
 
 - `docker-compose.yml` — the **DinD wrapper**: the single `magic-closet`
   service (`docker:27-dind`), the repo bind-mounted at `/magic-closet`, the
-  `mc-docker` volume for nested docker data, and the host port mappings.
+  `mc-docker` volume for nested docker data, and the host port mappings. It
+  also mounts a sibling **`../instance/magic-closet`** at `/magic-closet-data`
+  (env `MC_DATA_DIR`) — the runtime/instance state (`.state`, `custom-sidecars`,
+  `workspaces`) lives there, out of the source tree. `MC_DATA_DIR` defaults to
+  the repo when unset, so the code still works in-tree.
 - `dind-entrypoint.sh` — PID 1 of that container: boots the inner dockerd, then
   runs `docker compose -f compose.stack.yml up -d --build` inside it.
 - `compose.stack.yml` — the **actual stack** (formerly `docker-compose.yml`):
@@ -47,7 +51,7 @@ still talk to each other over the inner docker network regardless.
 ## Layout
 
 The four things worth caring about first — `closet/`, `sidecars/`,
-`extension/`, `tests/` — plus the orchestration files:
+`rancher-extension/`, `tests/` — plus the orchestration files:
 
 ```
 magic-closet/
@@ -58,7 +62,7 @@ magic-closet/
 ├── closet/              # main container image (node via nvm, git, gh, claude)
 │   └── api/             # sidecar control API (port ${API_PORT}, default 8300)
 ├── sidecars/            # one dir per sidecar (compose.yml + sidecar.json [+ Dockerfile])
-├── extension/           # Rancher UI extension (Vue plugin) + charts/ (Helm chart)
+├── rancher-extension/           # Rancher UI extension (Vue plugin) + charts/ (Helm chart)
 ├── tests/               # integration tests for the control API
 ├── tools/               # shared CLI tools, mounted into every container (bin/mc)
 └── workspace/           # THE source code — bind-mounted into closet + vscode
@@ -364,7 +368,7 @@ with "failed to find interface with specified node ip". Fix: remove that
 closet's `rancher-data` volume and start rancher again; the bootstraps
 re-provision users/auth automatically.
 
-## Rancher UI extension (extension/)
+## Rancher UI extension (rancher-extension/)
 
 A Rancher dashboard extension (pkg `magic-closet`, scaffolded per
 extensions.rancher.io) that adds a **Magic Closet** page to the cluster
@@ -374,7 +378,7 @@ Closet** (provisions via the controller), and a detail page embedding the
 closet's dashboard in an iframe.
 
 - Build (node 24 — use the vscode sidecar, which mounts the source):
-  `docker exec -u 1000 magic-closet-vscode bash -c 'cd /extension && yarn build-pkg magic-closet'`
+  `docker exec -u 1000 magic-closet-vscode bash -c 'cd /rancher-extension && yarn build-pkg magic-closet'`
 - The api serves the build at
   `/extension/magic-closet-<version>/magic-closet-<version>.umd.min.js`.
 - Load into the rancher sidecar: Extensions → ⋮ → Developer Load (enable

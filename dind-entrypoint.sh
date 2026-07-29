@@ -49,10 +49,15 @@ done
 # reused on later boots: rancher/keycloak persist their own copy in volumes, so
 # regenerating each start would break login. Sourcing first, then exporting,
 # lets the `compose up` below (and the api's --env-file) interpolate them.
-mkdir -p .state
-SECRETS_FILE=.state/secrets.env
+# Runtime state lives under MC_DATA_DIR (a separate mount so it stays out of the
+# source tree); defaults to the repo when unset. Export it so the inner
+# `compose up` interpolates ${MC_DATA_DIR} for the api/closet mounts.
+: "${MC_DATA_DIR:=/magic-closet}"
+export MC_DATA_DIR
+mkdir -p "$MC_DATA_DIR/.state"
+SECRETS_FILE="$MC_DATA_DIR/.state/secrets.env"
 [ -f "$SECRETS_FILE" ] || : > "$SECRETS_FILE"
-set -a; . "./$SECRETS_FILE"; set +a
+set -a; . "$SECRETS_FILE"; set +a
 for key in $(for f in sidecars/*/sidecar.json sidecars/*/*/sidecar.json; do
     [ -f "$f" ] || continue
     tr '\n' ' ' < "$f" | grep -oE '"secrets"[[:space:]]*:[[:space:]]*\[[^]]*\]' \

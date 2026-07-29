@@ -45,7 +45,7 @@ services:
       # Node + nvm, shared with the (slim) vscode sidecar
       - toolchain:/opt/toolchain
       # Rancher UI extension source — built with the closet container's node
-      - ./extension:/extension
+      - ./rancher-extension:/rancher-extension
     restart: unless-stopped
 
   # Sidecar control plane: start/stop/delete sidecars over HTTP.
@@ -64,6 +64,9 @@ services:
       # The stack lives in a non-default file so the host's docker-compose.yml
       # can be the DinD wrapper; the api drives compose with this file.
       - MC_COMPOSE_FILE=${MC_COMPOSE_FILE:-compose.stack.yml}
+      # Runtime/instance state dir (.state, custom-sidecars, workspaces). The
+      # DinD wrapper mounts it at /magic-closet-data; defaults to the repo.
+      - MC_DATA_DIR=${MC_DATA_DIR:-/magic-closet}
     working_dir: ${PWD}
     ports:
       - "${API_PORT:-8300}:8080"
@@ -71,6 +74,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${PWD}:${PWD}
+      # The instance/state dir, so the api reads/writes it at the same path
+      - ${MC_DATA_DIR:-/magic-closet}:${MC_DATA_DIR:-/magic-closet}
     restart: unless-stopped
 
 volumes:

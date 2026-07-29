@@ -19,10 +19,14 @@ services:
     privileged: true                        # required to run an inner dockerd
     environment:
       - DOCKER_TLS_CERTDIR=                  # inner dockerd on the unix socket, no TLS
+      # Runtime/instance state (.state, custom-sidecars, workspaces) lives in a
+      # sibling dir, not the source tree — mounted below and used by the api.
+      - MC_DATA_DIR=/magic-closet-data
     working_dir: /magic-closet
     entrypoint: ["/bin/sh", "/magic-closet/dind-entrypoint.sh"]
     volumes:
-      - .:/magic-closet                     # the repo — live edits to api/, sidecars/, workspace/, .env keep working
+      - .:/magic-closet                     # the repo — live edits to closet/, sidecars/, workspace/, .env keep working
+      - ../instance/magic-closet:/magic-closet-data  # runtime/instance state (kept out of the source tree)
       - mc-docker:/var/lib/docker           # nested docker images/volumes survive restarts
     ports:
       # The base closet's ports all derive from API_PORT (default 8300) — publish

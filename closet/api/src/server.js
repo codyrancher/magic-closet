@@ -24,6 +24,9 @@ const path = require('path');
 const { execFileSync, execFile, spawn } = require('child_process');
 
 const MC_ROOT = process.env.MC_ROOT || process.cwd();
+// Runtime/instance state (.state, custom-sidecars, workspaces) lives here so it
+// can be kept out of the source tree. Defaults to MC_ROOT (in-tree) when unset.
+const DATA_DIR = process.env.MC_DATA_DIR || MC_ROOT;
 const SIDECARS_DIR = fs.existsSync(path.join(MC_ROOT, 'sidecars'))
   ? path.join(MC_ROOT, 'sidecars')
   : path.join(__dirname, '..', 'sidecars');
@@ -39,7 +42,7 @@ const ENV_FILE = path.isAbsolute(MC_ENV_FILE) ? MC_ENV_FILE : path.join(MC_ROOT,
 // which we read/merge here. Provisioned closets carry their secrets inside
 // their own .state env file (SECRETS_FILE null → same-file behaviour).
 const IS_DEFAULT_ENV = ENV_FILE === path.join(MC_ROOT, '.env');
-const SECRETS_FILE = IS_DEFAULT_ENV ? path.join(MC_ROOT, '.state', 'secrets.env') : null;
+const SECRETS_FILE = IS_DEFAULT_ENV ? path.join(DATA_DIR, '.state', 'secrets.env') : null;
 const PORT = 8080;
 
 // ---------- kubernetes mode ----------
@@ -141,7 +144,7 @@ function containerIdOf(service, project = MC_PROJECT) {
 // `custom-sidecars/` overlay — created/edited from within a closet and shared
 // with every future compose closet via MC_ROOT. A custom entry shadows a
 // built-in of the same name (so built-ins can be edited without touching them).
-const CUSTOM_SIDECARS_DIR = path.join(MC_ROOT, 'custom-sidecars');
+const CUSTOM_SIDECARS_DIR = path.join(DATA_DIR, 'custom-sidecars');
 
 function scanSidecarRoot(root, custom, byName, groupOrder) {
   if (!fs.existsSync(root)) return;
@@ -1003,7 +1006,7 @@ const SAML_ACS = 'https://rancher/v1-saml/keycloak/saml/acs';
 
 // Rancher needs an SP key/cert pair for SAML; generate once into .state/
 function ensureSamlSpCert() {
-  const dir = path.join(MC_ROOT, '.state', 'saml');
+  const dir = path.join(DATA_DIR, '.state', 'saml');
   const keyPath = path.join(dir, 'sp.key');
   const crtPath = path.join(dir, 'sp.crt');
   if (!fs.existsSync(keyPath) || !fs.existsSync(crtPath)) {
@@ -1429,7 +1432,7 @@ const AUTH_CONNECTORS = {
 // Each closet runs its own api container, which manages its sidecars — this
 // controller only creates, lists and destroys closets.
 
-const CLOSETS_DIR = path.join(MC_ROOT, '.state', 'closets');
+const CLOSETS_DIR = path.join(DATA_DIR, '.state', 'closets');
 // Port offsets within a closet's 100-port block
 const CLOSET_PORTS = {
   API_PORT:             0,
@@ -1523,8 +1526,8 @@ function handleClosetCreate(body, res) {
   const envFile = path.join(CLOSETS_DIR, `${name}.env`);
   const lines = [
     `MC_PROJECT=mc-${name}`,
-    `MC_ENV_FILE=.state/closets/${name}.env`,
-    `MC_WORKSPACE=./workspaces/${name}`,
+    `MC_ENV_FILE=${path.join(DATA_DIR, '.state', 'closets', name + '.env')}`,
+    `MC_WORKSPACE=${path.join(DATA_DIR, 'workspaces', name)}`,
     `MC_PORT_BASE=${base}`,
     `COMPOSE_PROFILES=${(body.profiles || ['vscode', 'rancher-browser', 'rancher', 'keycloak']).join(',')}`,
     'PUID=1000',
@@ -1547,7 +1550,7 @@ function handleClosetCreate(body, res) {
     for (const envVar of def.secrets) lines.push(`${envVar}=${generatePassword()}`);
   }
   fs.mkdirSync(CLOSETS_DIR, { recursive: true });
-  fs.mkdirSync(path.join(MC_ROOT, 'workspaces', name), { recursive: true });
+  fs.mkdirSync(path.join(DATA_DIR, 'workspaces', name), { recursive: true });
   fs.writeFileSync(envFile, lines.join('\n') + '\n');
 
   closetOps.set(name, 'provisioning');
@@ -1914,9 +1917,9 @@ const handler = (async (req, res) => {
       return handleClosetDelete(decodeURIComponent(parts[1]), res);
     }
     // Built Rancher extension assets (for developer-load):
-    // /extension/<pkg-version>/<file> -> extension/dist-pkg/...
+    // /extension/<pkg-version>/<file> -> rancher-extension/dist-pkg/...
     if (req.method === 'GET' && parts[0] === 'extension') {
-      const distRoot = path.join(MC_ROOT, 'extension', 'dist-pkg');
+      const distRoot = path.join(MC_ROOT, 'rancher-extension', 'dist-pkg');
       const file = path.join(distRoot, ...parts.slice(1));
       if (!file.startsWith(distRoot + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
         return sendJson(res, 404, { error: 'not found' });
@@ -1953,7 +1956,7 @@ http.createServer(handler).listen(PORT, () => {
 // http API without mixed-content blocking. Browsers must trust or ignore the
 // cert (the browser sidecars run with --ignore-certificate-errors).
 function ensureApiTls() {
-  const dir = path.join(MC_ROOT, '.state', 'api-tls');
+  const dir = path.join(DATA_DIR, '.state', 'api-tls');
   const keyPath = path.join(dir, 'key.pem');
   const crtPath = path.join(dir, 'crt.pem');
   if (!fs.existsSync(keyPath) || !fs.existsSync(crtPath)) {
