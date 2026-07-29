@@ -3,26 +3,26 @@ name: magic-closet
 # Each sidecar lives in its own directory under sidecars/ and ships its own
 # compose fragment. Adding a sidecar = create the directory + list it here.
 include:
-  - path: closet/sidecars/dev/vscode/compose.yml
+  - path: workspace/sidecars/dev/vscode/compose.yml
     project_directory: .
-  - path: closet/sidecars/dev/rancher-browser/compose.yml
+  - path: workspace/sidecars/dev/rancher-browser/compose.yml
     project_directory: .
-  - path: closet/sidecars/dev/rancher/compose.yml
+  - path: workspace/sidecars/dev/rancher/compose.yml
     project_directory: .
-  - path: closet/sidecars/design/figma/compose.yml
+  - path: workspace/sidecars/design/figma/compose.yml
     project_directory: .
-  - path: closet/sidecars/auth/keycloak/compose.yml
+  - path: workspace/sidecars/auth/keycloak/compose.yml
     project_directory: .
-  - path: closet/sidecars/auth/openldap/compose.yml
+  - path: workspace/sidecars/auth/openldap/compose.yml
     project_directory: .
 
 services:
   # Main container: holds the source code, node (via nvm), and the CLI toolchain.
   # Everything else is an optional sidecar. The vscode sidecar shares this
   # container's toolchain (the `toolchain` volume) instead of baking its own.
-  closet:
-    image: magic-closet-closet
-    build: ./closet
+  workspace:
+    image: magic-closet-workspace
+    build: ./workspace
     # Params live in .env (env_file below) and are injected into every
     # container, so any argument passed to one sidecar is visible to all.
     # Generated login secrets are NOT here — they live in .state/secrets.env
@@ -40,11 +40,11 @@ services:
       - "${DEV_PORT:-8305}:8005"
     volumes:
       - ${MC_WORKSPACE:-/magic-closet-data/workspace}:/workspace
-      - ./closet/shared:/shared
+      - ./workspace/shared:/shared
       - claude-data:/claude-data
       # Node + nvm, shared with the (slim) vscode sidecar
       - toolchain:/opt/toolchain
-      # Rancher UI extension source — built with the closet container's node
+      # Rancher UI extension source — built with the workspace container's node
       - ./rancher-extension:/rancher-extension
     restart: unless-stopped
 
@@ -53,7 +53,7 @@ services:
     image: magic-closet-api
     build:
       context: .
-      dockerfile: closet/api/Dockerfile
+      dockerfile: workspace/api/Dockerfile
     environment:
       # Host path of this repo — needed so compose commands issued through the
       # host docker socket resolve bind mounts correctly.
@@ -80,5 +80,5 @@ services:
 
 volumes:
   claude-data:
-  # nvm + node, populated by the closet container and shared with vscode
+  # nvm + node, populated by the workspace container and shared with vscode
   toolchain:

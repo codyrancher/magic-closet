@@ -16,7 +16,7 @@ export const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-itest-'));
 const stateFile = path.join(root, 'mock-docker.state');
 const logFile = path.join(root, 'mock-docker.log');
 
-fs.cpSync(path.join(repoRoot, 'closet', 'sidecars'), path.join(root, 'closet', 'sidecars'), { recursive: true });
+fs.cpSync(path.join(repoRoot, 'workspace', 'sidecars'), path.join(root, 'workspace', 'sidecars'), { recursive: true });
 try { fs.copyFileSync(path.join(repoRoot, 'compose.stack.yml'), path.join(root, 'compose.stack.yml')); } catch {}
 fs.writeFileSync(path.join(root, '.env'), 'API_PORT=8300\nCOMPOSE_PROFILES=vscode,rancher,keycloak\n');
 fs.writeFileSync(stateFile, '');
@@ -87,7 +87,7 @@ export async function waitFor(fn, ms = 3000) {
 }
 
 // ---- boot the server (AFTER env + fetch are set) and wait for it ----
-await import(path.join(repoRoot, 'closet', 'api', 'src', 'server.js'));
+await import(path.join(repoRoot, 'workspace', 'api', 'src', 'server.js'));
 for (let i = 0; i < 100; i++) {
   try { const r = await realFetch(`${BASE}/health`); if (r.ok) break; } catch {}
   await new Promise((r) => setTimeout(r, 50));

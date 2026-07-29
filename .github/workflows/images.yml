@@ -17,13 +17,13 @@ jobs:
         include:
           - name: api
             context: .
-            dockerfile: closet/api/Dockerfile
-          - name: closet
-            context: closet
-            dockerfile: closet/Dockerfile
+            dockerfile: workspace/api/Dockerfile
+          - name: workspace
+            context: workspace
+            dockerfile: workspace/Dockerfile
           - name: vscode
-            context: sidecars/dev/vscode
-            dockerfile: sidecars/dev/vscode/Dockerfile
+            context: workspace/sidecars/dev/vscode
+            dockerfile: workspace/sidecars/dev/vscode/Dockerfile
     steps:
       - uses: actions/checkout@v4
 

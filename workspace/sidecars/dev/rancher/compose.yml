@@ -19,7 +19,7 @@ services:
       - "${RANCHER_PORT:-8344}:443"
     volumes:
       - rancher-data:/var/lib/rancher
-      - ./closet/shared:/shared:ro
+      - ./workspace/shared:/shared:ro
     healthcheck:
       test: ["CMD", "curl", "-fsk", "https://localhost/ping"]
       interval: 10s

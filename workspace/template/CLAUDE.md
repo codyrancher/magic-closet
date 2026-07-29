@@ -1,6 +1,6 @@
 # Working inside a magic closet
 
-You are an agent running **inside a magic closet dev environment** — a project
+You are an agent running **inside a magic closet dev environment** — a workspace
 container with the source under `/workspace`, plus a set of optional **sidecar**
 containers (Rancher, a browser, Keycloak, OpenLDAP, Figma, …) you can drive.
 This file tells you what's available and how to use it. (Details of a specific
@@ -16,7 +16,7 @@ mc list                       # sidecars + status, host ports, params (JSON)
 mc start rancher tag=v2.11-head --wait   # start/restart a sidecar (params are k=v)
 mc stop rancher-browser       # stop (kept for fast restart)
 mc rm figma                   # stop + remove the container (named volumes kept)
-mc run "yarn install"         # run a command in the closet container
+mc run "yarn install"         # run a command in the workspace container
 mc open https://rancher       # open a tab in the rancher-browser sidecar
 ```
 
@@ -27,20 +27,20 @@ Raw endpoints (same thing) — `http://api:8080`:
 | `GET /sidecars` | list: status, health, host port, params + values, `internal` URL |
 | `POST /sidecars/<name>/start` | body `{ "params": {...}, "wait": true }` |
 | `POST /sidecars/<name>/stop` / `DELETE /sidecars/<name>` | stop / remove |
-| `POST /exec` | `{ "command": "yarn build" }` → runs in the closet container |
+| `POST /exec` | `{ "command": "yarn build" }` → runs in the workspace container |
 | `POST /browser/open` | `{ "url": "https://rancher" }` → queue a tab in the browser |
 | `POST /auth/apply` | `{ "provider": "keycloak" }` → set Rancher's auth provider |
 
-Params/secrets are **global**: everything in `.env` is loaded as env vars into
-every container, so credentials are already in your environment (see below) and
-a value set for one sidecar is visible to all.
+Params in `.env` are loaded as env vars into every container, so a value set for
+one sidecar is visible to all. The generated **login secrets** (see below) live
+in `.state/secrets.env`, not `.env` — look a value up there when you need one.
 
 ## Sidecars
 
 Service names resolve on the shared network (`https://rancher`,
 `http://api:8080`, …). `mc list` shows which are running.
 
-- **rancher** (`https://rancher`, host `:${RANCHER_PORT}` = 8444) — Rancher
+- **rancher** (`https://rancher`, host `:${RANCHER_PORT}` = 8344) — Rancher
   server. Log in as `admin` / `$RANCHER_BOOTSTRAP_PASSWORD` (local), or
   `user1`..`user3` / `$RANCHER_USER1_PASSWORD`.. . First boot takes several
   minutes. **OIDC/LDAP logins and any `https://rancher` URL only resolve inside
@@ -100,7 +100,7 @@ talks to) need no host port.
 
 - `/workspace` is bind-mounted and shared with the vscode sidecar. A target
   repo is cloned into **`/workspace/dashboard`** (rancher/dashboard master by
-  default; set the vscode `githubUrl` param to a PR/issue to check that out).
+  default; set `GITHUB_URL` in `.env` to a PR/issue to check that out).
 - **Dev server:** listen on `0.0.0.0:8005` inside this container — it's
   published to the host as `:${DEV_PORT}` (8305). For rancher/dashboard:
   `cd /workspace/dashboard && yarn install && API=https://rancher yarn dev`
@@ -109,7 +109,9 @@ talks to) need no host port.
 
 ## Credentials quick reference
 
-All are env vars in this container (values generated at setup, stored in `.env`):
+The login secrets (top rows) are generated at startup into `.state/secrets.env`;
+the tokens (`GH_TOKEN`, `FIGMA_API_KEY`) are params in `.env`. Both are loaded
+into container envs where referenced:
 
 | Env var | Used for |
 |---|---|

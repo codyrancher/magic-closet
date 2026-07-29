@@ -18,7 +18,7 @@ fills in generated secrets).
 ## Single-container (DinD) model
 
 `docker compose up -d` starts **one** privileged container, `magic-closet`,
-that runs its own inner dockerd. The whole stack (closet, api, and every
+that runs its own inner dockerd. The whole stack (workspace, api, and every
 sidecar) runs as *nested* containers inside it — nothing else lands on the host
 docker. The host publishes only the fixed sidecar ports plus `8500-8519` for
 provisioned closets.
@@ -33,7 +33,7 @@ provisioned closets.
 - `dind-entrypoint.sh` — PID 1 of that container: boots the inner dockerd, then
   runs `docker compose -f compose.stack.yml up -d --build` inside it.
 - `compose.stack.yml` — the **actual stack** (formerly `docker-compose.yml`):
-  core `closet` + `api` and the `include:` of each sidecar. The api drives
+  core `workspace` + `api` and the `include:` of each sidecar. The api drives
   nested compose with this file (via `MC_COMPOSE_FILE`), talking to the inner
   socket with `MC_ROOT=/magic-closet`.
 
@@ -50,25 +50,25 @@ still talk to each other over the inner docker network regardless.
 
 ## Layout
 
-The four things worth caring about first — `closet/`, `sidecars/`,
+The four things worth caring about first — `workspace/`, `sidecars/`,
 `rancher-extension/`, `tests/` — plus the orchestration files:
 
 ```
 magic-closet/
 ├── docker-compose.yml   # DinD wrapper: one privileged docker:dind container
-├── compose.stack.yml    # the actual stack (closet, api) + include: of each sidecar
+├── compose.stack.yml    # the actual stack (workspace, api) + include: of each sidecar
 ├── dind-entrypoint.sh   # inner dockerd + `compose up` of the stack
 ├── .env                 # profiles, host ports, sidecar parameters
-├── closet/              # the closet: its container image + everything it & the sidecars use
+├── workspace/           # the workspace: its container image + everything it & the sidecars use
 │   ├── api/             # sidecar control API (port ${API_PORT}, default 8300)
-│   ├── template/        # scaffold seeded into the closet root (/workspace) at start
+│   ├── template/        # scaffold seeded into the workspace root (/workspace) at start
 │   ├── sidecars/        # one dir per sidecar (compose.yml + sidecar.json [+ Dockerfile])
 │   └── shared/          # artifacts shared into every container at /shared (tools/bin/mc, ...)
 ├── rancher-extension/   # Rancher UI extension (Vue plugin) + charts/ (Helm chart)
 └── tests/               # integration tests for the control API
 ```
 
-Runtime/instance state — the cloned `/workspace` (the closet clones
+Runtime/instance state — the cloned `/workspace` (the workspace container clones
 rancher/dashboard into `/workspace/dashboard`), `.state`, `custom-sidecars`,
 `workspaces` — lives in the sibling `../instance/magic-closet` (see the DinD
 wrapper note above), not in the source tree.
@@ -86,35 +86,35 @@ optional: a sidecar not in the list simply doesn't start with
 `docker compose up -d`, but can still be started on demand (see API below).
 
 ### Change a sidecar's settings
-Edit `sidecars/<name>/compose.yml`. It's a normal compose file; the only
+Edit `workspace/sidecars/<name>/compose.yml`. It's a normal compose file; the only
 conventions are:
 
 1. `profiles: ["<name>"]` — keeps the sidecar optional (profile = dir name).
 2. No `container_name` — compose names containers per project, and the API
    finds them via compose labels (required for multiple closets).
 3. Paths are relative to the **repo root** (the include uses
-   `project_directory: .`), e.g. `./workspace`, `./tools`, `./sidecars/<name>/...`.
+   `project_directory: .`), e.g. `./workspace/shared`, `./workspace/sidecars/<name>/...`.
 4. Tunables are exposed as env vars with defaults (`${RANCHER_TAG:-head}`) and
    declared in `sidecar.json` so the API can set them.
 
 ### Seeding startup files (`template/`)
 A sidecar that **builds its own image** carries a `template/` dir, baked in and
 copied into the container at startup — the convention for initializing data:
-the **closet** seeds `closet/template/` into its root (`/workspace`), and
-**vscode** seeds `sidecars/dev/vscode/template/` (VS Code defaults) into its
+the **workspace** seeds `workspace/template/` into its root (`/workspace`), and
+**vscode** seeds `workspace/sidecars/dev/vscode/template/` (VS Code defaults) into its
 data dir. **Stock-image sidecars** can't bake a template, so they initialize
 another way: rancher/keycloak/openldap via the API bootstrap, rancher-browser
 via the image's `custom-cont-init.d` hook (`ext-init`, which renders creds).
 
 ### Sidecar groups
 A directory under `sidecars/` **without** a `compose.yml` is a group; its
-subdirectories are sidecars (e.g. `sidecars/auth/keycloak`,
-`sidecars/auth/openldap`). The dashboard renders each group as a titled
+subdirectories are sidecars (e.g. `workspace/sidecars/auth/keycloak`,
+`workspace/sidecars/auth/openldap`). The dashboard renders each group as a titled
 section; the API reports the group on each sidecar. Profile and service
 names stay flat (`keycloak`) — the group is purely organizational.
 
 ### Add a new sidecar
-1. `mkdir sidecars/<name>` (or `sidecars/<group>/<name>`) with a `compose.yml`
+1. `mkdir workspace/sidecars/<name>` (or `sidecars/<group>/<name>`) with a `compose.yml`
    (follow the conventions above) and a `sidecar.json`:
    ```json
    {
@@ -191,8 +191,8 @@ version first, then the last `limit` `branchPrefix` branches):
              "mainBranch": "master", "branchPrefix": "release-2.", "limit": 6 }
 ```
 
-(No sidecar uses this today — the closet's node version comes from the
-workspace's `.nvmrc`, see `closet/setup-node.sh`, not a param.)
+(No sidecar uses this today — the workspace's node version comes from the
+workspace's `.nvmrc`, see `workspace/setup-node.sh`, not a param.)
 
 A param with `"defaultFromOptions": true` gets its default from the first
 option: when its env var is unset in `.env`, the api resolves the options and
@@ -207,7 +207,7 @@ Delete its directory and its `include:` entry, and drop its profile from
 
 ## The control API
 
-`api/` runs alongside the closet container (it is core, not a sidecar) and
+`api/` runs alongside the workspace container (it is core, not a sidecar) and
 drives `docker compose` through the host docker socket.
 
 ```
@@ -216,7 +216,7 @@ GET    /sidecars                list sidecars: status, health, host port, params
 POST   /sidecars/<name>/start   body: { "params": {"tag": "v2.11-head"}, "wait": true }
 POST   /sidecars/<name>/stop    stop the container (kept for fast restart)
 DELETE /sidecars/<name>         stop + remove the container (named volumes kept)
-POST   /exec            { "command": "yarn build" } → runs in the closet container
+POST   /exec            { "command": "yarn build" } → runs in the workspace container
 POST   /browser/open            { "url": "https://rancher" } → open a tab in the rancher-browser
                                 sidecar; 202 + queued if the browser isn't ready, and the
                                 queue is flushed (FIFO) once it comes up
@@ -244,7 +244,7 @@ GET    /browser/queue           tabs still waiting for the browser
 ### The `mc` CLI
 `shared/` is mounted into every container at `/shared` (and `/shared/tools/bin`
 is on PATH in the images we build), so all sidecars share the same CLI tools —
-including `claude` and `gh`, which the closet container copies into
+including `claude` and `gh`, which the workspace container copies into
 `/shared/tools/bin` at startup. `shared/` is the place for any artifact meant to
 be reachable from the closet and the sidecars.
 
@@ -253,7 +253,7 @@ mc list                          # sidecars + status
 mc start rancher tag=v2.11-head --wait
 mc stop rancher-browser
 mc rm figma
-mc run "yarn install"            # executes inside the closet container
+mc run "yarn install"            # executes inside the workspace container
 mc open https://rancher          # open a browser tab (queued until the browser is up)
 ```
 
@@ -261,9 +261,9 @@ On the host, prefix with `MC_API_URL=http://localhost:8300`.
 
 ## Core services (not sidecars)
 
-- **project** — holds `/workspace` (bind of `./workspace`), node 22, git, gh,
+- **workspace** — holds `/workspace` (bind of `./workspace`), node 22, git, gh,
   claude. Long-running; get a shell with
-  `docker exec -it -u 1000 magic-closet-closet bash`, or `claude-session`
+  `docker exec -it -u 1000 magic-closet-workspace bash`, or `claude-session`
   inside it for a persistent tmux Claude session. Dev servers should listen on
   `0.0.0.0:8005` (forwarded as `${DEV_PORT}`). If `workspace/init.sh` exists
   it runs (backgrounded, log: `workspace/.init.log`) on container start.
@@ -273,7 +273,7 @@ On the host, prefix with `MC_API_URL=http://localhost:8300`.
 
 The vscode sidecar's `githubUrl` param points at a GitHub PR, issue, or repo;
 the api clones it into `/workspace/dashboard` (blob-less partial clone) via
-the closet container:
+the workspace container:
 
 - `.../pull/123` — PR head checked out on branch `pr-123`
 - `.../issues/456` — default branch on a new branch `issue-456`

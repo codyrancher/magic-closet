@@ -58,7 +58,7 @@ mkdir -p "$MC_DATA_DIR/.state"
 SECRETS_FILE="$MC_DATA_DIR/.state/secrets.env"
 [ -f "$SECRETS_FILE" ] || : > "$SECRETS_FILE"
 set -a; . "$SECRETS_FILE"; set +a
-for key in $(for f in closet/sidecars/*/sidecar.json closet/sidecars/*/*/sidecar.json; do
+for key in $(for f in workspace/sidecars/*/sidecar.json workspace/sidecars/*/*/sidecar.json; do
     [ -f "$f" ] || continue
     tr '\n' ' ' < "$f" | grep -oE '"secrets"[[:space:]]*:[[:space:]]*\[[^]]*\]' \
       | grep -oE '[A-Z0-9_]+_(PASSWORD|SECRET)'

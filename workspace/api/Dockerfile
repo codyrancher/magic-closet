@@ -4,9 +4,9 @@ FROM node:22-alpine
 # mounted /var/run/docker.sock
 RUN apk add --no-cache docker-cli docker-cli-compose bash openldap-clients openssl
 
-COPY closet/api/src /app/src
+COPY workspace/api/src /app/src
 # sidecar metadata for kubernetes mode (no repo mount in-cluster)
-COPY closet/sidecars /app/sidecars
+COPY workspace/sidecars /app/sidecars
 
 EXPOSE 8080
 CMD ["node", "/app/src/server.js"]

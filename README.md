@@ -1,6 +1,6 @@
 # magic closet
 
-A dev environment as a closet of optional containers — one **closet** container
+A dev environment as a closet of optional containers — one **workspace** container
 (your source + node) plus opt-in **sidecars** (VS Code, a Chromium browser,
 Rancher, Keycloak, ...), all managed from a small dashboard. The whole stack
 runs inside a single Docker-in-Docker container, so nothing but that one

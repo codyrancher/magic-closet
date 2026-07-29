@@ -100,19 +100,19 @@ describe('sidecar lifecycle', () => {
 });
 
 describe('exec — POST /exec', () => {
-  it('409 when the closet container is not running', async () => {
+  it('409 when the workspace container is not running', async () => {
     h.setRunning();
     assert.equal((await h.api('POST', '/exec', { command: 'echo hi' })).status, 409);
   });
-  it('runs a command in the closet container', async () => {
-    h.setRunning('closet');
+  it('runs a command in the workspace container', async () => {
+    h.setRunning('workspace');
     const r = await h.api('POST', '/exec', { command: 'echo hi' });
     assert.equal(r.status, 200);
     assert.equal(r.json.exitCode, 0);
     assert.match(r.json.stdout, /mock-exec: echo hi/);
   });
   it('/project/exec is an alias', async () => {
-    h.setRunning('closet');
+    h.setRunning('workspace');
     assert.equal((await h.api('POST', '/project/exec', { command: 'ls' })).status, 200);
   });
   it('400 without a command', async () => {

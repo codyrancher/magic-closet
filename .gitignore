@@ -1,6 +1,6 @@
 .env
-closet/shared/tools/bin/claude
-closet/shared/tools/bin/gh
+workspace/shared/tools/bin/claude
+workspace/shared/tools/bin/gh
 .state/
 workspaces/
 # Sidecars created/edited from within a closet — runtime state, shared with

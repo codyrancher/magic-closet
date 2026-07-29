@@ -12,5 +12,5 @@ services:
     ports:
       - "${FIGMA_PORT:-8360}:8000"
     volumes:
-      - ./closet/shared:/shared:ro
+      - ./workspace/shared:/shared:ro
     restart: unless-stopped
