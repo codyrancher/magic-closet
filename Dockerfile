@@ -49,7 +49,9 @@ RUN CLAUDE_VERSION=$(curl -fsSL https://storage.googleapis.com/claude-code-dist-
 
 # nvm baked in; the entrypoint's setup-node copies it into the shared toolchain
 # dir (under MC_DATA_DIR) at runtime and installs the repo's node version there.
-RUN mkdir -p /opt/nvm /opt/toolchain \
+# (/opt/toolchain is NOT created here — the entrypoint symlinks it to the shared
+# data dir; a pre-existing dir would make `ln` nest the link inside it.)
+RUN mkdir -p /opt/nvm \
     && curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | NVM_DIR=/opt/nvm PROFILE=/dev/null bash
 
 # The shared node (/opt/toolchain/node/bin) + the tools bin on PATH everywhere.

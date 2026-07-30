@@ -122,8 +122,10 @@ if [ -d /magic-closet/workspace/template ]; then
 fi
 
 # Shared node toolchain (nvm) under the persisted data dir, shared with vscode.
-ln -sfn "$MC_DATA_DIR/toolchain" /opt/toolchain
+# rm any pre-existing /opt/toolchain dir first, else `ln` nests the link inside it.
+rm -rf /opt/toolchain
 mkdir -p "$MC_DATA_DIR/toolchain"; chown -R "$USER_ID:$GROUP_ID" "$MC_DATA_DIR/toolchain"
+ln -sfn "$MC_DATA_DIR/toolchain" /opt/toolchain
 gosu "$USER_NAME" env NVM_DIR=/opt/toolchain/nvm HOME="$HOME_DIR" bash /magic-closet/workspace/setup-node.sh || true
 ( until [ -f /workspace/dashboard/.nvmrc ]; do sleep 3; done
   gosu "$USER_NAME" env NVM_DIR=/opt/toolchain/nvm HOME="$HOME_DIR" bash /magic-closet/workspace/setup-node.sh || true ) &
