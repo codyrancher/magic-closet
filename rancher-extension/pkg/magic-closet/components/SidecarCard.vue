@@ -136,11 +136,17 @@ export default {
 
 .unsupported { font-style: italic; color: var(--muted); font-size: 12px; }
 
+/* Let the card fill its grid cell so the actions can bottom-align regardless of
+   how much content (description, links, config) sits above them. */
+:deep(.item-card) { align-items: stretch; }
+:deep(.item-card-body) { display: flex; flex-direction: column; }
+
 .footer {
   display: flex;
   flex-direction: column;
   gap: 12px;
   width: 100%;
+  flex: 1 1 auto;
 }
 
 .config {
