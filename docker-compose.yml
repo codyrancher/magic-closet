@@ -20,6 +20,8 @@ services:
     image: magic-closet
     container_name: magic-closet
     privileged: true                        # required to run an inner dockerd
+    cgroup: host                            # nested k3s needs the cgroup v2 memory
+                                            # controller, only delegated in the host cgroup ns
     environment:
       # Runtime/instance state (.state, workspace, toolchain, claude-data) lives
       # in a sibling dir, not the source tree — mounted below.

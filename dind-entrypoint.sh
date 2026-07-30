@@ -11,6 +11,12 @@ export PWD=/magic-closet
 : "${MC_DATA_DIR:=/magic-closet-data}"
 export MC_DATA_DIR
 
+# Note: nested Rancher/k3s needs the cgroup v2 **memory** controller. A private
+# cgroup namespace doesn't get it delegated on this kernel, so the container runs
+# in the HOST cgroup namespace (`cgroup: host` in docker-compose.yml), where the
+# host already delegates memory down to the container's scope. Nothing to set up
+# here — enabling controllers from inside a host cgroup ns would touch the host.
+
 # ---------------------------------------------------------------------------
 # 1. Inner dockerd (hosts the nested sidecars)
 # ---------------------------------------------------------------------------
