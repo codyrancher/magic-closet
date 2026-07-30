@@ -164,12 +164,26 @@ export default {
       return this.apiBase.replace(/http:api:8080\/proxy$/, `${ s.proxy.scheme }:${ s.name }:${ s.proxy.port }/proxy/`);
     },
 
+    // The external NodePort URL uses the k8s node's IP, which in most clusters
+    // is a private address the user's browser can't reach — hide it there.
+    reachable(url) {
+      const h = (url || '').match(/^https?:\/\/([^:/]+)/)?.[1];
+
+      if (!h) {
+        return false;
+      }
+
+      return !(/^10\./.test(h) || /^192\.168\./.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h) || /^127\./.test(h));
+    },
+
     launchLink(s) {
       if (s.status !== 'running') {
         return null;
       }
       if (this.preferExternal(s)) {
-        return s.external;
+        // A private-IP NodePort isn't reachable from the browser — drop it;
+        // those sidecars are opened via Internal Launch (the rancher-browser).
+        return this.reachable(s.external) ? s.external : null;
       }
 
       return this.proxyUrl(s);
