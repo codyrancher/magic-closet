@@ -30,8 +30,8 @@ services:
       # Opt-in: also expose the INNER docker daemon on a host-visible socket
       # (in the mounted data dir) so a local VS Code / Dev Containers can see and
       # attach the nested workspace container. Off unless you ask for it:
-      #   MC_EXPOSE_DOCKER=1 docker compose up -d    (or set it in .env)
-      - MC_EXPOSE_DOCKER=${MC_EXPOSE_DOCKER:-}
+      #   MC_EXTERNAL_VSCODE=1 docker compose up -d    (or set it in .env)
+      - MC_EXTERNAL_VSCODE=${MC_EXTERNAL_VSCODE:-}
     working_dir: /magic-closet
     entrypoint: ["/bin/sh", "/magic-closet/dind-entrypoint.sh"]
     volumes:

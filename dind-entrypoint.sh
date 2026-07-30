@@ -10,13 +10,13 @@ cd /magic-closet
 export PWD=/magic-closet
 
 # Start the dind image's own dockerd (backgrounded) and wait for the socket.
-# When MC_EXPOSE_DOCKER is set (opt-in via docker-compose.yml / `.env` / the
+# When MC_EXTERNAL_VSCODE is set (opt-in via docker-compose.yml / `.env` / the
 # command line), also listen on a second socket in the bind-mounted data dir so
 # the HOST can drive the inner daemon — e.g. a local VS Code / Dev Containers
 # can then see and attach the nested workspace container. Off by default.
 INNER_SOCK="${MC_DATA_DIR:-/magic-closet}/inner-docker.sock"
 DOCKERD_ARGS="--host=unix:///var/run/docker.sock"
-if [ -n "${MC_EXPOSE_DOCKER:-}" ]; then
+if [ -n "${MC_EXTERNAL_VSCODE:-}" ]; then
   rm -f "$INNER_SOCK" 2>/dev/null || true
   DOCKERD_ARGS="$DOCKERD_ARGS --host=unix://$INNER_SOCK"
 fi
@@ -36,7 +36,7 @@ echo "[dind] inner dockerd ready"
 
 # If the inner daemon is exposed, make its socket reachable by the (non-root)
 # host user — this is a single, isolated dev box, so world-rw is acceptable.
-if [ -n "${MC_EXPOSE_DOCKER:-}" ]; then
+if [ -n "${MC_EXTERNAL_VSCODE:-}" ]; then
   chmod 666 "$INNER_SOCK" 2>/dev/null || true
   echo "[dind] inner docker exposed: point the host at ./instance/magic-closet/inner-docker.sock"
   echo "[dind]   docker context create mc-inner --docker host=unix://\$PWD/../instance/magic-closet/inner-docker.sock"
