@@ -29,8 +29,18 @@ _mc_ws=$(docker ps -q -f label=com.docker.compose.service=workspace -f status=ru
 if [ -n "$_mc_ws" ]; then
   echo "→ jumping into the workspace container ('exit' returns to your terminal)."
   echo "  For the DinD host itself: MC_NO_JUMP=1 docker exec -it magic-closet sh"
+  # Enter as the non-root user that owns /workspace (uid PUID), with its real
+  # HOME, so claude/git/gh find their config and claude isn't blocked as root.
+  _mc_uid=$(docker exec "$_mc_ws" stat -c %u /workspace 2>/dev/null)
+  _mc_as=""
+  if [ -n "$_mc_uid" ] && [ "$_mc_uid" != 0 ]; then
+    _mc_home=$(docker exec "$_mc_ws" sh -c "getent passwd $_mc_uid | cut -d: -f6" 2>/dev/null)
+    _mc_as="-u $_mc_uid:$_mc_uid"
+    [ -n "$_mc_home" ] && _mc_as="$_mc_as -e HOME=$_mc_home"
+  fi
+  # $_mc_as is intentionally unquoted (word-split into flags); values have no spaces.
   # sh always exists in the workspace; from there prefer bash as a login shell.
-  exec docker exec -it -e MC_IN_JUMP=1 "$_mc_ws" \
+  exec docker exec -it $_mc_as -e MC_IN_JUMP=1 -w /workspace "$_mc_ws" \
     sh -lc 'exec "$(command -v bash || command -v sh)" -l'
 fi
 

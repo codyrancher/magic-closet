@@ -42,6 +42,10 @@ RUN L='export PATH="/opt/toolchain/node/bin:/shared/tools/bin:$PATH"'; \
     printf '%s\n' "$L" > /etc/profile.d/magic-closet-tools.sh; \
     printf '%s\n' "$L" >> /etc/bash.bashrc
 
+# So VS Code "Attach to Running Container" / Dev Containers connects as the
+# non-root user (where claude/git/gh config live), not root.
+LABEL devcontainer.metadata='[{"remoteUser":"node"}]'
+
 COPY --chmod=755 entrypoint.sh /entrypoint.sh
 # Scaffold files seeded into the closet root (/workspace) at startup (CLAUDE.md, ...)
 COPY template /opt/magic-closet/template

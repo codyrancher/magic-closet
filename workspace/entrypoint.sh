@@ -21,7 +21,9 @@ chown "$USER_ID:$GROUP_ID" "$HOME_DIR"
 if [ -d /claude-data ]; then
     chown "$USER_ID:$GROUP_ID" /claude-data
     ln -sfn /claude-data "$HOME_DIR/.claude"
-    [ -f /claude-data/.claude.json ] || touch /claude-data/.claude.json
+    # Seed a valid empty JSON doc — an empty file makes claude treat the config
+    # as corrupted ("JSON Parse error: Unexpected EOF"). -s repairs an empty one.
+    [ -s /claude-data/.claude.json ] || printf '{}\n' > /claude-data/.claude.json
     chown "$USER_ID:$GROUP_ID" /claude-data/.claude.json
     ln -sfn /claude-data/.claude.json "$HOME_DIR/.claude.json"
 fi
