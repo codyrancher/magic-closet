@@ -605,12 +605,13 @@ function sidecarApiUrl(k8sUrl, scheme, portEnv, offset) {
 
 let rancherBootstrap = { state: 'idle', containerId: null }; // idle|running|done|failed
 
-// The host's externally-reachable IP, for Rancher's server-url. Detected once
-// (cached): EC2 instance metadata first, then a public-IP echo service.
-// undefined = not tried, null = tried and failed, string = the IP.
+// The host's externally-reachable IP, for Rancher's server-url. EC2 instance
+// metadata first, then a public-IP echo service. Only SUCCESS is cached — a
+// transient failure must not permanently strand server-url on the in-network
+// fallback, so later bootstrap retries re-attempt detection until it resolves.
 let publicHostCache;
 async function detectPublicHost() {
-  if (publicHostCache !== undefined) return publicHostCache;
+  if (publicHostCache) return publicHostCache;
   const isIp = (t) => /^(\d{1,3}\.){3}\d{1,3}$/.test(t) || /^[0-9a-fA-F:]+$/.test(t);
   const get = async (url, opts, ms) => {
     try {
@@ -631,9 +632,9 @@ async function detectPublicHost() {
   // Off-EC2: ask a public echo service what our egress IP is.
   if (!host) host = await get('https://checkip.amazonaws.com', {}, 4000);
   if (!host) host = await get('https://api.ipify.org', {}, 4000);
-  publicHostCache = host || null;
-  console.log(host ? `detected public host: ${host}` : 'could not detect public host (server-url stays in-network)');
-  return publicHostCache;
+  if (host) publicHostCache = host;
+  console.log(host ? `detected public host: ${host}` : 'could not detect public host yet (will retry; server-url stays in-network meanwhile)');
+  return host || null;
 }
 
 // Scoped https JSON call that accepts rancher's self-signed cert (a global
