@@ -70,7 +70,9 @@ export function init($plugin: IPlugin, store: any) {
 
   configureType(CLOSET_TYPE, {
     isCreatable: true,
-    isEditable:  true,
+    // No separate "Edit Config" — the detail page is interactive (start/stop +
+    // per-sidecar config live there).
+    isEditable:  false,
     isRemovable: true,
     showAge:     false,
     showState:   true,
