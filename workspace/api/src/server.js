@@ -703,14 +703,18 @@ async function bootstrapRancher() {
     await rancherApi('/v3/settings/first-login', { method: 'PUT', token, body: { value: 'false' } });
     // server-url must be reachable from OUTSIDE this rancher, or clusters
     // provisioned inside the closet can't register — their cattle-cluster-agents
-    // phone home to this URL. k8s: the node-IP NodePort. Compose: the host's
-    // external address, https://<publicHost>:RANCHER_PORT — auto-detected
-    // (EC2 IMDS, else a public-IP echo service); MC_PUBLIC_HOST in .env is an
-    // optional manual override. Else the in-network name.
+    // phone home to this URL, from the internet. The k8s node-IP NodePort is
+    // the node's *internal* IP (status.hostIP), unreachable off-VPC — so use
+    // the host's PUBLIC address instead: MC_PUBLIC_HOST override, else
+    // auto-detected (EC2 IMDS, else a public-IP echo service), paired with
+    // rancher's NodePort (k8s) or RANCHER_PORT (compose). Falls back to the
+    // internal NodePort / in-network name only when no public host is found.
     const pubHost = env.MC_PUBLIC_HOST || await detectPublicHost();
-    const ranPort = parseInt(env.RANCHER_PORT, 10) || (parseInt(env.API_PORT, 10) || 8300) + 44;
-    const serverUrl = k8sExternalUrl('rancher')
-      || (pubHost ? `https://${pubHost}:${ranPort}` : RANCHER_URL);
+    const ranPort = (K8S && k8sNodePortCache.get('rancher'))
+      || parseInt(env.RANCHER_PORT, 10) || (parseInt(env.API_PORT, 10) || 8300) + 44;
+    const serverUrl = (pubHost ? `https://${pubHost}:${ranPort}` : null)
+      || k8sExternalUrl('rancher')
+      || RANCHER_URL;
     await rancherApi('/v3/settings/server-url', { method: 'PUT', token, body: { value: serverUrl } });
     await rancherApi('/v3/settings/agent-tls-mode', { method: 'PUT', token, body: { value: 'system-store' } });
 
