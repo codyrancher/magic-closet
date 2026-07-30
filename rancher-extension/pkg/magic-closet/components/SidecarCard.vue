@@ -38,11 +38,12 @@ export default {
 </script>
 
 <template>
-  <rc-item-card
-    :id="`sidecar-${name}`"
-    :header="{}"
-    variant="medium"
-  >
+  <div class="sc-card">
+    <rc-item-card
+      :id="`sidecar-${name}`"
+      :header="{}"
+      variant="medium"
+    >
     <template #item-card-header-title>
       <div class="title-row">
         <h3 class="item-card-header-title medium">
@@ -99,7 +100,8 @@ export default {
         <div class="actions"><slot name="actions" /></div>
       </div>
     </template>
-  </rc-item-card>
+    </rc-item-card>
+  </div>
 </template>
 
 <style lang="scss" scoped>
@@ -136,10 +138,18 @@ export default {
 
 .unsupported { font-style: italic; color: var(--muted); font-size: 12px; }
 
-/* Let the card fill its grid cell so the actions can bottom-align regardless of
-   how much content (description, links, config) sits above them. */
-:deep(.item-card) { align-items: stretch; }
-:deep(.item-card-body) { display: flex; flex-direction: column; }
+/* Fill the grid cell and force the RcItemCard's internal column to stretch, so
+   the actions row can sit at the very bottom regardless of how much
+   description/links/config sits above it. The wrapper is the element these
+   :deep rules anchor from — a bare :deep(.item-card) wouldn't match the card
+   (it's the child component's root, not a descendant of this scope). */
+.sc-card {
+  display: flex;
+  height: 100%;
+}
+.sc-card :deep(.item-card) { flex: 1; align-items: stretch; }
+.sc-card :deep(.item-card-body) { flex: 1; }
+.sc-card :deep(.item-card-body-details) { display: flex; flex-direction: column; flex: 1; }
 
 .footer {
   display: flex;
@@ -178,6 +188,7 @@ export default {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+  margin-top: auto; /* pin to the bottom of the (stretched) footer */
 
   &:empty { display: none; }
 }
