@@ -1,5 +1,8 @@
 name: magic-closet
 
+# The SIDECARS. The workspace dev environment and the control-plane api used to
+# be services here too, but they now live in the root "magic-closet" container
+# itself (see ../Dockerfile + dind-entrypoint.sh) — only sidecars stay nested.
 # Each sidecar lives in its own directory under sidecars/ and ships its own
 # compose fragment. Adding a sidecar = create the directory + list it here.
 include:
@@ -15,73 +18,6 @@ include:
     project_directory: .
   - path: workspace/sidecars/auth/openldap/compose.yml
     project_directory: .
-
-services:
-  # Main container: holds the source code, node (via nvm), and the CLI toolchain.
-  # Everything else is an optional sidecar. The vscode sidecar shares this
-  # container's toolchain (the `toolchain` volume) instead of baking its own.
-  workspace:
-    image: magic-closet-workspace
-    build: ./workspace
-    # Params come from .env; generated login secrets from .state/secrets.env.
-    # Both are loaded into this container's env so an agent working here can use
-    # them by name (e.g. $RANCHER_BOOTSTRAP_PASSWORD) — see the sidecar `notes`.
-    env_file:
-      - path: ${MC_ENV_FILE:-./.env}
-        required: false
-      - path: ${MC_DATA_DIR:-/magic-closet}/.state/secrets.env
-        required: false
-    environment:
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
-      - MC_API_URL=http://api:8080
-    ports:
-      # Dev server (vite etc.) — run it on 0.0.0.0:8005 inside the container
-      - "${DEV_PORT:-8305}:8005"
-    volumes:
-      - ${MC_WORKSPACE:-/magic-closet-data/workspace}:/workspace
-      - ./workspace/shared:/shared
-      - claude-data:/claude-data
-      # Node + nvm, shared with the (slim) vscode sidecar
-      - toolchain:/opt/toolchain
-      # Rancher UI extension source — built with the workspace container's node
-      - ./rancher-extension:/rancher-extension
-    restart: unless-stopped
-
-  # Sidecar control plane: start/stop/delete sidecars over HTTP.
-  api:
-    image: magic-closet-api
-    build:
-      context: .
-      dockerfile: workspace/api/Dockerfile
-    environment:
-      # Host path of this repo — needed so compose commands issued through the
-      # host docker socket resolve bind mounts correctly.
-      - MC_ROOT=${PWD}
-      # Which closet this api manages (compose project + env file)
-      - MC_PROJECT=${MC_PROJECT:-magic-closet}
-      - MC_ENV_FILE=${MC_ENV_FILE:-.env}
-      # The stack lives in a non-default file so the host's docker-compose.yml
-      # can be the DinD wrapper; the api drives compose with this file.
-      - MC_COMPOSE_FILE=${MC_COMPOSE_FILE:-compose.stack.yml}
-      # Runtime/instance state dir (.state, custom-sidecars, workspaces). The
-      # DinD wrapper mounts it at /magic-closet-data; defaults to the repo.
-      - MC_DATA_DIR=${MC_DATA_DIR:-/magic-closet}
-    working_dir: ${PWD}
-    ports:
-      - "${API_PORT:-8300}:8080"
-      - "${API_HTTPS_PORT:-8301}:8443"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ${PWD}:${PWD}
-      # The instance/state dir, so the api reads/writes it at the same path
-      - ${MC_DATA_DIR:-/magic-closet}:${MC_DATA_DIR:-/magic-closet}
-    restart: unless-stopped
-
-volumes:
-  claude-data:
-  # nvm + node, populated by the workspace container and shared with vscode
-  toolchain:
 
 networks:
   # Fixed subnet so key services can hold a STATIC ip across DinD restarts.

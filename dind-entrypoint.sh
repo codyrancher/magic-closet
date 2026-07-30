@@ -1,59 +1,39 @@
-#!/bin/sh
-# Runs as PID 1 of the single "magic-closet" DinD container (see
-# docker-compose.yml). Boots an inner dockerd, then brings up the whole stack
-# (compose.stack.yml) inside this container so nothing lands on the host docker.
+#!/bin/bash
+# PID 1 of the single privileged "magic-closet" container. This ONE container is
+# now the docker-in-docker HOST, the workspace dev environment, AND the
+# control-plane api. It boots an inner dockerd, sets up the workspace (node user,
+# /workspace, shared toolchain, claude), brings up the nested SIDECARS
+# (compose.stack.yml), and runs the api. Only the sidecars are nested now.
 set -u
 
-# The compose interpolation in compose.stack.yml uses ${PWD} for MC_ROOT and the
-# repo bind mount — make sure it resolves to the in-container repo path.
 cd /magic-closet
 export PWD=/magic-closet
+: "${MC_DATA_DIR:=/magic-closet-data}"
+export MC_DATA_DIR
 
-# Start the dind image's own dockerd (backgrounded) and wait for the socket.
-# When MC_EXTERNAL_VSCODE is set (opt-in via docker-compose.yml / `.env` / the
-# command line), also listen on a second socket in the bind-mounted data dir so
-# the HOST can drive the inner daemon — e.g. a local VS Code / Dev Containers
-# can then see and attach the nested workspace container. Off by default.
-INNER_SOCK="${MC_DATA_DIR:-/magic-closet}/inner-docker.sock"
-DOCKERD_ARGS="--host=unix:///var/run/docker.sock"
-if [ -n "${MC_EXTERNAL_VSCODE:-}" ]; then
-  rm -f "$INNER_SOCK" 2>/dev/null || true
-  DOCKERD_ARGS="$DOCKERD_ARGS --host=unix://$INNER_SOCK"
-fi
-dockerd-entrypoint.sh dockerd $DOCKERD_ARGS >/var/log/dockerd.log 2>&1 &
-echo "[dind] waiting for inner dockerd..."
+# ---------------------------------------------------------------------------
+# 1. Inner dockerd (hosts the nested sidecars)
+# ---------------------------------------------------------------------------
+dockerd >/var/log/dockerd.log 2>&1 &
+DOCKERD_PID=$!
+echo "[mc] waiting for inner dockerd..."
 tries=0
 until docker info >/dev/null 2>&1; do
   tries=$((tries + 1))
   if [ "$tries" -gt 120 ]; then
-    echo "[dind] inner dockerd did not become ready; last log:"
+    echo "[mc] inner dockerd did not become ready; last log:"
     tail -n 30 /var/log/dockerd.log 2>/dev/null || true
     exit 1
   fi
   sleep 1
 done
-echo "[dind] inner dockerd ready"
+echo "[mc] inner dockerd ready"
 
-# If the inner daemon is exposed, make its socket reachable by the (non-root)
-# host user — this is a single, isolated dev box, so world-rw is acceptable.
-if [ -n "${MC_EXTERNAL_VSCODE:-}" ]; then
-  chmod 666 "$INNER_SOCK" 2>/dev/null || true
-  echo "[dind] inner docker exposed: point the host at ./instance/magic-closet/inner-docker.sock"
-  echo "[dind]   docker context create mc-inner --docker host=unix://\$PWD/../instance/magic-closet/inner-docker.sock"
-  echo "[dind]   then VS Code → Dev Containers lists the nested workspace/api/... containers"
-fi
-
-# The compose plugin isn't bundled in every dind image — ensure it's present.
-docker compose version >/dev/null 2>&1 || apk add --no-cache docker-cli-compose >/dev/null 2>&1
-
-# First boot with no .env: generate one (secrets + defaults). Normally the
-# bind-mounted repo already has .env, so this is skipped.
+# ---------------------------------------------------------------------------
+# 2. First-boot .env, derived ports, generated secrets
+# ---------------------------------------------------------------------------
 [ -f .env ] || sh ./setup.sh
 
-# Derive every sidecar host port from API_PORT (default 8300) for any not
-# explicitly set in .env, and export them so the inner compose interpolates
-# them. Anything set in .env wins (we don't override it). So .env only needs
-# API_PORT; add a *_PORT line to override an individual one.
 base=$(grep -E '^API_PORT=' .env 2>/dev/null | head -1 | cut -d= -f2 | sed 's/#.*//' | tr -d '[:space:]')
 : "${base:=8300}"
 export API_PORT="$base"
@@ -62,17 +42,6 @@ for pair in API_HTTPS_PORT:1 DEV_PORT:5 VSCODE_PORT:10 RANCHER_BROWSER_PORT:20 K
   grep -qE "^${var}=" .env 2>/dev/null || export "${var}=$((base + off))"
 done
 
-# Generate login secrets (Rancher/Keycloak/OpenLDAP admin + user passwords)
-# into a gitignored runtime file — NOT .env, which stays human-authored. Every
-# env var listed in a sidecar's "secrets" array is generated here once and
-# reused on later boots: rancher/keycloak persist their own copy in volumes, so
-# regenerating each start would break login. Sourcing first, then exporting,
-# lets the `compose up` below (and the api's --env-file) interpolate them.
-# Runtime state lives under MC_DATA_DIR (a separate mount so it stays out of the
-# source tree); defaults to the repo when unset. Export it so the inner
-# `compose up` interpolates ${MC_DATA_DIR} for the api/closet mounts.
-: "${MC_DATA_DIR:=/magic-closet}"
-export MC_DATA_DIR
 mkdir -p "$MC_DATA_DIR/.state"
 SECRETS_FILE="$MC_DATA_DIR/.state/secrets.env"
 [ -f "$SECRETS_FILE" ] || : > "$SECRETS_FILE"
@@ -87,16 +56,136 @@ for key in $(for f in workspace/sidecars/*/sidecar.json workspace/sidecars/*/*/s
   val=$(tr -dc 'a-zA-Z0-9@#%^*_+=-' < /dev/urandom | head -c 15)
   echo "${key}=${val}" >> "$SECRETS_FILE"
   export "${key}=${val}"
-  echo "[dind] generated secret ${key}"
+  echo "[mc] generated secret ${key}"
 done
 
-echo "[dind] bringing up the magic-closet stack (first run builds images)..."
+# ---------------------------------------------------------------------------
+# 3. Workspace environment (node user, shared dirs, toolchain, claude)
+# ---------------------------------------------------------------------------
+USER_ID=${PUID:-1000}
+GROUP_ID=${PGID:-1000}
+# node:22 ships a "node" user at uid 1000 — reuse whatever owns the requested uid.
+if ! getent group "$GROUP_ID" >/dev/null 2>&1; then groupadd -g "$GROUP_ID" dev; fi
+if ! getent passwd "$USER_ID" >/dev/null 2>&1; then useradd -m -u "$USER_ID" -g "$GROUP_ID" -s /bin/bash dev; fi
+USER_NAME=$(getent passwd "$USER_ID" | cut -d: -f1)
+HOME_DIR=$(getent passwd "$USER_ID" | cut -d: -f6)
+mkdir -p "$HOME_DIR"; chown "$USER_ID:$GROUP_ID" "$HOME_DIR"
+
+# /shared -> the repo's shared dir (tools/bin/mc etc.; on PATH via /shared/tools/bin)
+ln -sfn /magic-closet/workspace/shared /shared
+
+# Shared Claude creds under the persisted data dir (same dir the vscode sidecar mounts)
+CLAUDE_DIR="$MC_DATA_DIR/claude-data"
+mkdir -p "$CLAUDE_DIR"; chown "$USER_ID:$GROUP_ID" "$CLAUDE_DIR"
+ln -sfn "$CLAUDE_DIR" "$HOME_DIR/.claude"
+# Seed a valid empty JSON doc — an empty file makes claude report the config corrupted.
+[ -s "$CLAUDE_DIR/.claude.json" ] || printf '{}\n' > "$CLAUDE_DIR/.claude.json"
+chown "$USER_ID:$GROUP_ID" "$CLAUDE_DIR/.claude.json"
+ln -sfn "$CLAUDE_DIR/.claude.json" "$HOME_DIR/.claude.json"
+
+# Publish the heavyweight CLIs into the shared tools bin so sidecars get them too.
+TOOLS_BIN=/shared/tools/bin
+mkdir -p "$TOOLS_BIN"
+cp -f /usr/local/bin/claude "$TOOLS_BIN/claude" 2>/dev/null || true
+cp -f "$(command -v gh)" "$TOOLS_BIN/gh" 2>/dev/null || true
+chmod -R a+rx "$TOOLS_BIN" 2>/dev/null || true
+
+# tmux config + persistent claude session wrapper
+cat > "$HOME_DIR/.tmux.conf" <<'TMUXCONF'
+set -g mouse on
+set -g history-limit 50000
+TMUXCONF
+chown "$USER_ID:$GROUP_ID" "$HOME_DIR/.tmux.conf"
+cat > /usr/local/bin/claude-session <<'WRAPPER'
+#!/bin/bash
+SESSION_NAME="claude"
+if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+    exec tmux attach-session -t "$SESSION_NAME"
+fi
+exec tmux new-session -s "$SESSION_NAME" -c /workspace bash -c '
+    while true; do
+        claude --continue --dangerously-skip-permissions 2>/dev/null || \
+        claude --dangerously-skip-permissions
+        echo ""; echo "Claude exited. Press Enter to restart or Ctrl+C to exit..."; read -t 5 || true
+    done'
+WRAPPER
+chmod +x /usr/local/bin/claude-session
+
+# /workspace -> the persisted workspace dir under the data mount (the same host
+# dir the vscode sidecar mounts). Seed the template scaffold (CLAUDE.md, ...).
+mkdir -p "$MC_DATA_DIR/workspace"
+ln -sfn "$MC_DATA_DIR/workspace" /workspace
+chown "$USER_ID:$GROUP_ID" "$MC_DATA_DIR/workspace"
+if [ -d /magic-closet/workspace/template ]; then
+  cp -rn /magic-closet/workspace/template/. /workspace/ 2>/dev/null || true
+  chown -R "$USER_ID:$GROUP_ID" "$MC_DATA_DIR/workspace" 2>/dev/null || true
+fi
+
+# Shared node toolchain (nvm) under the persisted data dir, shared with vscode.
+ln -sfn "$MC_DATA_DIR/toolchain" /opt/toolchain
+mkdir -p "$MC_DATA_DIR/toolchain"; chown -R "$USER_ID:$GROUP_ID" "$MC_DATA_DIR/toolchain"
+gosu "$USER_NAME" env NVM_DIR=/opt/toolchain/nvm HOME="$HOME_DIR" bash /magic-closet/workspace/setup-node.sh || true
+( until [ -f /workspace/dashboard/.nvmrc ]; do sleep 3; done
+  gosu "$USER_NAME" env NVM_DIR=/opt/toolchain/nvm HOME="$HOME_DIR" bash /magic-closet/workspace/setup-node.sh || true ) &
+
+# Expose .env params + generated secrets to interactive shells (claude/git/gh/mc)
+# via a login profile — the same effect the old workspace container got from its
+# compose env_file. Point `mc` at the local api.
+python3 - "$SECRETS_FILE" > /etc/profile.d/mc-env.sh <<'PY'
+import shlex, re, sys
+def load(p):
+    d = {}
+    try:
+        for ln in open(p):
+            s = ln.strip()
+            if not s or s.startswith('#') or '=' not in s:
+                continue
+            k, v = s.split('=', 1)
+            d[k.strip()] = re.sub(r'\s+#.*$', '', v).strip()
+    except FileNotFoundError:
+        pass
+    return d
+env = {}
+env.update(load('/magic-closet/.env'))
+env.update(load(sys.argv[1]))
+env['MC_API_URL'] = 'http://localhost:%s' % (env.get('API_PORT') or '8300')
+for k, v in env.items():
+    print('export %s=%s' % (k, shlex.quote(v)))
+PY
+chmod 0644 /etc/profile.d/mc-env.sh
+
+# Optional per-workspace init hook
+if [ -f /workspace/init.sh ]; then
+  chmod +x /workspace/init.sh
+  gosu "$USER_NAME" bash -c '/workspace/init.sh > /workspace/.init.log 2>&1' &
+fi
+
+# ---------------------------------------------------------------------------
+# 4. Bring up the nested SIDECARS (workspace + api are no longer nested)
+# ---------------------------------------------------------------------------
+echo "[mc] bringing up sidecars (first run builds images)..."
 docker compose -f compose.stack.yml up -d --build \
-  || echo "[dind] 'compose up' returned non-zero — check 'docker compose logs' inside the container"
+  || echo "[mc] 'compose up' returned non-zero — check 'docker compose logs'"
 
-echo "[dind] stack is up. Nested containers:"
+# ---------------------------------------------------------------------------
+# 5. Control-plane api (runs in THIS container now; supervised — restart on exit)
+# ---------------------------------------------------------------------------
+export MC_ROOT=/magic-closet
+export MC_PROJECT="${MC_PROJECT:-magic-closet}"
+export MC_ENV_FILE="${MC_ENV_FILE:-.env}"
+export MC_COMPOSE_FILE="${MC_COMPOSE_FILE:-compose.stack.yml}"
+export MC_API_PORT="$API_PORT"
+export MC_API_HTTPS_PORT="${API_HTTPS_PORT:-$((API_PORT + 1))}"
+( while true; do
+    echo "[mc] starting api (http :$MC_API_PORT / https :$MC_API_HTTPS_PORT)"
+    node /magic-closet/workspace/api/src/server.js
+    echo "[mc] api exited ($?); restarting in 2s"
+    sleep 2
+  done ) >>/var/log/mc-api.log 2>&1 &
+
+echo "[mc] up. Nested sidecars:"
 docker ps --format '  {{.Names}}\t{{.Status}}' 2>/dev/null || true
-echo "[dind] tailing inner dockerd (container stays up; 'docker compose down' on the host stops it)"
+echo "[mc] holding on inner dockerd (container stays up; 'docker compose down' on the host stops it)"
 
-# Keep PID 1 alive by following dockerd.
-wait
+# Container lifetime = inner dockerd lifetime.
+wait "$DOCKERD_PID"

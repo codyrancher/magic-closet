@@ -15,12 +15,15 @@ jobs:
     strategy:
       matrix:
         include:
+          # The root image: dind host + workspace toolchain + api (the compose
+          # deployment builds this locally, but build it here to catch breakage).
+          - name: root
+            context: .
+            dockerfile: Dockerfile
+          # The api image is still used by the k8s/helm path (its own pod).
           - name: api
             context: .
             dockerfile: workspace/api/Dockerfile
-          - name: workspace
-            context: workspace
-            dockerfile: workspace/Dockerfile
           - name: vscode
             context: workspace/sidecars/dev/vscode
             dockerfile: workspace/sidecars/dev/vscode/Dockerfile

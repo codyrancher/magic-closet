@@ -100,24 +100,19 @@ describe('sidecar lifecycle', () => {
 });
 
 describe('exec — POST /exec', () => {
-  it('409 when the workspace container is not running', async () => {
-    h.setRunning();
-    assert.equal((await h.api('POST', '/exec', { command: 'echo hi' })).status, 409);
-  });
-  it('runs a command in the workspace container', async () => {
-    h.setRunning('workspace');
+  // The workspace is the root container now, so /exec runs locally (gosu),
+  // no docker exec and no "is the container running?" gate.
+  it('runs a command locally as the node user', async () => {
     const r = await h.api('POST', '/exec', { command: 'echo hi' });
     assert.equal(r.status, 200);
     assert.equal(r.json.exitCode, 0);
-    assert.match(r.json.stdout, /mock-exec: echo hi/);
+    assert.match(r.json.stdout, /hi/);
   });
   it('/project/exec is an alias', async () => {
-    h.setRunning('workspace');
-    assert.equal((await h.api('POST', '/project/exec', { command: 'ls' })).status, 200);
+    assert.equal((await h.api('POST', '/project/exec', { command: 'echo hi' })).status, 200);
   });
   it('400 without a command', async () => {
     assert.equal((await h.api('POST', '/exec', {})).status, 400);
-    h.setRunning();
   });
 });
 
@@ -135,33 +130,6 @@ describe('param options — GET /sidecars/<name>/params/<id>/options', () => {
   });
   it('unknown param → 404', async () => {
     assert.equal((await h.api('GET', '/sidecars/rancher/params/ghost/options')).status, 404);
-  });
-});
-
-describe('closets controller', () => {
-  it('lists the local closet', async () => {
-    const r = await h.api('GET', '/closets');
-    assert.equal(r.status, 200);
-    assert.ok(JSON.stringify(r.json).includes('magic-closet'));
-  });
-  it('create writes an env file with derived ports + secrets, and provisions', async () => {
-    h.clearDockerLog();
-    const r = await h.api('POST', '/closets', { name: 'testclo' });
-    assert.equal(r.status, 202);
-    assert.ok(h.exists('.state/closets/testclo.env'));
-    const env = h.readFile('.state/closets/testclo.env');
-    assert.match(env, /^MC_PROJECT=mc-testclo$/m);
-    assert.match(env, /^API_PORT=8500$/m);
-    assert.match(env, /^VSCODE_PORT=8510$/m);
-    assert.match(env, /^RANCHER_BOOTSTRAP_PASSWORD=.+/m);
-  });
-  it('rejects an invalid name → 400', async () => {
-    assert.equal((await h.api('POST', '/closets', { name: 'Bad Name' })).status, 400);
-  });
-  it('delete accepts (202) and removes the env file', async () => {
-    const r = await h.api('DELETE', '/closets/testclo');
-    assert.equal(r.status, 202); // provisioning/teardown is async
-    assert.ok(await h.waitFor(() => !h.exists('.state/closets/testclo.env')), 'env file not removed');
   });
 });
 

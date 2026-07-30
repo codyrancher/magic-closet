@@ -32,6 +32,11 @@ const mockSrc = fs.readFileSync(path.join(here, 'mock', 'docker'), 'utf-8')
 fs.writeFileSync(path.join(mockBin, 'docker'), mockSrc);
 fs.chmodSync(path.join(mockBin, 'docker'), 0o755);
 
+// gosu shim: POST /exec runs workspace commands as `gosu uid:gid <cmd>`; strip
+// the uid:gid and run the command as the current user.
+fs.writeFileSync(path.join(mockBin, 'gosu'), '#!/bin/sh\nshift\nexec "$@"\n');
+fs.chmodSync(path.join(mockBin, 'gosu'), 0o755);
+
 // ---- env the server reads ----
 process.env.MC_ROOT = root;
 process.env.MC_PROJECT = 'magic-closet';

@@ -1,46 +1,42 @@
 name: magic-closet
 
-# The whole magic-closet stack runs INSIDE this single privileged
-# docker-in-docker container instead of creating a pile of containers on the
-# host. The host sees one container ("magic-closet"); everything else (project,
-# api, vscode, rancher, keycloak, ...) is a NESTED container managed by the api.
-# The actual stack is defined in compose.stack.yml and brought up by
+# ONE privileged container is the whole thing: it's the docker-in-docker host,
+# the workspace dev environment (your code, node, claude, the `mc` CLI), AND the
+# control-plane api. Only the optional SIDECARS (vscode, rancher, keycloak, ...)
+# are nested containers, defined in compose.stack.yml and brought up by
 # dind-entrypoint.sh once the inner dockerd is ready.
 #
-#   docker compose up -d                    # start the DinD (first run builds the stack inside)
+#   docker compose up -d                    # start it (first run builds the image + inner stack)
 #   docker compose logs -f                  # dockerd + inner "compose up" progress
-#   docker exec -it magic-closet sh         # shell into the DinD; `docker ps` shows the nested stack
-#   docker compose down                     # stop everything (nested data kept in the mc-docker volume)
+#   docker exec -it magic-closet bash       # shell in (as root); `su - node` for the dev user
+#   docker compose down                     # stop (nested data kept in the mc-docker volume)
 #   docker compose down -v                  # also wipe the nested docker data
+#
+# VS Code: Dev Containers -> Attach to Running Container -> magic-closet (lands
+# you in as `node`, where /workspace + claude + mc live). No extra setup.
 services:
   magic-closet:
-    image: docker:27-dind
+    build: .                                # the root image (Dockerfile): dind + toolchain + api
+    image: magic-closet
     container_name: magic-closet
     privileged: true                        # required to run an inner dockerd
     environment:
-      - DOCKER_TLS_CERTDIR=                  # inner dockerd on the unix socket, no TLS
-      # Runtime/instance state (.state, custom-sidecars, workspaces) lives in a
-      # sibling dir, not the source tree — mounted below and used by the api.
+      # Runtime/instance state (.state, workspace, toolchain, claude-data) lives
+      # in a sibling dir, not the source tree — mounted below.
       - MC_DATA_DIR=/magic-closet-data
-      # Opt-in: also expose the INNER docker daemon on a host-visible socket
-      # (in the mounted data dir) so a local VS Code / Dev Containers can see and
-      # attach the nested workspace container. Off unless you ask for it:
-      #   MC_EXTERNAL_VSCODE=1 docker compose up -d    (or set it in .env)
-      - MC_EXTERNAL_VSCODE=${MC_EXTERNAL_VSCODE:-}
     working_dir: /magic-closet
-    entrypoint: ["/bin/sh", "/magic-closet/dind-entrypoint.sh"]
+    entrypoint: ["/bin/bash", "/magic-closet/dind-entrypoint.sh"]
     volumes:
-      - .:/magic-closet                     # the repo — live edits to closet/, sidecars/, workspace/, .env keep working
-      - ../instance/magic-closet:/magic-closet-data  # runtime/instance state (kept out of the source tree)
+      - .:/magic-closet                     # the repo — live edits to api/, sidecars/, workspace/, .env keep working
+      - ../instance/magic-closet:/magic-closet-data  # runtime/instance state (workspace, toolchain, claude-data, .state)
       - mc-docker:/var/lib/docker           # nested docker images/volumes survive restarts
     ports:
-      # The base closet's ports all derive from API_PORT (default 8300) — publish
-      # the whole 8300-8399 block so any derived (or overridden) port is reachable
-      # without the wrapper needing the exact values. Keep API_PORT within
-      # ~8300-8339 so its derived ports stay in this range (else widen it here).
+      # Every port derives from API_PORT (default 8300) — publish the whole
+      # 8300-8399 block so any derived (or overridden) port is reachable without
+      # the wrapper needing the exact values. The api itself listens on API_PORT
+      # (8300); sidecars publish their derived ports into this range. Keep
+      # API_PORT within ~8300-8339 so the derived ports stay in range.
       - "8300-8399:8300-8399"
-      # Provisioned closets grab ports from 8500 up — 20 exposed for host access
-      - "8500-8519:8500-8519"
     restart: unless-stopped
 
 volumes:

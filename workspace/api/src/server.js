@@ -43,7 +43,11 @@ const ENV_FILE = path.isAbsolute(MC_ENV_FILE) ? MC_ENV_FILE : path.join(MC_ROOT,
 // their own .state env file (SECRETS_FILE null → same-file behaviour).
 const IS_DEFAULT_ENV = ENV_FILE === path.join(MC_ROOT, '.env');
 const SECRETS_FILE = IS_DEFAULT_ENV ? path.join(DATA_DIR, '.state', 'secrets.env') : null;
-const PORT = 8080;
+// Listen ports are overridable so the api can bind the host-published port
+// directly when it runs in the root container (MC_API_PORT=8300); default 8080
+// keeps the k8s/in-container-service path unchanged.
+const PORT = Number(process.env.MC_API_PORT) || 8080;
+const HTTPS_PORT = Number(process.env.MC_API_HTTPS_PORT) || 8443;
 
 // ---------- kubernetes mode ----------
 //
@@ -495,7 +499,7 @@ function readEnvValues() {
   // process (they're not written to .env), so without this the api wouldn't
   // know a sidecar's host port and would drop its "Launch" link.
   const base = parseInt(values.API_PORT, 10) || 8300;
-  for (const [k, off] of Object.entries(CLOSET_PORTS)) {
+  for (const [k, off] of Object.entries(PORT_OFFSETS)) {
     if (values[k] == null || values[k] === '') values[k] = String(base + off);
   }
   return values;
@@ -1226,17 +1230,14 @@ let cloneRunning = false;
 
 function ensureWorkspaceClone() {
   if (K8S) return;
+  if (!fs.existsSync('/workspace')) return; // not running in the workspace/root container
   const env = readEnvValues();
   // Default to rancher/dashboard master; set GITHUB_URL in .env to override
   // (a repo, PR, or issue URL).
   const url = env.GITHUB_URL || 'https://github.com/rancher/dashboard';
   if (cloneRunning) return;
-  if (containerStatus('workspace').status !== 'running') return;
-  try {
-    execFileSync('docker', ['exec', containerIdOf('workspace'), 'test', '-d', '/workspace/dashboard'],
-      { stdio: 'ignore' });
-    return; // already cloned
-  } catch { /* not cloned yet */ }
+  // The workspace is THIS (root) container now — /workspace is local.
+  if (fs.existsSync('/workspace/dashboard')) return; // already cloned
 
   const m = url.match(/github\.com\/([^/\s]+)\/([^/\s]+?)(?:\.git)?(?:\/(pull|issues)\/(\d+))?(?:[/?#]|$)/);
   if (!m) return console.log(`workspace: unrecognized GITHUB_URL: ${url}`);
@@ -1255,7 +1256,7 @@ function ensureWorkspaceClone() {
   cloneRunning = true;
   const what = kind ? `${kind === 'pull' ? 'PR' : 'issue'} #${num}` : 'default branch';
   console.log(`workspace: cloning ${owner}/${repo} (${what}) into /workspace/dashboard...`);
-  execFile('docker', ['exec', '-u', '1000:1000', containerIdOf('workspace'), 'bash', '-c',
+  execFile('gosu', ['1000:1000', 'bash', '-c',
     `set -e; { ${script}; } > /workspace/.clone.log 2>&1`],
     { maxBuffer: 1024 * 1024 }, (err) => {
       cloneRunning = false;
@@ -1426,18 +1427,9 @@ const AUTH_CONNECTORS = {
   'openldap': () => connectRancherToOpenLdap(),
 };
 
-// ---------- closets (multi-instance provisioning) ----------
-//
-// A closet = a full magic-closet compose project on this host. The default
-// deployment is the "magic-closet" closet; POST /closets provisions another
-// one: its own compose project (mc-<name>), env file with an allocated port
-// block (base 8500 + n*100) and generated secrets, and its own workspace.
-// Each closet runs its own api container, which manages its sidecars — this
-// controller only creates, lists and destroys closets.
-
-const CLOSETS_DIR = path.join(DATA_DIR, '.state', 'closets');
-// Port offsets within a closet's 100-port block
-const CLOSET_PORTS = {
+// Host-port offset table: every host port derives from API_PORT by these
+// offsets (see readEnvValues). API_PORT itself is the api/dashboard port.
+const PORT_OFFSETS = {
   API_PORT:             0,
   API_HTTPS_PORT:       1,
   DEV_PORT:             5,
@@ -1448,138 +1440,6 @@ const CLOSET_PORTS = {
   RANCHER_PORT:         44,
   FIGMA_PORT:           60,
 };
-const CLOSET_BASE_START = 8500;
-// name -> 'provisioning' | 'deleting' (in-memory; compose runs async)
-const closetOps = new Map();
-
-function readEnvFile(file) {
-  const values = {};
-  try {
-    for (const line of fs.readFileSync(file, 'utf-8').split('\n')) {
-      const m = line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
-      if (m) values[m[1]] = m[2].trim().replace(/\s+#.*$/, '').trim();
-    }
-  } catch { /* missing */ }
-  return values;
-}
-
-function listProvisionedClosets() {
-  if (K8S || !fs.existsSync(CLOSETS_DIR)) return [];
-  return fs.readdirSync(CLOSETS_DIR).filter(f => f.endsWith('.env')).map(f => {
-    const name = f.slice(0, -4);
-    const env = readEnvFile(path.join(CLOSETS_DIR, f));
-    return {
-      name,
-      project: env.MC_PROJECT || `mc-${name}`,
-      apiPort: Number(env.API_PORT) || null,
-      apiHttpsPort: Number(env.API_HTTPS_PORT) || null,
-      portBase: Number(env.MC_PORT_BASE) || null,
-    };
-  });
-}
-
-function handleClosetsList(res) {
-  const defs = listSidecarDefs();
-  const running = defs.filter(d => containerStatus(d.name).status === 'running').length;
-  const env = readEnvValues();
-  const local = {
-    name: MC_PROJECT,
-    local: true,
-    apiPort: Number(env.API_PORT) || 8300,
-    apiHttpsPort: Number(env.API_HTTPS_PORT) || 8301,
-    sidecars: { running, total: defs.length },
-    authProvider: selectedAuthProvider(),
-  };
-  const provisioned = listProvisionedClosets().map((c) => ({
-    ...c,
-    local: false,
-    op: closetOps.get(c.name) || null,
-    running: !!containerIdOf('api', c.project),
-  }));
-  sendJson(res, 200, { closets: [local, ...provisioned], hostGateway: hostGatewayIp() });
-}
-
-// Host ports are reachable from inside compose networks via the bridge
-// gateway — viewers inside the rancher-browser need this to reach other
-// closets' ports
-let cachedGateway;
-function hostGatewayIp() {
-  if (cachedGateway !== undefined) return cachedGateway;
-  try {
-    cachedGateway = execFileSync('sh', ['-c', "ip route show default | awk '{print $3; exit}'"],
-      { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() || null;
-  } catch { cachedGateway = null; }
-  return cachedGateway;
-}
-
-function handleClosetCreate(body, res) {
-  if (K8S) return sendJson(res, 501, { error: 'in-cluster closets are created via the Rancher extension (helm chart install)' });
-  const name = (body.name || '').trim();
-  if (!/^[a-z][a-z0-9-]{0,20}$/.test(name)) {
-    return sendJson(res, 400, { error: 'name must be lowercase alphanumeric/dashes, starting with a letter' });
-  }
-  if (name === 'magic-closet' || listProvisionedClosets().some(c => c.name === name)) {
-    return sendJson(res, 409, { error: `closet "${name}" already exists` });
-  }
-
-  const usedBases = new Set(listProvisionedClosets().map(c => c.portBase));
-  let base = CLOSET_BASE_START;
-  while (usedBases.has(base)) base += 100;
-
-  const envFile = path.join(CLOSETS_DIR, `${name}.env`);
-  const lines = [
-    `MC_PROJECT=mc-${name}`,
-    `MC_ENV_FILE=${path.join(DATA_DIR, '.state', 'closets', name + '.env')}`,
-    `MC_WORKSPACE=${path.join(DATA_DIR, 'workspaces', name)}`,
-    `MC_PORT_BASE=${base}`,
-    `COMPOSE_PROFILES=${(body.profiles || ['vscode', 'rancher-browser', 'rancher', 'keycloak']).join(',')}`,
-    'PUID=1000',
-    'PGID=1000',
-    ...Object.entries(CLOSET_PORTS).map(([k, off]) => `${k}=${base + off}`),
-    'RANCHER_TAG=head',
-    'RANCHER_AUTH_PROVIDER=keycloak',
-    'GH_TOKEN=',
-    'FIGMA_API_KEY=',
-    'APPCO_EMAIL=',
-    'APPCO_TOKEN=',
-    'AWS_ACCESS_KEY=',
-    'AWS_SECRET_KEY=',
-    'AWS_DEFAULT_REGION=us-west-2',
-    'RANCHER_PRIME=',
-    'GITHUB_URL=',
-  ];
-  // Generated secrets, so the very first `up` already has them
-  for (const def of listSidecarDefs()) {
-    for (const envVar of def.secrets) lines.push(`${envVar}=${generatePassword()}`);
-  }
-  fs.mkdirSync(CLOSETS_DIR, { recursive: true });
-  fs.mkdirSync(path.join(DATA_DIR, 'workspaces', name), { recursive: true });
-  fs.writeFileSync(envFile, lines.join('\n') + '\n');
-
-  closetOps.set(name, 'provisioning');
-  console.log(`closet ${name}: provisioning (project mc-${name}, ports ${base}-${base + 99})`);
-  composeFor(`mc-${name}`, envFile, ['up', '-d'], (err, stdout, stderr) => {
-    closetOps.delete(name);
-    console.log(`closet ${name}: ${err ? `provisioning FAILED: ${stderr.slice(-300)}` : 'provisioned'}`);
-  });
-  sendJson(res, 202, { status: 'provisioning', name, apiPort: base + CLOSET_PORTS.API_PORT });
-}
-
-function handleClosetDelete(name, res) {
-  if (K8S) return sendJson(res, 501, { error: 'in-cluster closets are deleted via the Rancher extension (helm uninstall)' });
-  const closet = listProvisionedClosets().find(c => c.name === name);
-  if (!closet) return sendJson(res, 404, { error: `unknown closet: ${name}` });
-  const envFile = path.join(CLOSETS_DIR, `${name}.env`);
-
-  closetOps.set(name, 'deleting');
-  console.log(`closet ${name}: deleting`);
-  composeFor(closet.project, envFile, ['down', '-v', '--remove-orphans'], (err) => {
-    closetOps.delete(name);
-    if (!err) fs.rmSync(envFile, { force: true });
-    console.log(`closet ${name}: ${err ? 'delete FAILED' : 'deleted (workspace kept in workspaces/)'}`);
-  });
-  sendJson(res, 202, { status: 'deleting', name });
-}
 
 async function handleAuthApply(body, res) {
   const provider = body.provider;
@@ -1828,10 +1688,9 @@ function handleSidecarDeleteDef(name, res) {
 function handleExec(body, res) {
   if (K8S) return sendJson(res, 501, { error: 'project exec is not supported in kubernetes mode yet' });
   if (!body.command) return sendJson(res, 400, { error: 'missing "command"' });
-  const projectId = containerIdOf('workspace');
-  if (!projectId) return sendJson(res, 409, { error: 'workspace container is not running' });
-  execFile('docker', ['exec', '-u', '1000:1000', projectId, 'bash', '-lc', body.command],
-    { encoding: 'utf-8', maxBuffer: 16 * 1024 * 1024, timeout: (body.timeoutSeconds || 300) * 1000 },
+  // The workspace is THIS (root) container now — run locally as the node user.
+  execFile('gosu', ['1000:1000', 'bash', '-lc', body.command],
+    { cwd: fs.existsSync('/workspace') ? '/workspace' : undefined, encoding: 'utf-8', maxBuffer: 16 * 1024 * 1024, timeout: (body.timeoutSeconds || 300) * 1000 },
     (err, stdout, stderr) => {
       sendJson(res, 200, { exitCode: err ? (err.code ?? 1) : 0, stdout, stderr });
     });
@@ -1914,11 +1773,6 @@ const handler = (async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/auth/apply') {
       return handleAuthApply(await readBody(req), res);
     }
-    if (url.pathname === '/closets' && req.method === 'GET') return handleClosetsList(res);
-    if (url.pathname === '/closets' && req.method === 'POST') return handleClosetCreate(await readBody(req), res);
-    if (parts[0] === 'closets' && parts[1] && req.method === 'DELETE') {
-      return handleClosetDelete(decodeURIComponent(parts[1]), res);
-    }
     // Built Rancher extension assets (for developer-load):
     // /extension/<pkg-version>/<file> -> rancher-extension/dist-pkg/...
     if (req.method === 'GET' && parts[0] === 'extension') {
@@ -1973,8 +1827,8 @@ function ensureApiTls() {
 }
 
 try {
-  https.createServer(ensureApiTls(), handler).listen(8443, () => {
-    console.log('magic-closet api also listening on :8443 (https, self-signed)');
+  https.createServer(ensureApiTls(), handler).listen(HTTPS_PORT, () => {
+    console.log(`magic-closet api also listening on :${HTTPS_PORT} (https, self-signed)`);
   });
 } catch (err) {
   console.error(`https listener failed: ${err.message}`);

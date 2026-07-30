@@ -13,8 +13,12 @@ services:
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
-      - MC_API_URL=http://api:8080
+      # The api runs in the root container now — reach it via the DinD bridge
+      # gateway (host-gateway extra_host below), not the old `api` service DNS.
+      - MC_API_URL=http://host.docker.internal:${API_PORT:-8300}
       - GH_TOKEN=${GH_TOKEN:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       # Host port is HTTPS (the TLS proxy on 9443) — a secure context so VS Code
       # web webviews work. 9000 stays http for in-network use + the healthcheck.
@@ -22,12 +26,11 @@ services:
     volumes:
       - ${MC_WORKSPACE:-/magic-closet-data/workspace}:/workspace
       - ./workspace/shared:/shared:ro
-      # Node + nvm, populated by the closet container (shared toolchain)
-      - toolchain:/opt/toolchain
+      # Node + nvm + Claude creds: the root container populates these under the
+      # data dir; bind the same host dirs so the editor shares node + login.
+      - ${MC_DATA_DIR:-/magic-closet-data}/toolchain:/opt/toolchain
       - vscode-data:/data
-      # Shared Claude credentials — same volume as the closet container, so
-      # the Claude extension is logged in with the same session
-      - claude-data:/claude-data
+      - ${MC_DATA_DIR:-/magic-closet-data}/claude-data:/claude-data
       # Rancher UI extension source
       - ./rancher-extension:/rancher-extension
     healthcheck:
@@ -39,4 +42,3 @@ services:
 
 volumes:
   vscode-data:
-  toolchain:

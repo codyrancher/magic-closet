@@ -13,7 +13,7 @@
 #   mc edit-sidecar <name>   [k=v ...] | --file <spec.json>   edit a sidecar (built-ins too)
 #   mc rm-sidecar <name>             remove a custom sidecar definition
 
-API="${MC_API_URL:-http://api:8080}"
+API="${MC_API_URL:-http://localhost:8300}"
 
 usage() {
   sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'

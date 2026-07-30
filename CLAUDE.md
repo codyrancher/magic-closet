@@ -1,9 +1,11 @@
 # magic closet
 
-A project development environment built from small, optional pieces. One main
-container holds the source code and node; everything else (VS Code, a browser,
-Rancher, MCP servers, ...) is a **sidecar** — an independent, optional
-container with its own directory under `sidecars/`.
+A project development environment built from small, optional pieces. **One**
+privileged container is the whole base: the docker-in-docker host, the workspace
+dev environment (your code + node + claude + the `mc` CLI), and the control API.
+Everything else (VS Code, a browser, Rancher, MCP servers, ...) is a **sidecar**
+— an independent, optional container nested inside it, with its own directory
+under `sidecars/`.
 
 Start everything with a single command from this directory:
 
@@ -17,36 +19,42 @@ fills in generated secrets).
 
 ## Single-container (DinD) model
 
-`docker compose up -d` starts **one** privileged container, `magic-closet`,
-that runs its own inner dockerd. The whole stack (workspace, api, and every
-sidecar) runs as *nested* containers inside it — nothing else lands on the host
-docker. The host publishes only the fixed sidecar ports plus `8500-8519` for
-provisioned closets.
+`docker compose up -d` builds and starts **one** privileged container,
+`magic-closet` (see `Dockerfile`), that runs its own inner dockerd. That
+container **is** the workspace dev environment and the control api; only the
+**sidecars** run as *nested* containers inside it — nothing else lands on the
+host docker. The host publishes the `8300-8399` block (the api on 8300 + each
+sidecar's derived port).
 
-- `docker-compose.yml` — the **DinD wrapper**: the single `magic-closet`
-  service (`docker:27-dind`), the repo bind-mounted at `/magic-closet`, the
-  `mc-docker` volume for nested docker data, and the host port mappings. It
-  also mounts a sibling **`../instance/magic-closet`** at `/magic-closet-data`
-  (env `MC_DATA_DIR`) — the runtime/instance state (`.state`, `custom-sidecars`,
-  `workspaces`) lives there, out of the source tree. `MC_DATA_DIR` defaults to
-  the repo when unset, so the code still works in-tree.
-- `dind-entrypoint.sh` — PID 1 of that container: boots the inner dockerd, then
-  runs `docker compose -f compose.stack.yml up -d --build` inside it.
-- `compose.stack.yml` — the **actual stack** (formerly `docker-compose.yml`):
-  core `workspace` + `api` and the `include:` of each sidecar. The api drives
-  nested compose with this file (via `MC_COMPOSE_FILE`), talking to the inner
-  socket with `MC_ROOT=/magic-closet`.
+- `Dockerfile` — the **root image**: a glibc base with the Docker engine, the
+  workspace toolchain (node/nvm, claude, gh, `mc`, build tools), and the api's
+  runtime baked in. dockerd runs as root; you work/attach as the `node` user.
+- `docker-compose.yml` — the wrapper that runs it: `build: .`, the repo
+  bind-mounted at `/magic-closet`, the `mc-docker` volume for nested docker
+  data, and the `8300-8399` port mapping. It also mounts a sibling
+  **`../instance/magic-closet`** at `/magic-closet-data` (env `MC_DATA_DIR`) —
+  the runtime/instance state (`.state`, `workspace`, `toolchain`, `claude-data`)
+  lives there, out of the source tree.
+- `dind-entrypoint.sh` — PID 1 of that container: boots the inner dockerd, sets
+  up the workspace (node user, `/workspace`, shared toolchain, claude), brings
+  up the sidecars (`docker compose -f compose.stack.yml up -d --build`), and
+  runs the api.
+- `compose.stack.yml` — just the **sidecars** (the `include:` of each). The api
+  drives nested compose with this file (via `MC_COMPOSE_FILE`), talking to the
+  inner socket with `MC_ROOT=/magic-closet`.
 
 Everyday commands:
 ```bash
-docker compose up -d                 # start the DinD (first run builds the stack inside)
+docker compose up -d                 # build + start (first run builds the image + inner stack)
 docker compose logs -f               # inner dockerd + "compose up" progress
-docker exec -it magic-closet sh      # shell in; `docker ps` shows the nested stack
+docker exec -it magic-closet bash    # shell in as root; `su - node` for the dev user
 docker compose down                  # stop all (nested data kept in mc-docker)
 docker compose down -v               # also wipe nested docker data
 ```
-Provisioned closets are reachable from the host only within `8500-8519`; they
-still talk to each other over the inner docker network regardless.
+
+VS Code: Dev Containers → **Attach to Running Container → `magic-closet`** — it
+connects as `node` (the image's `remoteUser` label), where `/workspace`, claude,
+and `mc` all live. No extra setup.
 
 ## Layout
 
@@ -56,22 +64,23 @@ plus the orchestration files:
 
 ```
 magic-closet/
-├── docker-compose.yml   # DinD wrapper: one privileged docker:dind container
-├── compose.stack.yml    # the actual stack (workspace, api) + include: of each sidecar
-├── dind-entrypoint.sh   # inner dockerd + `compose up` of the stack
+├── Dockerfile           # the root image: dind + workspace toolchain + api
+├── docker-compose.yml   # wrapper that runs the root container
+├── compose.stack.yml    # the nested sidecars (include: of each)
+├── dind-entrypoint.sh   # dockerd + workspace setup + sidecars up + api
 ├── .env                 # profiles, host ports, sidecar parameters
-├── workspace/           # the workspace: its container image + everything it & the sidecars use
-│   ├── api/             # sidecar control API (port ${API_PORT}, default 8300) + its tests/
-│   ├── template/        # scaffold seeded into the workspace root (/workspace) at start
+├── workspace/           # everything the root container & the sidecars use
+│   ├── api/             # control API src (runs in the root container) + its tests/
+│   ├── template/        # scaffold seeded into /workspace at start
 │   ├── sidecars/        # one dir per sidecar (compose.yml + sidecar.json [+ Dockerfile])
 │   └── shared/          # artifacts shared into every container at /shared (tools/bin/mc, ...)
 └── rancher-extension/   # Rancher UI extension (Vue plugin) + charts/ (Helm chart)
 ```
 
-Runtime/instance state — the cloned `/workspace` (the workspace container clones
-rancher/dashboard into `/workspace/dashboard`), `.state`, `custom-sidecars`,
-`workspaces` — lives in the sibling `../instance/magic-closet` (see the DinD
-wrapper note above), not in the source tree.
+Runtime/instance state — the cloned `/workspace` (the root container clones
+rancher/dashboard into `/workspace/dashboard`), the shared `toolchain` and
+`claude-data`, and `.state` — lives in the sibling `../instance/magic-closet`
+(see the model note above), not in the source tree.
 
 ## Editing the configuration
 
@@ -207,8 +216,8 @@ Delete its directory and its `include:` entry, and drop its profile from
 
 ## The control API
 
-`api/` runs alongside the workspace container (it is core, not a sidecar) and
-drives `docker compose` through the host docker socket.
+The api runs in the root container (it is core, not a sidecar) and drives
+`docker compose` through the inner docker socket.
 
 ```
 GET    /                        dashboard: sidecar cards with status, params, start/stop/delete
@@ -216,7 +225,7 @@ GET    /sidecars                list sidecars: status, health, host port, params
 POST   /sidecars/<name>/start   body: { "params": {"tag": "v2.11-head"}, "wait": true }
 POST   /sidecars/<name>/stop    stop the container (kept for fast restart)
 DELETE /sidecars/<name>         stop + remove the container (named volumes kept)
-POST   /exec            { "command": "yarn build" } → runs in the workspace container
+POST   /exec            { "command": "yarn build" } → runs in /workspace (as node)
 POST   /browser/open            { "url": "https://rancher" } → open a tab in the rancher-browser
                                 sidecar; 202 + queued if the browser isn't ready, and the
                                 queue is flushed (FIFO) once it comes up
@@ -235,45 +244,45 @@ GET    /browser/queue           tabs still waiting for the browser
   their next `docker compose up -d`.
 - `"wait": true` blocks until the container is healthy (uses the compose
   healthcheck if the sidecar defines one).
-- From the host: `http://localhost:${API_PORT}` (default 8300) or
-  `https://localhost:${API_HTTPS_PORT}` (default 8301, self-signed — for
-  https dashboards that would otherwise hit mixed-content blocking; every
-  provisioned closet gets its own https port at base+1). From any container:
-  `http://api:8080` / `https://api:8443`.
+- The api runs in the root container and listens on `${API_PORT}` (8300, http)
+  and `${API_HTTPS_PORT}` (8301, self-signed https — for https dashboards that
+  would otherwise hit mixed-content blocking). From the host:
+  `http://localhost:8300`. From a **sidecar**: `http://host.docker.internal:8300`
+  (sidecars that call the api add `extra_hosts: ["host.docker.internal:host-gateway"]`).
 
 ### The `mc` CLI
 `shared/` is mounted into every container at `/shared` (and `/shared/tools/bin`
 is on PATH in the images we build), so all sidecars share the same CLI tools —
-including `claude` and `gh`, which the workspace container copies into
+including `claude` and `gh`, which the root container copies into
 `/shared/tools/bin` at startup. `shared/` is the place for any artifact meant to
-be reachable from the closet and the sidecars.
+be reachable from the root container and the sidecars.
 
 ```bash
 mc list                          # sidecars + status
 mc start rancher tag=v2.11-head --wait
 mc stop rancher-browser
 mc rm figma
-mc run "yarn install"            # executes inside the workspace container
+mc run "yarn install"            # executes in /workspace (as the node user)
 mc open https://rancher          # open a browser tab (queued until the browser is up)
 ```
 
 On the host, prefix with `MC_API_URL=http://localhost:8300`.
 
-## Core services (not sidecars)
+## The root container (workspace + api)
 
-- **workspace** — holds `/workspace` (bind of `./workspace`), node 22, git, gh,
-  claude. Long-running; get a shell with
-  `docker exec -it -u 1000 magic-closet-workspace bash`, or `claude-session`
-  inside it for a persistent tmux Claude session. Dev servers should listen on
-  `0.0.0.0:8005` (forwarded as `${DEV_PORT}`). If `workspace/init.sh` exists
-  it runs (backgrounded, log: `workspace/.init.log`) on container start.
-- **api** — the control API above.
+The `magic-closet` container holds `/workspace` (node 22, git, gh, claude), runs
+the control API, and hosts the nested sidecars. Get a shell with
+`docker exec -it magic-closet bash` (root), then `su - node` for the dev user —
+or `claude-session` for a persistent tmux Claude session. Dev servers should
+listen on `0.0.0.0:${DEV_PORT}` (8305) — host ports map 1:1. If
+`workspace/init.sh` exists it runs (backgrounded, log: `workspace/.init.log`) at
+startup.
 
 ## Workspace code (GITHUB_URL)
 
 The vscode sidecar's `githubUrl` param points at a GitHub PR, issue, or repo;
-the api clones it into `/workspace/dashboard` (blob-less partial clone) via
-the workspace container:
+the api clones it into `/workspace/dashboard` (blob-less partial clone), locally
+as the node user:
 
 - `.../pull/123` — PR head checked out on branch `pr-123`
 - `.../issues/456` — default branch on a new branch `issue-456`
@@ -355,33 +364,19 @@ browser sidecar; credentials are NOT baked into the files — `ext-init`
 into `/opt/autofill-ext` before chromium starts. After editing extension
 files, recreate the rancher-browser sidecar to pick them up.
 
-## Multiple closets
+## Sidecar containers
 
-A **closet** is a full magic-closet deployment. The default one is compose
-project `magic-closet` with `./.env`; the api doubles as a **controller**
-that can provision more:
+No fixed `container_name`s anywhere — the api finds containers via compose
+labels (`com.docker.compose.service=<name>`). Sidecars that build an image carry
+explicit tags (`magic-closet-vscode`).
 
-- `POST /closets {"name": "pr-123", "profiles": [...]}` — creates compose
-  project `mc-pr-123` with its own env file
-  (`.state/closets/pr-123.env`: allocated 100-port block from 8500 up,
-  generated secrets, own workspace in `workspaces/<name>/`) and runs
-  `docker compose -p mc-<name> --env-file ... up -d`. Each closet runs its
-  own api (at `<base>+0`) managing its own sidecars.
-- `GET /closets` — the local closet + all provisioned ones (+ `hostGateway`,
-  the docker bridge IP viewers inside containers use to reach other closets'
-  host ports).
-- `DELETE /closets/<name>` — `compose down -v` + removes the env file
-  (workspace kept).
-
-No fixed `container_name`s anywhere (they would collide across closets) —
-the api finds containers via compose labels. Images for built services carry
-explicit tags (`magic-closet-api` etc.) so all closets share one build.
-
-**Gotcha**: recreating a rancher container gives it a new network IP, but its
-embedded k3s pinned the old one in `rancher-data` — rancher then crash-loops
-with "failed to find interface with specified node ip". Fix: remove that
-closet's `rancher-data` volume and start rancher again; the bootstraps
-re-provision users/auth automatically.
+**Rancher's node IP is pinned.** Rancher's embedded k3s/etcd pins its peer url to
+the container's ip; if that ip changed on a restart (e.g. the root container
+being recreated) the apiserver would crash-loop. So rancher holds a **static ip**
+(`172.28.0.10`, hostname `rancher`) on a fixed inner subnet — see the `networks:`
+block in `compose.stack.yml` and the pin in `workspace/sidecars/dev/rancher/compose.yml`.
+If rancher ever does get wedged, remove its `rancher-data` volume and restart it;
+the bootstraps re-provision users/auth automatically.
 
 ## Rancher UI extension (rancher-extension/)
 
@@ -398,10 +393,9 @@ closet's dashboard in an iframe.
   `/extension/magic-closet-<version>/magic-closet-<version>.umd.min.js`.
 - Load into the rancher sidecar: Extensions → ⋮ → Developer Load (enable
   "Extension developer features" in user preferences first), URL
-  `http://api:8080/extension/...` — that endpoint resolves from the
-  rancher-browser (which runs with `--allow-running-insecure-content` so the
-  https dashboard may load the http script/API). A host browser would need
-  `http://localhost:8300/extension/...` instead.
+  `http://host.docker.internal:8300/extension/...` (the api runs in the root
+  container; the rancher-browser reaches it via a host-gateway `extra_hosts`).
+  A host browser would use `http://localhost:8300/extension/...` instead.
 - The extension calls the controller cross-origin (CORS is open); the
   controller API URL is persisted per-browser and editable on the page.
 - **Using it from your own Rancher instance**: developer-load the
@@ -414,9 +408,10 @@ closet's dashboard in an iframe.
 
 ## Networking between containers
 
-All services share the compose network and reach each other by service name:
-`https://rancher`, `http://api:8080`. No shared network namespaces, no socat
-forwarders.
+Sidecars share the compose network and reach each other by service name:
+`https://rancher`. The **api** isn't on that network (it's the root container),
+so sidecars reach it at `http://host.docker.internal:8300` via a host-gateway
+`extra_hosts`. No shared network namespaces, no socat forwarders.
 
 Chromium CDP (browser automation) is the one special case: headful Chromium
 only binds 127.0.0.1, so the rancher-browser sidecar runs a tiny proxy
@@ -432,7 +427,9 @@ node -e '...connectOverCDP(...)...' "$(cdp-url)"
 
 - Run `docker compose` commands **from this directory** — the api service
   mounts the repo at `${PWD}` so compose paths resolve identically inside it.
-- After editing `closet/`, `api/`, or `sidecars/vscode/` (built images), run
-  `docker compose up -d --build`. Sidecars using stock images just need
-  `docker compose up -d`.
+- After editing the root `Dockerfile` (toolchain/api deps) rebuild the root
+  container: `docker compose up -d --build`. After editing the api source
+  (`workspace/api/`) just restart the api (it runs from the mounted repo). After
+  editing `workspace/sidecars/dev/vscode/` (built image) run
+  `docker compose up -d --build`; stock-image sidecars just need `up -d`.
 - `figma` needs `FIGMA_API_KEY` set in `.env` (or `mc start figma apiKey=...`).
