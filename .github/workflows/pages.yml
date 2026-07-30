@@ -65,7 +65,7 @@ jobs:
           elif [ -f rancher-extension/index.yaml ]; then
             cp rancher-extension/index.yaml site/index.yaml
           fi
-          cp closet/api/src/logo.svg site/logo.svg
+          cp workspace/api/src/logo.svg site/logo.svg
           touch site/.nojekyll
           {
             echo '<!doctype html><meta charset="utf-8"><title>magic-closet extension</title>'
