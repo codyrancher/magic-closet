@@ -22,11 +22,6 @@ services:
       # Runtime/instance state (.state, custom-sidecars, workspaces) lives in a
       # sibling dir, not the source tree — mounted below and used by the api.
       - MC_DATA_DIR=/magic-closet-data
-      # Interactive shells here auto-jump into the workspace container (where the
-      # code + `mc` live). ENV is POSIX sh's interactive-startup file, so this
-      # only affects `docker exec -it magic-closet sh`, never scripts/builds.
-      # See dind-shellrc.sh (MC_NO_JUMP=1 to stay on the DinD host).
-      - ENV=/magic-closet/dind-shellrc.sh
       # Opt-in: also expose the INNER docker daemon on a host-visible socket
       # (in the mounted data dir) so a local VS Code / Dev Containers can see and
       # attach the nested workspace container. Off unless you ask for it:
