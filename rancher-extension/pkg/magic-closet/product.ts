@@ -42,25 +42,31 @@ export function init($plugin: IPlugin, store: any) {
       return Promise.all(closets.map(async (c: any) => {
         let sidecars = null;
 
-        try {
-          const resp = await fetch(`${ closetApiBase(c.namespace) }/sidecars`);
-          const data = await resp.json();
-          const list = data.sidecars || [];
+        // Skip the api probe for a closet that's still being created \u2014 its
+        // service doesn't exist yet, and the row shows a "Creating" state.
+        if (c.state !== 'creating') {
+          try {
+            const resp = await fetch(`${ closetApiBase(c.namespace) }/sidecars`);
+            const data = await resp.json();
+            const list = data.sidecars || [];
 
-          sidecars = `${ list.filter((s: any) => s.status === 'running').length }/${ list.length } running`;
-        } catch { /* closet api not reachable (yet) */ }
+            sidecars = `${ list.filter((s: any) => s.status === 'running').length }/${ list.length } running`;
+          } catch { /* closet api not reachable (yet) */ }
+        }
+
+        const active = c.state === 'deployed';
 
         return {
           id:       c.name,
           type:     CLOSET_TYPE,
           spec:     c,
-          sidecars: sidecars || '\u2014',
+          sidecars: c.state === 'creating' ? 'Creating\u2026' : (sidecars || '\u2014'),
           metadata: {
             name:  c.name,
             state: {
-              name:          c.state === 'deployed' ? 'active' : c.state,
+              name:          active ? 'active' : c.state,
               error:         false,
-              transitioning: c.state !== 'deployed',
+              transitioning: !active,
             },
           },
         };

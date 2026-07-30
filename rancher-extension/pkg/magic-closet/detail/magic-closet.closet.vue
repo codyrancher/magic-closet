@@ -38,7 +38,12 @@ export default {
       rancher:  { running: false, authProvider: null },
       error:    null,
       timer:    null,
-      busy:     {},
+      // Optimistic overlay: name -> { label, goal: 'running'|'stopped', since }.
+      // Set the instant the user clicks, cleared once the polled status reaches
+      // the goal (or after a timeout) — so the card reacts immediately instead
+      // of snapping states after the request round-trips.
+      pending:  {},
+      applying: false,     // rancher auth "Apply" in flight
       edits:    {},        // sidecar -> { paramId -> value }
       options:  {},        // "sidecar::param" -> option list
       authSel:  '',
@@ -79,11 +84,9 @@ export default {
 
   created() {
     this.refresh();
-    this.timer = setInterval(() => {
-      if (!Object.keys(this.busy).length) {
-        this.refresh();
-      }
-    }, 4000);
+    // Poll continuously (including during a pending action) so the optimistic
+    // overlay clears as soon as the real status catches up.
+    this.timer = setInterval(() => this.refresh(), 2500);
   },
 
   beforeUnmount() {
@@ -113,9 +116,37 @@ export default {
         if (!this.authSel) {
           this.authSel = this.rancher.authProvider || '';
         }
+        this.reconcilePending();
         this.error = null;
       } catch (e) {
         this.error = e.message;
+      }
+    },
+
+    // Drop an optimistic entry once the real status reaches its goal (held a
+    // beat so a restart-of-a-running sidecar still flashes feedback), or after
+    // a timeout so a stuck action can't pin the card forever.
+    reconcilePending() {
+      let changed = false;
+      const now = Date.now();
+
+      for (const s of this.sidecars) {
+        const p = this.pending[s.name];
+
+        if (!p) {
+          continue;
+        }
+        const reached = p.goal === 'running'
+          ? s.status === 'running'
+          : ['exited', 'created', 'not_created'].includes(s.status);
+
+        if ((reached && now - p.since > 1200) || now - p.since > 180000) {
+          delete this.pending[s.name];
+          changed = true;
+        }
+      }
+      if (changed) {
+        this.pending = { ...this.pending };
       }
     },
 
@@ -154,7 +185,7 @@ export default {
 
     // ---- status badge ----
     badgeColor(s) {
-      if (this.busy[s.name]) {
+      if (this.pending[s.name]) {
         return 'bg-info';
       }
 
@@ -164,8 +195,10 @@ export default {
     },
 
     badgeLabel(s) {
-      if (this.busy[s.name]) {
-        return this.busy[s.name];
+      const p = this.pending[s.name];
+
+      if (p) {
+        return p.label;
       }
       const t = (s.status || '').replace(/_/g, ' ');
 
@@ -231,19 +264,23 @@ export default {
     },
 
     // ---- actions ----
-    async act(name, label, path, body) {
-      this.busy = { ...this.busy, [name]: label };
+    // Set the optimistic overlay first (instant feedback), fire the request,
+    // then refresh. On failure, drop the overlay and surface the error; on
+    // success leave it for reconcilePending() to clear when the status lands.
+    async act(name, label, goal, path, body) {
+      this.pending = { ...this.pending, [name]: { label, goal, since: Date.now() } };
       try {
         await rancherFetch(`${ this.apiBase }/${ path }`, { method: 'POST', body: body ? JSON.stringify(body) : undefined });
       } catch (e) {
         this.error = `${ label } ${ name }: ${ e.message }`;
-      } finally {
-        const b = { ...this.busy };
+        const p = { ...this.pending };
 
-        delete b[name];
-        this.busy = b;
-        this.refresh();
+        delete p[name];
+        this.pending = p;
+
+        return;
       }
+      this.refresh();
     },
 
     start(s) {
@@ -255,17 +292,23 @@ export default {
         params[p.id] = p.type === 'boolean' ? (v && v !== 'false' ? 'true' : '') : (v ?? '');
       }
 
-      return this.act(s.name, s.status === 'running' ? 'Restarting' : 'Starting', `sidecars/${ s.name }/start`, { params });
+      return this.act(s.name, s.status === 'running' ? 'Restarting' : 'Starting', 'running', `sidecars/${ s.name }/start`, { params });
     },
 
     stop(s) {
-      return this.act(s.name, 'Stopping', `sidecars/${ s.name }/stop`);
+      return this.act(s.name, 'Stopping', 'stopped', `sidecars/${ s.name }/stop`);
     },
 
-    applyAuth() {
-      const sel = this.authProviders.find((p) => p.value === this.authSel);
-
-      return this.act(sel?.sidecar || 'rancher', 'Applying', 'auth/apply', { provider: this.authSel });
+    async applyAuth() {
+      this.applying = true;
+      try {
+        await rancherFetch(`${ this.apiBase }/auth/apply`, { method: 'POST', body: JSON.stringify({ provider: this.authSel }) });
+      } catch (e) {
+        this.error = `apply auth: ${ e.message }`;
+      } finally {
+        this.applying = false;
+        this.refresh();
+      }
     },
 
     authApplied() {
@@ -333,10 +376,10 @@ export default {
               <RcButton
                 variant="secondary"
                 size="small"
-                :disabled="authApplied() || !rancher.running || !!busy[s.name]"
+                :disabled="authApplied() || !rancher.running || applying"
                 @click="applyAuth()"
               >
-                {{ authApplied() ? 'Applied' : 'Apply' }}
+                {{ applying ? 'Applying…' : (authApplied() ? 'Applied' : 'Apply') }}
               </RcButton>
             </div>
           </template>
@@ -346,7 +389,7 @@ export default {
               v-if="['running', 'exited', 'created'].includes(s.status)"
               variant="secondary"
               size="small"
-              :disabled="!!busy[s.name] || s.status !== 'running'"
+              :disabled="!!pending[s.name] || s.status !== 'running'"
               @click="stop(s)"
             >
               Stop
@@ -354,7 +397,7 @@ export default {
             <RcButton
               variant="primary"
               size="small"
-              :disabled="!!busy[s.name]"
+              :disabled="!!pending[s.name]"
               @click="start(s)"
             >
               {{ s.status === 'running' ? 'Restart' : 'Start' }}

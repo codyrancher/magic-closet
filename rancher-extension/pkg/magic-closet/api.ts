@@ -43,10 +43,28 @@ export function closetApiBase(namespace: string): string {
   return `${ base() }/api/v1/namespaces/${ namespace }/services/http:api:8080/proxy`;
 }
 
+// Optimistically-tracked closets. Rancher's list is fetched, not live, so a
+// freshly-created closet wouldn't appear until the Helm app resource exists.
+// create() registers one here and listClosets surfaces it immediately with a
+// "creating" state; it's dropped as soon as the real app shows up (or after a
+// TTL, so a failed create can't leave a ghost).
+interface PendingCloset { name: string; namespace: string; since: number; }
+let pendingClosets: PendingCloset[] = [];
+const PENDING_TTL = 3 * 60 * 1000;
+
+export function registerPendingCloset(name: string): void {
+  pendingClosets = pendingClosets.filter((p) => p.name !== name);
+  pendingClosets.push({ name, namespace: `closet-${ name }`, since: Date.now() });
+}
+
+export function clearPendingCloset(name: string): void {
+  pendingClosets = pendingClosets.filter((p) => p.name !== name);
+}
+
 export async function listClosets(): Promise<any[]> {
   const data = await rancherFetch(`${ base() }/v1/catalog.cattle.io.apps`);
 
-  return (data.data || [])
+  const real = (data.data || [])
     .filter((a: any) => a.spec?.chart?.metadata?.name === 'closet')
     .map((a: any) => ({
       name:      a.spec?.name || a.metadata?.name,
@@ -54,6 +72,16 @@ export async function listClosets(): Promise<any[]> {
       state:     a.metadata?.state?.name || a.status?.summary?.state || '—',
       version:   a.spec?.chart?.metadata?.version,
     }));
+
+  const now = Date.now();
+  const realNames = new Set(real.map((c: any) => c.name));
+
+  pendingClosets = pendingClosets.filter((p) => now - p.since < PENDING_TTL && !realNames.has(p.name));
+
+  return [
+    ...real,
+    ...pendingClosets.map((p) => ({ name: p.name, namespace: p.namespace, state: 'creating', version: '—' })),
+  ];
 }
 
 export async function findClosetChart(): Promise<{ repo: string; version: string }> {

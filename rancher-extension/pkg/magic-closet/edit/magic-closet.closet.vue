@@ -8,6 +8,7 @@ import { Checkbox } from '@components/Form/Checkbox';
 import SidecarCard from '../components/SidecarCard';
 import {
   createCloset, listSecretSets, readSecretSet, setCluster, setSecretOwner,
+  registerPendingCloset, clearPendingCloset,
 } from '../api';
 import { EXPLORER, CLOSET_TYPE } from '../product';
 
@@ -139,6 +140,8 @@ export default {
 
     async create(cb) {
       this.errors = [];
+      const name = this.value.metadata.name;
+
       try {
         const config = {};
 
@@ -166,24 +169,17 @@ export default {
           }
         }
 
-        await createCloset(this.value.metadata.name, this.enabled, config);
-        this.refreshUntilListed(this.value.metadata.name);
+        // Kick off the install, then show the closet in the list right away
+        // (optimistic) and navigate — no waiting for the Helm app to appear.
+        await createCloset(name, this.enabled, config);
+        registerPendingCloset(name);
+        await this.$store.dispatch('cluster/findAll', { type: CLOSET_TYPE, opt: { force: true } }).catch(() => {});
         cb(true);
         this.$router.push({ name: 'c-cluster-product-resource', params: this.doneParams });
       } catch (e) {
+        clearPendingCloset(name);
         this.errors = [e.message];
         cb(false);
-      }
-    },
-
-    async refreshUntilListed(name) {
-      for (let i = 0; i < 15; i++) {
-        const all = await this.$store.dispatch('cluster/findAll', { type: CLOSET_TYPE, opt: { force: true } });
-
-        if ((all || []).some((c) => c.metadata?.name === name)) {
-          return;
-        }
-        await new Promise((r) => setTimeout(r, 2000));
       }
     },
 
