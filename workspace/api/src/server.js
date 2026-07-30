@@ -593,6 +593,16 @@ function sidecarHostUrl(scheme, portEnv, offset) {
   return `${scheme}://localhost:${port}`;
 }
 
+// Base URL the api uses to REACH a sidecar for its own bootstrap calls. In k8s
+// the api is a pod on the cluster network, so it addresses sidecars by their
+// in-cluster service name (`https://rancher`, `http://keycloak:8080`, ...) —
+// the same names the sidecars use for each other. In compose the api runs in
+// the root container, off the sidecars' inner network, so it must use the
+// published host port on localhost instead (sidecarHostUrl).
+function sidecarApiUrl(k8sUrl, scheme, portEnv, offset) {
+  return K8S ? k8sUrl : sidecarHostUrl(scheme, portEnv, offset);
+}
+
 let rancherBootstrap = { state: 'idle', containerId: null }; // idle|running|done|failed
 
 // The host's externally-reachable IP, for Rancher's server-url. Detected once
@@ -630,7 +640,7 @@ async function detectPublicHost() {
 // TLS override would also disable verification for Docker Hub/GitHub calls)
 function rancherApi(pathname, { method = 'GET', token, body } = {}) {
   return new Promise((resolve) => {
-    const req = https.request(`${sidecarHostUrl('https', 'RANCHER_PORT', 44)}${pathname}`, {
+    const req = https.request(`${sidecarApiUrl(RANCHER_URL, 'https', 'RANCHER_PORT', 44)}${pathname}`, {
       method,
       rejectUnauthorized: false,
       timeout: 15000,
@@ -794,7 +804,7 @@ async function kcFetch(pathname, { method = 'GET', token, body, form } = {}) {
       headers['Content-Type'] = 'application/json';
       payload = JSON.stringify(body);
     }
-    const resp = await fetch(`${sidecarHostUrl('http', 'KEYCLOAK_PORT', 30)}${pathname}`,
+    const resp = await fetch(`${sidecarApiUrl(KEYCLOAK_URL, 'http', 'KEYCLOAK_PORT', 30)}${pathname}`,
       { method, headers, body: payload, signal: AbortSignal.timeout(15000) });
     let json = null;
     try { json = await resp.json(); } catch { /* empty/non-JSON body */ }
@@ -884,7 +894,7 @@ async function connectRancherToKeycloak() {
 // via the ldap CLI tools, then — when RANCHER_AUTH_PROVIDER=openldap —
 // connects Rancher's OpenLDAP auth provider. Idempotent.
 
-const ldapUrl = () => sidecarHostUrl('ldap', 'OPENLDAP_PORT', 40); // api connects via the host port
+const ldapUrl = () => sidecarApiUrl('ldap://openldap:389', 'ldap', 'OPENLDAP_PORT', 40); // k8s: service DNS; compose: host port
 const LDAP_BASE = 'dc=magic-closet,dc=local';
 const LDAP_ADMIN_DN = `cn=admin,${LDAP_BASE}`;
 let openldapBootstrap = { state: 'idle', containerId: null };
