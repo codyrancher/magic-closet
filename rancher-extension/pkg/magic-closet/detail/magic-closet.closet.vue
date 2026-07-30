@@ -1,28 +1,28 @@
 <script>
-import { RcItemCard } from '@components/RcItemCard';
 import { RcSection } from '@components/RcSection';
+import { RcButton } from '@components/RcButton';
 import { BadgeState } from '@components/BadgeState';
-import { Checkbox } from '@components/Form/Checkbox';
-import { LabeledInput } from '@components/Form/LabeledInput';
 import LabeledSelect from '@shell/components/form/LabeledSelect';
+import SidecarCard from '../components/SidecarCard';
 import { closetApiBase, rancherFetch, setCluster } from '../api';
 
 const GROUP_ORDER = ['dev', 'auth', 'design'];
 
-// Params managed by the secret set — never shown as closet params
-const SECRET_SET_KEYS = [
+// Params never shown as closet config: secret-set-managed credentials + the
+// GitHub URL.
+const HIDDEN_PARAMS = [
   'ghToken', 'appcoEmail', 'appcoToken', 'awsAccessKey', 'awsSecretKey', 'apiKey',
   'gcpServiceAccountKey', 'azureClientId', 'azureClientSecret', 'azureSubscriptionId', 'azureTenantId',
+  'githubUrl',
 ];
 
-// Interactive closet dashboard: one card per sidecar (status, description,
-// launch links, editable Configuration, Start/Stop/Restart) — the same job the
-// standalone portal does, built from the shell's card/section/form components.
+// Interactive closet dashboard: one SidecarCard per sidecar (status, launch
+// links, editable Configuration, Start/Stop/Restart).
 export default {
   name: 'ClosetDetail',
 
   components: {
-    RcItemCard, RcSection, BadgeState, Checkbox, LabeledInput, LabeledSelect,
+    RcSection, RcButton, BadgeState, LabeledSelect, SidecarCard,
   },
 
   props: {
@@ -38,7 +38,7 @@ export default {
       rancher:  { running: false, authProvider: null },
       error:    null,
       timer:    null,
-      busy:     {},        // name -> label while an action runs
+      busy:     {},
       edits:    {},        // sidecar -> { paramId -> value }
       options:  {},        // "sidecar::param" -> option list
       authSel:  '',
@@ -130,6 +130,28 @@ export default {
       } catch { /* best-effort */ }
     },
 
+    // Map the api's params to the SidecarCard's normalized shape (hidden ones
+    // dropped, grouped ones prefixed).
+    cardParams(s) {
+      const out = [];
+
+      for (const p of s.params || []) {
+        if (HIDDEN_PARAMS.includes(p.id)) {
+          continue;
+        }
+        out.push({
+          id:          p.id,
+          label:       p.group ? `${ p.group } · ${ p.id }` : p.id,
+          type:        p.type === 'boolean' ? 'boolean' : (p.options ? 'select' : 'text'),
+          options:     p.options ? (this.options[`${ s.name }::${ p.id }`] || []) : undefined,
+          taggable:    !!p.options,
+          placeholder: p.default || '',
+        });
+      }
+
+      return out;
+    },
+
     // ---- status badge ----
     badgeColor(s) {
       if (this.busy[s.name]) {
@@ -155,8 +177,7 @@ export default {
     },
 
     // ---- links ----
-    // rancher-browser is only reachable via the Rancher service proxy here (its
-    // NodePort resolves to the node's private IP) — always proxy it.
+    // rancher-browser is only reachable via the Rancher service proxy here.
     preferExternal(s) {
       if (s.name === 'rancher-browser') {
         return false;
@@ -175,10 +196,6 @@ export default {
       return !(/^10\./.test(h) || /^192\.168\./.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h) || /^127\./.test(h));
     },
 
-    proxyUrl(s) {
-      return s.proxy ? this.apiBase.replace(/http:api:8080\/proxy$/, `${ s.proxy.scheme }:${ s.name }:${ s.proxy.port }/proxy/`) : null;
-    },
-
     launchLink(s) {
       if (s.status !== 'running') {
         return null;
@@ -187,7 +204,7 @@ export default {
         return this.reachable(s.external) ? s.external : null;
       }
 
-      return this.proxyUrl(s);
+      return s.proxy ? this.apiBase.replace(/http:api:8080\/proxy$/, `${ s.proxy.scheme }:${ s.name }:${ s.proxy.port }/proxy/`) : null;
     },
 
     browserSidecar() {
@@ -211,21 +228,6 @@ export default {
       } catch (e) {
         this.error = `browser: ${ e.message }`;
       }
-    },
-
-    // ---- config ----
-    flatParams(s) {
-      return (s.params || []).filter((p) => !p.group && !SECRET_SET_KEYS.includes(p.id));
-    },
-
-    paramGroups(s) {
-      const names = [...new Set((s.params || []).filter((p) => p.group && !SECRET_SET_KEYS.includes(p.id)).map((p) => p.group))];
-
-      return names.map((g) => ({ name: g, params: (s.params || []).filter((p) => p.group === g && !SECRET_SET_KEYS.includes(p.id)) }));
-    },
-
-    hasConfig(s) {
-      return this.flatParams(s).length || this.paramGroups(s).length || s.name === 'rancher';
     },
 
     // ---- actions ----
@@ -288,127 +290,77 @@ export default {
       class="sidecar-group"
     >
       <div class="cards">
-        <rc-item-card
+        <SidecarCard
           v-for="s in group.sidecars"
-          :id="`sidecar-${s.name}`"
           :key="s.name"
-          :header="{}"
-          variant="medium"
+          :name="s.name"
+          :description="s.description"
+          :params="cardParams(s)"
+          :values="edits[s.name] || {}"
+          :unsupported="s.unsupported || ''"
         >
-          <template #item-card-header-title>
-            <div class="title-row">
-              <h3 class="item-card-header-title medium">
-                {{ s.name }}
-              </h3>
-              <BadgeState
-                :color="badgeColor(s)"
-                :label="badgeLabel(s)"
-                :title="badgeTitle(s)"
-                class="status-badge"
+          <template #header-right>
+            <BadgeState
+              :color="badgeColor(s)"
+              :label="badgeLabel(s)"
+              :title="badgeTitle(s)"
+            />
+          </template>
+
+          <template #links>
+            <a
+              v-if="launchLink(s)"
+              :href="launchLink(s)"
+              target="_blank"
+              rel="noopener"
+            >Launch</a>
+            <a
+              v-if="canInternalLaunch(s)"
+              href="#"
+              @click.prevent="internalLaunch(s)"
+            >Internal Launch</a>
+          </template>
+
+          <template v-if="s.name === 'rancher' && authProviders.length > 1" #config-extra>
+            <div class="auth">
+              <LabeledSelect
+                label="rancher auth"
+                :value="authSel"
+                :options="authProviders"
+                :searchable="false"
+                @update:value="authSel = typeof $event === 'object' ? ($event && $event.value) : $event"
               />
+              <RcButton
+                variant="secondary"
+                size="small"
+                :disabled="authApplied() || !rancher.running || !!busy[s.name]"
+                @click="applyAuth()"
+              >
+                {{ authApplied() ? 'Applied' : 'Apply' }}
+              </RcButton>
             </div>
           </template>
 
-          <template #item-card-sub-header>
-            <div class="sub">
-              <div v-if="s.description" class="desc">
-                {{ s.description }}
-              </div>
-              <div class="links">
-                <a
-                  v-if="launchLink(s)"
-                  :href="launchLink(s)"
-                  target="_blank"
-                  rel="noopener"
-                >Launch</a>
-                <a
-                  v-if="canInternalLaunch(s)"
-                  href="#"
-                  @click.prevent="internalLaunch(s)"
-                >Internal Launch</a>
-              </div>
-              <span v-if="s.unsupported" class="unsupported">{{ s.unsupported }}</span>
-            </div>
+          <template v-if="!(s.unsupported && s.status === 'not_created')" #actions>
+            <RcButton
+              v-if="['running', 'exited', 'created'].includes(s.status)"
+              variant="secondary"
+              size="small"
+              :disabled="!!busy[s.name] || s.status !== 'running'"
+              @click="stop(s)"
+            >
+              Stop
+            </RcButton>
+            <RcButton
+              variant="primary"
+              size="small"
+              :disabled="!!busy[s.name]"
+              @click="start(s)"
+            >
+              {{ s.status === 'running' ? 'Restart' : 'Start' }}
+            </RcButton>
           </template>
-
-          <template #item-card-footer>
-            <div class="footer">
-              <details v-if="hasConfig(s)" class="config">
-                <summary>Configuration</summary>
-                <div class="config-body">
-                  <template v-for="p in flatParams(s)" :key="p.id">
-                    <Checkbox
-                      v-if="p.type === 'boolean'"
-                      :value="edits[s.name][p.id] === 'true'"
-                      :label="p.id"
-                      @update:value="edits[s.name][p.id] = $event ? 'true' : ''"
-                    />
-                    <LabeledSelect
-                      v-else-if="p.options"
-                      :label="p.id"
-                      :value="edits[s.name][p.id]"
-                      :options="options[`${s.name}::${p.id}`] || []"
-                      :taggable="true"
-                      :searchable="true"
-                      @update:value="edits[s.name][p.id] = typeof $event === 'object' ? ($event && $event.value) : $event"
-                    />
-                    <LabeledInput
-                      v-else
-                      v-model:value="edits[s.name][p.id]"
-                      :label="p.id"
-                      :placeholder="p.default || ''"
-                    />
-                  </template>
-
-                  <template v-for="pg in paramGroups(s)" :key="pg.name">
-                    <LabeledInput
-                      v-for="p in pg.params"
-                      :key="p.id"
-                      v-model:value="edits[s.name][p.id]"
-                      :label="`${pg.name} · ${p.id}`"
-                      :placeholder="p.default || ''"
-                    />
-                  </template>
-
-                  <div v-if="s.name === 'rancher' && authProviders.length > 1" class="auth">
-                    <LabeledSelect
-                      label="rancher auth"
-                      :value="authSel"
-                      :options="authProviders"
-                      :searchable="false"
-                      @update:value="authSel = typeof $event === 'object' ? ($event && $event.value) : $event"
-                    />
-                    <button
-                      class="btn role-secondary btn-sm"
-                      :disabled="authApplied() || !rancher.running || !!busy[s.name]"
-                      @click="applyAuth()"
-                    >
-                      {{ authApplied() ? 'Applied' : 'Apply' }}
-                    </button>
-                  </div>
-                </div>
-              </details>
-
-              <div v-if="!(s.unsupported && s.status === 'not_created')" class="actions">
-                <button
-                  v-if="['running', 'exited', 'created'].includes(s.status)"
-                  class="btn role-secondary btn-sm"
-                  :disabled="!!busy[s.name] || s.status !== 'running'"
-                  @click="stop(s)"
-                >
-                  Stop
-                </button>
-                <button
-                  class="btn role-primary btn-sm"
-                  :disabled="!!busy[s.name]"
-                  @click="start(s)"
-                >
-                  {{ s.status === 'running' ? 'Restart' : 'Start' }}
-                </button>
-              </div>
-            </div>
-          </template>
-        </rc-item-card>
+        </SidecarCard>
       </div>
     </RcSection>
   </div>
@@ -443,78 +395,12 @@ main:has(.closet-dashboard) .metadata-section,
     gap: 16px;
   }
 
-  .title-row {
+  .auth {
     display: flex;
-    align-items: center;
-
-    h3 { margin: 0; }
-  }
-
-  .status-badge { margin-left: 8px; }
-
-  .sub {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-
-    .desc { color: var(--input-label, var(--muted)); font-size: 13px; }
-
-    .links {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-
-      a { cursor: pointer; }
-    }
-  }
-
-  .unsupported { font-style: italic; color: var(--muted); font-size: 12px; }
-
-  .footer {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    width: 100%;
-  }
-
-  .config {
-    border: 1px solid var(--border);
-    border-radius: var(--border-radius, 4px);
-
-    summary {
-      padding: 4px 8px;
-      color: var(--muted);
-      cursor: pointer;
-      user-select: none;
-    }
-
-    &[open] > summary {
-      color: var(--body-text);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .config-body {
-      padding: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .auth {
-      display: flex;
-      align-items: flex-end;
-      gap: 8px;
-
-      > :first-child { flex: 1; }
-    }
-  }
-
-  .actions {
-    display: flex;
-    justify-content: flex-end;
+    align-items: flex-end;
     gap: 8px;
-  }
 
-  .btn-sm { padding: 4px 12px; min-height: unset; line-height: 1.4; }
+    > :first-child { flex: 1; }
+  }
 }
 </style>

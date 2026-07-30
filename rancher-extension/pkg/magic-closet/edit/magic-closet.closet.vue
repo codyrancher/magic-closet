@@ -3,10 +3,9 @@ import CruResource from '@shell/components/CruResource';
 import NameNsDescription from '@shell/components/form/NameNsDescription';
 import FormValidation from '@shell/mixins/form-validation';
 import LabeledSelect from '@shell/components/form/LabeledSelect';
-import { RcItemCard } from '@components/RcItemCard';
 import { RcSection } from '@components/RcSection';
 import { Checkbox } from '@components/Form/Checkbox';
-import { LabeledInput } from '@components/Form/LabeledInput';
+import SidecarCard from '../components/SidecarCard';
 import {
   createCloset, listSecretSets, readSecretSet, setCluster, setSecretOwner,
 } from '../api';
@@ -27,11 +26,10 @@ const SECRET_PARAM_ENV = {
   azureTenantId:       'AZURE_TENANT_ID',
 };
 
-// The fixed set of sidecars a closet can run (there's no closet api to query at
-// create time). Rendered as the same cards as the detail view, each with an
-// enable toggle + the create-time options that map to the chart's config.
-// vscode is shown last in Dev; the params here mirror what the detail page's
-// Configuration shows.
+// The fixed set of sidecars a closet can run (no closet api to query at create
+// time). Rendered with the same SidecarCard as the detail view, each with an
+// enable toggle. `params` carry an `env` used to build the chart config.
+// vscode is shown last in Dev.
 const SIDECAR_CATALOG = [
   {
     key: 'rancher', name: 'rancher', group: 'Dev', description: 'Rancher server. First start ~10 min.',
@@ -49,10 +47,7 @@ const SIDECAR_CATALOG = [
     ],
   },
   { key: 'rancherBrowser', name: 'rancher-browser', group: 'Dev', description: 'Chromium with Rancher quick-login.' },
-  {
-    key: 'vscode', name: 'vscode', group: 'Dev', description: 'VS Code editing /workspace.',
-    params: [{ id: 'githubUrl', label: 'GitHub URL (repo, PR, or issue)', type: 'text', env: 'GITHUB_URL' }],
-  },
+  { key: 'vscode', name: 'vscode', group: 'Dev', description: 'VS Code editing /workspace.' },
   { key: 'keycloak', name: 'keycloak', group: 'Auth', description: 'Keycloak OIDC/SAML provider.' },
   { key: 'openldap', name: 'openldap', group: 'Auth', description: 'OpenLDAP directory server.' },
   { key: 'figma', name: 'figma', group: 'Design', description: 'Figma MCP server.' },
@@ -65,7 +60,7 @@ export default {
   name: 'ClosetCreate',
 
   components: {
-    CruResource, NameNsDescription, LabeledSelect, RcItemCard, RcSection, Checkbox, LabeledInput,
+    CruResource, NameNsDescription, LabeledSelect, RcSection, Checkbox, SidecarCard,
   },
 
   mixins: [FormValidation],
@@ -85,7 +80,6 @@ export default {
     if (!this.value.metadata) {
       this.value.metadata = { name: this.value.id || '' };
     }
-    // Seed per-sidecar param values from their defaults
     const paramEdits = {};
 
     for (const s of SIDECAR_CATALOG) {
@@ -148,7 +142,6 @@ export default {
       try {
         const config = {};
 
-        // Per-sidecar options from enabled sidecars -> chart config
         for (const s of SIDECAR_CATALOG) {
           if (!this.enabled[s.key]) {
             continue;
@@ -165,7 +158,6 @@ export default {
             }
           }
         }
-        // Secret set values -> chart config
         const secretValues = this.secretSetName ? await readSecretSet(this.secretSetName).catch(() => ({})) : {};
 
         for (const [id, env] of Object.entries(SECRET_PARAM_ENV)) {
@@ -240,65 +232,24 @@ export default {
       class="sidecar-group"
     >
       <div class="cards">
-        <rc-item-card
+        <SidecarCard
           v-for="s in group.sidecars"
-          :id="`sidecar-${s.key}`"
           :key="s.key"
-          :header="{}"
-          variant="medium"
+          :name="s.name"
+          :description="s.description"
+          :params="s.params || []"
+          :values="paramEdits[s.key]"
+          :config-open="!!enabled[s.key]"
+          :disabled="!enabled[s.key]"
         >
-          <template #item-card-header-title>
-            <div class="title-row">
-              <h3 class="item-card-header-title medium">
-                {{ s.name }}
-              </h3>
-              <Checkbox
-                class="enable-toggle"
-                :value="!!enabled[s.key]"
-                label="Enabled"
-                @update:value="enabled[s.key] = $event"
-              />
-            </div>
+          <template #header-right>
+            <Checkbox
+              :value="!!enabled[s.key]"
+              label="Enabled"
+              @update:value="enabled[s.key] = $event"
+            />
           </template>
-
-          <template #item-card-sub-header>
-            <div v-if="s.description" class="desc">
-              {{ s.description }}
-            </div>
-          </template>
-
-          <template v-if="s.params && s.params.length" #item-card-footer>
-            <details class="config" :open="enabled[s.key]">
-              <summary>Configuration</summary>
-              <div class="config-body">
-                <template v-for="p in s.params" :key="p.id">
-                  <Checkbox
-                    v-if="p.type === 'boolean'"
-                    :value="paramEdits[s.key][p.id] === 'true'"
-                    :label="p.label"
-                    :disabled="!enabled[s.key]"
-                    @update:value="paramEdits[s.key][p.id] = $event ? 'true' : ''"
-                  />
-                  <LabeledSelect
-                    v-else-if="p.type === 'select'"
-                    :label="p.label"
-                    :value="paramEdits[s.key][p.id]"
-                    :options="p.options"
-                    :searchable="false"
-                    :disabled="!enabled[s.key]"
-                    @update:value="paramEdits[s.key][p.id] = typeof $event === 'object' ? ($event && $event.value) : $event"
-                  />
-                  <LabeledInput
-                    v-else
-                    v-model:value="paramEdits[s.key][p.id]"
-                    :label="p.label"
-                    :disabled="!enabled[s.key]"
-                  />
-                </template>
-              </div>
-            </details>
-          </template>
-        </rc-item-card>
+        </SidecarCard>
       </div>
     </RcSection>
   </CruResource>
@@ -313,42 +264,5 @@ export default {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 16px;
-}
-
-.title-row {
-  display: flex;
-  align-items: center;
-  width: 100%;
-
-  h3 { margin: 0; }
-
-  .enable-toggle { margin-left: auto; }
-}
-
-.desc { color: var(--input-label, var(--muted)); font-size: 13px; }
-
-.config {
-  width: 100%;
-  border: 1px solid var(--border);
-  border-radius: var(--border-radius, 4px);
-
-  summary {
-    padding: 4px 8px;
-    color: var(--muted);
-    cursor: pointer;
-    user-select: none;
-  }
-
-  &[open] > summary {
-    color: var(--body-text);
-    border-bottom: 1px solid var(--border);
-  }
-
-  .config-body {
-    padding: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
 }
 </style>
