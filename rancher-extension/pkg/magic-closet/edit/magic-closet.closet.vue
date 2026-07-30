@@ -68,7 +68,7 @@ export default {
       errors: [],
       // create mode
       createSidecars: {
-        vscode:         true,
+        vscode:         false,
         rancher:        true,
         keycloak:       true,
         rancherBrowser: false,
