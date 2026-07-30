@@ -27,6 +27,11 @@ services:
       # only affects `docker exec -it magic-closet sh`, never scripts/builds.
       # See dind-shellrc.sh (MC_NO_JUMP=1 to stay on the DinD host).
       - ENV=/magic-closet/dind-shellrc.sh
+      # Opt-in: also expose the INNER docker daemon on a host-visible socket
+      # (in the mounted data dir) so a local VS Code / Dev Containers can see and
+      # attach the nested workspace container. Off unless you ask for it:
+      #   MC_EXPOSE_DOCKER=1 docker compose up -d    (or set it in .env)
+      - MC_EXPOSE_DOCKER=${MC_EXPOSE_DOCKER:-}
     working_dir: /magic-closet
     entrypoint: ["/bin/sh", "/magic-closet/dind-entrypoint.sh"]
     volumes:
