@@ -3,6 +3,7 @@ import { RcItemCard } from '@components/RcItemCard';
 import { Checkbox } from '@components/Form/Checkbox';
 import { LabeledInput } from '@components/Form/LabeledInput';
 import LabeledSelect from '@shell/components/form/LabeledSelect';
+import { iconFor } from './sidecar-icons';
 
 // The one sidecar card, shared by the closet detail dashboard and the create
 // page. It renders name + description + an editable Configuration accordion; the
@@ -33,6 +34,10 @@ export default {
     hasConfig() {
       return this.params.length || !!this.$slots['config-extra'];
     },
+
+    icon() {
+      return iconFor(this.name);
+    },
   },
 };
 </script>
@@ -46,6 +51,9 @@ export default {
     >
     <template #item-card-header-title>
       <div class="title-row">
+        <span class="icon-tile" :style="{ '--sc-color': icon.color }">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="icon.path" /></svg>
+        </span>
         <h3 class="item-card-header-title medium">
           {{ name }}
         </h3>
@@ -110,7 +118,29 @@ export default {
   align-items: center;
   width: 100%;
 
-  h3 { margin: 0; }
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .icon-tile {
+    flex: 0 0 auto;
+    width: 38px;
+    height: 38px;
+    margin-right: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--sc-color) 15%, transparent);
+
+    svg {
+      width: 22px;
+      height: 22px;
+      fill: var(--sc-color);
+    }
+  }
 
   .header-right {
     margin-left: auto;
