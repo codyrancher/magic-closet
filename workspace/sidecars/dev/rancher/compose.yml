@@ -5,6 +5,14 @@ services:
     image: rancher/rancher:${RANCHER_TAG:-head}
     profiles: ["rancher"]
     privileged: true
+    # Stable node identity so a DinD restart/recreate keeps the same ip + name.
+    # Rancher's embedded k3s (etcd) pins its peer url to the node ip and its node
+    # name to the hostname; if either changes the apiserver crash-loops. The
+    # static ip needs the fixed subnet defined in compose.stack.yml (networks:).
+    hostname: rancher
+    networks:
+      default:
+        ipv4_address: 172.28.0.10
     env_file:
       - path: ${MC_ENV_FILE:-./.env}
         required: false

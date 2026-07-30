@@ -82,3 +82,14 @@ volumes:
   claude-data:
   # nvm + node, populated by the workspace container and shared with vscode
   toolchain:
+
+networks:
+  # Fixed subnet so key services can hold a STATIC ip across DinD restarts.
+  # Without this, an inner-dockerd restart (e.g. the outer container being
+  # recreated) hands out new ips, which breaks Rancher's embedded k3s/etcd —
+  # etcd pins its peer url to the node ip, so a changed ip crash-loops the
+  # apiserver. Rancher pins itself to a static ip below (rancher/compose.yml).
+  default:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
