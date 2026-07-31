@@ -338,10 +338,6 @@ export default {
         this.refresh();
       }
     },
-
-    authApplied() {
-      return this.authSel === this.rancher.authProvider;
-    },
   },
 };
 </script>
@@ -407,11 +403,10 @@ export default {
               />
               <RcButton
                 variant="secondary"
-                size="small"
-                :disabled="authApplied() || !rancher.running || applying"
+                :disabled="!rancher.running || applying"
                 @click="applyAuth()"
               >
-                {{ applying ? 'Applying…' : (authApplied() ? 'Applied' : 'Apply') }}
+                {{ applying ? 'Applying…' : 'Apply' }}
               </RcButton>
             </div>
           </template>
@@ -420,7 +415,6 @@ export default {
             <template v-if="s.status === 'running'">
               <RcButton
                 variant="secondary"
-                size="small"
                 :disabled="!!pending[s.name]"
                 @click="stop(s)"
               >
@@ -428,7 +422,6 @@ export default {
               </RcButton>
               <RcButton
                 variant="primary"
-                size="small"
                 :disabled="!!pending[s.name]"
                 @click="start(s)"
               >
@@ -438,7 +431,6 @@ export default {
             <RcButton
               v-else
               variant="primary"
-              size="small"
               :disabled="!!pending[s.name]"
               @click="onStart(s)"
             >
