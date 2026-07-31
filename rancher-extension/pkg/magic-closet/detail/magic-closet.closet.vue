@@ -2,7 +2,6 @@
 import { RcSection } from '@components/RcSection';
 import { RcButton } from '@components/RcButton';
 import { BadgeState } from '@components/BadgeState';
-import { ToggleSwitch } from '@components/Form/ToggleSwitch';
 import LabeledSelect from '@shell/components/form/LabeledSelect';
 import SidecarCard from '../components/SidecarCard';
 import { closetApiBase, rancherFetch, setCluster } from '../api';
@@ -26,7 +25,7 @@ export default {
   name: 'ClosetDetail',
 
   components: {
-    RcSection, RcButton, BadgeState, ToggleSwitch, LabeledSelect, SidecarCard,
+    RcSection, RcButton, BadgeState, LabeledSelect, SidecarCard,
   },
 
   props: {
@@ -303,18 +302,6 @@ export default {
       return this.act(s.name, 'Stopping', 'stopped', `sidecars/${ s.name }/stop`);
     },
 
-    // On/off toggle — reflects the optimistic goal while pending, else the real
-    // status. Flipping it starts or stops the sidecar.
-    toggled(s) {
-      const p = this.pending[s.name];
-
-      return p ? p.goal === 'running' : s.status === 'running';
-    },
-
-    onToggle(s, on) {
-      return on ? this.start(s) : this.stop(s);
-    },
-
     async applyAuth() {
       this.applying = true;
       try {
@@ -359,18 +346,11 @@ export default {
           :unsupported="s.unsupported || ''"
         >
           <template #header-right>
-            <div class="hdr-right">
-              <BadgeState
-                :color="badgeColor(s)"
-                :label="badgeLabel(s)"
-                :title="badgeTitle(s)"
-              />
-              <ToggleSwitch
-                :value="toggled(s)"
-                :disabled="!!pending[s.name] || (s.unsupported && s.status === 'not_created')"
-                @update:value="onToggle(s, $event)"
-              />
-            </div>
+            <BadgeState
+              :color="badgeColor(s)"
+              :label="badgeLabel(s)"
+              :title="badgeTitle(s)"
+            />
           </template>
 
           <template #links>
@@ -407,14 +387,33 @@ export default {
             </div>
           </template>
 
-          <template v-if="s.status === 'running'" #actions>
+          <template v-if="!(s.unsupported && s.status === 'not_created')" #actions>
+            <template v-if="s.status === 'running'">
+              <RcButton
+                variant="secondary"
+                size="small"
+                :disabled="!!pending[s.name]"
+                @click="stop(s)"
+              >
+                Stop
+              </RcButton>
+              <RcButton
+                variant="primary"
+                size="small"
+                :disabled="!!pending[s.name]"
+                @click="start(s)"
+              >
+                Restart
+              </RcButton>
+            </template>
             <RcButton
-              variant="secondary"
+              v-else
+              variant="primary"
               size="small"
               :disabled="!!pending[s.name]"
               @click="start(s)"
             >
-              Restart
+              Start
             </RcButton>
           </template>
         </SidecarCard>
@@ -450,12 +449,6 @@ main:has(.closet-dashboard) .metadata-section,
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 16px;
-  }
-
-  .hdr-right {
-    display: flex;
-    align-items: center;
-    gap: 10px;
   }
 
   .auth {
