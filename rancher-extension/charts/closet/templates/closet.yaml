@@ -21,6 +21,29 @@ spec:
             - configMapRef: { name: closet-config }
           ports:
             - containerPort: 8005
+          # Run a tiny sshd on 127.0.0.1:2222 so VS Code Remote-SSH can attach
+          # to /workspace via a `kubectl exec … nc` ProxyCommand (no exposed
+          # port). Host key + authorized_keys live on the persistent /workspace
+          # volume, so it survives restarts; the closet detail page hands out a
+          # one-liner that injects the user's key.
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - /bin/bash
+                  - -c
+                  - |
+                    set +e
+                    export DEBIAN_FRONTEND=noninteractive
+                    if ! command -v sshd >/dev/null || ! command -v nc >/dev/null; then
+                      apt-get update -qq && apt-get install -y -qq openssh-server netcat-openbsd
+                    fi
+                    mkdir -p /run/sshd /workspace/.mc-ssh && chmod 700 /workspace/.mc-ssh
+                    [ -f /workspace/.mc-ssh/host_ed25519 ] || ssh-keygen -t ed25519 -N '' -f /workspace/.mc-ssh/host_ed25519 -q
+                    touch /workspace/.mc-ssh/authorized_keys && chmod 600 /workspace/.mc-ssh/authorized_keys
+                    printf 'Port 2222\nListenAddress 127.0.0.1\nHostKey /workspace/.mc-ssh/host_ed25519\nPermitRootLogin prohibit-password\nAuthorizedKeysFile /workspace/.mc-ssh/authorized_keys\nUsePAM no\nStrictModes no\n' > /etc/ssh/sshd_config_vscode
+                    pgrep -x sshd >/dev/null || /usr/sbin/sshd -f /etc/ssh/sshd_config_vscode
+                    exit 0
           volumeMounts:
             - { name: workspace, mountPath: /workspace }
             - { name: claude-data, mountPath: /claude-data }

@@ -51,6 +51,7 @@ export default {
       options:  {},        // "sidecar::param" -> option list
       authSel:  '',
       configFor: null,     // name of the sidecar whose config modal is open
+      copied:    false,    // "Connect VS Code" command copied feedback
     };
   },
 
@@ -83,6 +84,28 @@ export default {
       }
 
       return out;
+    },
+
+    // A single shell command the user pastes into a local terminal (with
+    // kubectl pointed at this cluster) to wire up VS Code Remote-SSH to the
+    // closet's /workspace: it makes a local key, pushes the pubkey into the
+    // pod's persistent authorized_keys, and writes an ~/.ssh/config entry whose
+    // ProxyCommand bridges to the pod's sshd over `kubectl exec`.
+    vscodeCommand() {
+      const ns = this.value?.spec?.namespace || '';
+      const h = this.value?.metadata?.name || 'closet';
+
+      return [
+        `NS=${ ns }`,
+        `H=${ h }`,
+        'K="$HOME/.ssh/mc-$H"',
+        `[ -f "$K" ] || ssh-keygen -t ed25519 -N '' -f "$K" -q`,
+        `kubectl -n "$NS" exec -i deploy/closet -- sh -c 'mkdir -p /workspace/.mc-ssh; chmod 700 /workspace/.mc-ssh; touch /workspace/.mc-ssh/authorized_keys; chmod 600 /workspace/.mc-ssh/authorized_keys; grep -qxF "$0" /workspace/.mc-ssh/authorized_keys || echo "$0" >> /workspace/.mc-ssh/authorized_keys' "$(cat "$K.pub")"`,
+        'mkdir -p "$HOME/.ssh"; touch "$HOME/.ssh/config"',
+        `sed -i.bak "/# >>> magic-closet $H >>>/,/# <<< magic-closet $H <<</d" "$HOME/.ssh/config"`,
+        `printf '\\n# >>> magic-closet %s >>>\\nHost %s\\n  User root\\n  IdentityFile %s\\n  StrictHostKeyChecking no\\n  UserKnownHostsFile /dev/null\\n  ProxyCommand kubectl exec -i -n %s deploy/closet -- nc -q1 127.0.0.1 2222\\n# <<< magic-closet %s <<<\\n' "$H" "$H" "$K" "$NS" "$H" >> "$HOME/.ssh/config"`,
+        `echo "Done — in VS Code: Remote-SSH → Connect to Host → $H"`,
+      ].join('; ');
     },
   },
 
@@ -356,6 +379,26 @@ export default {
       return 'Save & Restart';
     },
 
+    copyVscode() {
+      const done = () => {
+        this.copied = true;
+        setTimeout(() => {
+          this.copied = false;
+        }, 2000);
+      };
+
+      navigator.clipboard?.writeText(this.vscodeCommand).then(done, () => {
+        // Fallback for insecure contexts without the async clipboard API
+        const ta = document.createElement('textarea');
+
+        ta.value = this.vscodeCommand;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); done(); } catch { /* ignore */ }
+        document.body.removeChild(ta);
+      });
+    },
+
     // Modal Save: apply auth if it changed (no restart), and (re)start the
     // sidecar unless the only change was an auth apply on a running sidecar.
     onSave(s) {
@@ -478,6 +521,30 @@ export default {
         </SidecarCard>
       </div>
     </RcSection>
+
+    <RcSection
+      title="VS Code Remote"
+      type="primary"
+      mode="with-header"
+      class="sidecar-group"
+    >
+      <div class="vscode-remote">
+        <p class="hint">
+          Paste this in a local terminal (with <code>kubectl</code> pointed at this cluster — download the KubeConfig from Rancher) to add a Remote-SSH host for this closet's <code>/workspace</code>. Then in VS&nbsp;Code: <b>Remote-SSH → Connect to Host → {{ value.metadata.name }}</b>.
+        </p>
+        <div class="cmd">
+          <code>{{ vscodeCommand }}</code>
+          <RcButton
+            variant="secondary"
+            size="small"
+            class="copy"
+            @click="copyVscode"
+          >
+            {{ copied ? 'Copied' : 'Copy' }}
+          </RcButton>
+        </div>
+      </div>
+    </RcSection>
   </div>
 </template>
 
@@ -508,6 +575,38 @@ main:has(.closet-dashboard) .metadata-section,
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 16px;
+  }
+
+  .vscode-remote {
+    .hint {
+      color: var(--input-label, var(--muted));
+      font-size: 13px;
+      margin: 0 0 8px;
+
+      code { font-size: 12px; }
+    }
+
+    .cmd {
+      display: flex;
+      align-items: stretch;
+      gap: 8px;
+
+      code {
+        flex: 1;
+        min-width: 0;
+        overflow-x: auto;
+        white-space: pre;
+        padding: 10px 12px;
+        background: var(--input-bg, var(--body-bg));
+        border: 1px solid var(--border);
+        border-radius: var(--border-radius, 4px);
+        font-family: monospace;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .copy { flex: 0 0 auto; align-self: flex-start; }
+    }
   }
 }
 </style>
