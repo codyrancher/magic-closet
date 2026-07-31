@@ -130,7 +130,6 @@ export default {
                 :options="p.options || []"
                 :taggable="!!p.taggable"
                 :searchable="!!p.taggable"
-                :append-to-body="true"
                 @update:value="values[p.id] = typeof $event === 'object' ? ($event && $event.value) : $event"
               />
               <LabeledInput
@@ -309,12 +308,14 @@ export default {
     }
   }
 
+  /* overflow visible (not auto) so a select's dropdown menu isn't clipped by
+     the modal body — it renders over the footer via vue-select's z-index. */
   .sc-modal-body {
     padding: 16px;
     display: flex;
     flex-direction: column;
     gap: 14px;
-    overflow-y: auto;
+    overflow: visible;
 
     .hint { margin: 0; color: var(--muted); font-size: 12px; }
   }
