@@ -49,11 +49,14 @@ export default {
       :header="{}"
       variant="medium"
     >
+    <template #item-card-image>
+      <div class="sc-icon" :style="{ '--sc-color': icon.color }">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="icon.path" /></svg>
+      </div>
+    </template>
+
     <template #item-card-header-title>
       <div class="title-row">
-        <span class="icon-tile" :style="{ '--sc-color': icon.color }">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="icon.path" /></svg>
-        </span>
         <h3 class="item-card-header-title medium">
           {{ name }}
         </h3>
@@ -113,6 +116,24 @@ export default {
 </template>
 
 <style lang="scss" scoped>
+/* Brand icon tile in the card's left image column (like the chart-catalog
+   cards). Fills RcItemCard's 48px image box, tinted with the brand color. */
+.sc-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--border-radius, 6px);
+  background: color-mix(in srgb, var(--sc-color) 15%, transparent);
+
+  svg {
+    width: 26px;
+    height: 26px;
+    fill: var(--sc-color);
+  }
+}
+
 .title-row {
   display: flex;
   align-items: center;
@@ -122,24 +143,6 @@ export default {
     margin: 0;
     font-size: 16px;
     font-weight: 600;
-  }
-
-  .icon-tile {
-    flex: 0 0 auto;
-    width: 38px;
-    height: 38px;
-    margin-right: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--sc-color) 15%, transparent);
-
-    svg {
-      width: 22px;
-      height: 22px;
-      fill: var(--sc-color);
-    }
   }
 
   .header-right {

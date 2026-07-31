@@ -3,9 +3,6 @@ import CruResource from '@shell/components/CruResource';
 import NameNsDescription from '@shell/components/form/NameNsDescription';
 import FormValidation from '@shell/mixins/form-validation';
 import LabeledSelect from '@shell/components/form/LabeledSelect';
-import { RcSection } from '@components/RcSection';
-import { Checkbox } from '@components/Form/Checkbox';
-import SidecarCard from '../components/SidecarCard';
 import {
   createCloset, listSecretSets, readSecretSet, setCluster, setSecretOwner,
   registerPendingCloset, clearPendingCloset,
@@ -27,41 +24,19 @@ const SECRET_PARAM_ENV = {
   azureTenantId:       'AZURE_TENANT_ID',
 };
 
-// The fixed set of sidecars a closet can run (no closet api to query at create
-// time). Rendered with the same SidecarCard as the detail view, each with an
-// enable toggle. `params` carry an `env` used to build the chart config.
-// vscode is shown last in Dev.
-const SIDECAR_CATALOG = [
-  {
-    key: 'rancher', name: 'rancher', group: 'Dev', description: 'Rancher server. First start ~10 min.',
-    params: [
-      {
-        id: 'auth', label: 'Rancher auth', type: 'select', env: 'RANCHER_AUTH_PROVIDER', default: 'keycloak',
-        options: [
-          { label: 'None', value: '' },
-          { label: 'Keycloak (OIDC)', value: 'keycloak' },
-          { label: 'Keycloak (SAML)', value: 'keycloak-saml' },
-          { label: 'OpenLDAP', value: 'openldap' },
-        ],
-      },
-      { id: 'prime', label: 'Prime', type: 'boolean', env: 'RANCHER_PRIME' },
-    ],
-  },
-  { key: 'rancherBrowser', name: 'rancher-browser', group: 'Dev', description: 'Chromium with Rancher quick-login.' },
-  { key: 'vscode', name: 'vscode', group: 'Dev', description: 'VS Code editing /workspace.' },
-  { key: 'keycloak', name: 'keycloak', group: 'Auth', description: 'Keycloak OIDC/SAML provider.' },
-  { key: 'openldap', name: 'openldap', group: 'Auth', description: 'OpenLDAP directory server.' },
-  { key: 'figma', name: 'figma', group: 'Design', description: 'Figma MCP server.' },
-];
+// Closets are created empty — every sidecar off. The user turns them on from
+// the detail page.
+const ALL_SIDECARS_OFF = {
+  rancher: false, rancherBrowser: false, keycloak: false, openldap: false, figma: false,
+};
 
-const GROUP_ORDER = ['Dev', 'Auth', 'Design'];
-
-// Create a closet: name + secret set, then toggle/configure sidecars.
+// Create a closet: just a name + an optional secret set. Sidecars are all off
+// to start and toggled on from the detail page.
 export default {
   name: 'ClosetCreate',
 
   components: {
-    CruResource, NameNsDescription, LabeledSelect, RcSection, Checkbox, SidecarCard,
+    CruResource, NameNsDescription, LabeledSelect,
   },
 
   mixins: [FormValidation],
@@ -81,35 +56,16 @@ export default {
     if (!this.value.metadata) {
       this.value.metadata = { name: this.value.id || '' };
     }
-    const paramEdits = {};
-
-    for (const s of SIDECAR_CATALOG) {
-      paramEdits[s.key] = {};
-      for (const p of s.params || []) {
-        paramEdits[s.key][p.id] = p.default ?? '';
-      }
-    }
 
     return {
-      errors:        [],
-      enabled:       {
-        rancher: true, rancherBrowser: true, vscode: false, keycloak: true, openldap: false, figma: false,
-      },
-      paramEdits,
-      secretSets:    [],
-      secretSetName: '',
+      errors:         [],
+      secretSets:     [],
+      secretSetName:  '',
       fvFormRuleSets: [{ path: 'metadata.name', rules: ['required'] }],
     };
   },
 
   computed: {
-    groups() {
-      const names = [...new Set(SIDECAR_CATALOG.map((s) => s.group))]
-        .sort((a, b) => (GROUP_ORDER.indexOf(a) < 0 ? 99 : GROUP_ORDER.indexOf(a)) - (GROUP_ORDER.indexOf(b) < 0 ? 99 : GROUP_ORDER.indexOf(b)));
-
-      return names.map((name) => ({ name, sidecars: SIDECAR_CATALOG.filter((s) => s.group === name) }));
-    },
-
     secretSetOptions() {
       return [
         { label: 'None (no secrets)', value: '' },
@@ -144,23 +100,6 @@ export default {
 
       try {
         const config = {};
-
-        for (const s of SIDECAR_CATALOG) {
-          if (!this.enabled[s.key]) {
-            continue;
-          }
-          for (const p of s.params || []) {
-            const v = this.paramEdits[s.key][p.id];
-
-            if (p.type === 'boolean') {
-              if (v && v !== 'false') {
-                config[p.env] = 'true';
-              }
-            } else if (v) {
-              config[p.env] = v;
-            }
-          }
-        }
         const secretValues = this.secretSetName ? await readSecretSet(this.secretSetName).catch(() => ({})) : {};
 
         for (const [id, env] of Object.entries(SECRET_PARAM_ENV)) {
@@ -169,9 +108,8 @@ export default {
           }
         }
 
-        // Kick off the install, then show the closet in the list right away
-        // (optimistic) and navigate — no waiting for the Helm app to appear.
-        await createCloset(name, this.enabled, config);
+        // Install empty (all sidecars off), then show it and navigate.
+        await createCloset(name, ALL_SIDECARS_OFF, config);
         registerPendingCloset(name);
         await this.$store.dispatch('cluster/findAll', { type: CLOSET_TYPE, opt: { force: true } }).catch(() => {});
         cb(true);
@@ -213,52 +151,15 @@ export default {
     <LabeledSelect
       class="secret-set-select"
       label="Secret set"
+      tooltip="Credentials (tokens, keys) injected into the closet. Manage these under Secret Sets."
       :value="secretSetName"
       :options="secretSetOptions"
       :searchable="false"
       @update:value="secretSetName = typeof $event === 'object' ? ($event && $event.value) : $event"
     />
-
-    <RcSection
-      v-for="group in groups"
-      :key="group.name"
-      :title="group.name"
-      type="primary"
-      mode="with-header"
-      class="sidecar-group"
-    >
-      <div class="cards">
-        <SidecarCard
-          v-for="s in group.sidecars"
-          :key="s.key"
-          :name="s.name"
-          :description="s.description"
-          :params="s.params || []"
-          :values="paramEdits[s.key]"
-          :config-open="!!enabled[s.key]"
-          :disabled="!enabled[s.key]"
-        >
-          <template #header-right>
-            <Checkbox
-              :value="!!enabled[s.key]"
-              label="Enabled"
-              @update:value="enabled[s.key] = $event"
-            />
-          </template>
-        </SidecarCard>
-      </div>
-    </RcSection>
   </CruResource>
 </template>
 
 <style lang="scss" scoped>
-.secret-set-select { margin: 20px 0; }
-
-.sidecar-group { margin-top: 12px; }
-
-.cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 16px;
-}
+.secret-set-select { margin: 20px 0; max-width: 480px; }
 </style>

@@ -2,11 +2,15 @@
 import { RcSection } from '@components/RcSection';
 import { RcButton } from '@components/RcButton';
 import { BadgeState } from '@components/BadgeState';
+import { ToggleSwitch } from '@components/Form/ToggleSwitch';
 import LabeledSelect from '@shell/components/form/LabeledSelect';
 import SidecarCard from '../components/SidecarCard';
 import { closetApiBase, rancherFetch, setCluster } from '../api';
 
 const GROUP_ORDER = ['dev', 'auth', 'design'];
+
+// Sidecars no longer offered — hidden from the closet dashboard.
+const HIDDEN_SIDECARS = ['vscode'];
 
 // Params never shown as closet config: secret-set-managed credentials + the
 // GitHub URL.
@@ -22,7 +26,7 @@ export default {
   name: 'ClosetDetail',
 
   components: {
-    RcSection, RcButton, BadgeState, LabeledSelect, SidecarCard,
+    RcSection, RcButton, BadgeState, ToggleSwitch, LabeledSelect, SidecarCard,
   },
 
   props: {
@@ -98,7 +102,7 @@ export default {
       try {
         const data = await rancherFetch(`${ this.apiBase }/sidecars`);
 
-        this.sidecars = data.sidecars || [];
+        this.sidecars = (data.sidecars || []).filter((s) => !HIDDEN_SIDECARS.includes(s.name));
         this.rancher = data.rancher || { running: false, authProvider: null };
         for (const s of this.sidecars) {
           const cur = this.edits[s.name] || {};
@@ -299,6 +303,18 @@ export default {
       return this.act(s.name, 'Stopping', 'stopped', `sidecars/${ s.name }/stop`);
     },
 
+    // On/off toggle — reflects the optimistic goal while pending, else the real
+    // status. Flipping it starts or stops the sidecar.
+    toggled(s) {
+      const p = this.pending[s.name];
+
+      return p ? p.goal === 'running' : s.status === 'running';
+    },
+
+    onToggle(s, on) {
+      return on ? this.start(s) : this.stop(s);
+    },
+
     async applyAuth() {
       this.applying = true;
       try {
@@ -343,11 +359,18 @@ export default {
           :unsupported="s.unsupported || ''"
         >
           <template #header-right>
-            <BadgeState
-              :color="badgeColor(s)"
-              :label="badgeLabel(s)"
-              :title="badgeTitle(s)"
-            />
+            <div class="hdr-right">
+              <BadgeState
+                :color="badgeColor(s)"
+                :label="badgeLabel(s)"
+                :title="badgeTitle(s)"
+              />
+              <ToggleSwitch
+                :value="toggled(s)"
+                :disabled="!!pending[s.name] || (s.unsupported && s.status === 'not_created')"
+                @update:value="onToggle(s, $event)"
+              />
+            </div>
           </template>
 
           <template #links>
@@ -384,23 +407,14 @@ export default {
             </div>
           </template>
 
-          <template v-if="!(s.unsupported && s.status === 'not_created')" #actions>
+          <template v-if="s.status === 'running'" #actions>
             <RcButton
-              v-if="['running', 'exited', 'created'].includes(s.status)"
               variant="secondary"
-              size="small"
-              :disabled="!!pending[s.name] || s.status !== 'running'"
-              @click="stop(s)"
-            >
-              Stop
-            </RcButton>
-            <RcButton
-              variant="primary"
               size="small"
               :disabled="!!pending[s.name]"
               @click="start(s)"
             >
-              {{ s.status === 'running' ? 'Restart' : 'Start' }}
+              Restart
             </RcButton>
           </template>
         </SidecarCard>
@@ -436,6 +450,12 @@ main:has(.closet-dashboard) .metadata-section,
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 16px;
+  }
+
+  .hdr-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
 
   .auth {
