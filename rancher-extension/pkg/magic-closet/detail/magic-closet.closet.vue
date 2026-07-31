@@ -444,6 +444,7 @@ export default {
               :value="authSel"
               :options="authProviders"
               :searchable="false"
+              :append-to-body="false"
               @update:value="authSel = typeof $event === 'object' ? ($event && $event.value) : $event"
             />
           </template>

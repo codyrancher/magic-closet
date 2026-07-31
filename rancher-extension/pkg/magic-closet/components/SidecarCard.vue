@@ -130,6 +130,7 @@ export default {
                 :options="p.options || []"
                 :taggable="!!p.taggable"
                 :searchable="!!p.taggable"
+                :append-to-body="false"
                 @update:value="values[p.id] = typeof $event === 'object' ? ($event && $event.value) : $event"
               />
               <LabeledInput
