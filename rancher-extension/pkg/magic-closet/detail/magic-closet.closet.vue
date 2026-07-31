@@ -50,6 +50,7 @@ export default {
       edits:    {},        // sidecar -> { paramId -> value }
       options:  {},        // "sidecar::param" -> option list
       authSel:  '',
+      configFor: null,     // name of the sidecar whose config modal is open
     };
   },
 
@@ -302,6 +303,30 @@ export default {
       return this.act(s.name, 'Stopping', 'stopped', `sidecars/${ s.name }/stop`);
     },
 
+    // Does this sidecar have anything to configure (params or rancher auth)?
+    hasConfigFor(s) {
+      return this.cardParams(s).length > 0 || (s.name === 'rancher' && this.authProviders.length > 1);
+    },
+
+    // Start button: if there's configuration to pick, open the modal first;
+    // otherwise start straight away.
+    onStart(s) {
+      if (this.hasConfigFor(s)) {
+        this.configFor = s.name;
+
+        return null;
+      }
+
+      return this.start(s);
+    },
+
+    // Modal Save: apply the chosen config by (re)starting the sidecar.
+    onSave(s) {
+      this.configFor = null;
+
+      return this.start(s);
+    },
+
     async applyAuth() {
       this.applying = true;
       try {
@@ -344,6 +369,10 @@ export default {
           :params="cardParams(s)"
           :values="edits[s.name] || {}"
           :unsupported="s.unsupported || ''"
+          :config-open="configFor === s.name"
+          :save-label="s.status === 'running' ? 'Save & Restart' : 'Save & Start'"
+          @update:config-open="configFor = $event ? s.name : null"
+          @save="onSave(s)"
         >
           <template #header-right>
             <BadgeState
@@ -411,7 +440,7 @@ export default {
               variant="primary"
               size="small"
               :disabled="!!pending[s.name]"
-              @click="start(s)"
+              @click="onStart(s)"
             >
               Start
             </RcButton>

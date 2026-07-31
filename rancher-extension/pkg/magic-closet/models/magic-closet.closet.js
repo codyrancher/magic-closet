@@ -18,7 +18,17 @@ export default class Closet extends Resource {
   }
 
   get canUpdate() {
-    return true;
+    return false;
+  }
+
+  // The detail page is the interactive config UI — a closet has no separate
+  // "Edit Config" page, so strip the edit/view/config/yaml/clone actions from
+  // the ⋮ menu (they're enabled by the presence of the create component, which
+  // we still need). Only Delete remains.
+  get _availableActions() {
+    const strip = ['goToEdit', 'goToViewConfig', 'showConfiguration', 'goToEditYaml', 'goToViewYaml', 'goToClone', 'cloneYaml'];
+
+    return super._availableActions.filter((a) => !strip.includes(a.action));
   }
 
   get canClone() {
