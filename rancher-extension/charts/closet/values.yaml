@@ -1,7 +1,6 @@
 images:
   api: ghcr.io/codyrancher/magic-closet-api:latest
   closet: ghcr.io/codyrancher/magic-closet-closet:latest
-  vscode: ghcr.io/codyrancher/magic-closet-vscode:latest
   rancherManager: dtzar/helm-kubectl:latest
   keycloak: quay.io/keycloak/keycloak:latest
   openldap: osixia/openldap:1.5.0
@@ -9,13 +8,13 @@ images:
   figma: acuvity/mcp-server-figma:latest
 
 # Which sidecars start enabled (deployments always exist; these set the
-# initial replica count — the closet api scales them after install)
+# initial replica count — the closet api scales them after install). Closets
+# start empty; the user turns sidecars on from the detail page.
 # rancher runs as a vcluster + helm-installed rancher (see
 # templates/rancher.yaml); first start takes ~10 minutes
 sidecars:
-  vscode: true
-  rancher: true
-  keycloak: true
+  rancher: false
+  keycloak: false
   rancherBrowser: false
   openldap: false
   figma: false
@@ -53,7 +52,7 @@ storage:
   rancher: 5Gi
 
 expose:
-  # NodePort services (api, vscode, rancher, keycloak, rancher-browser) —
+  # NodePort services (api, rancher, keycloak, rancher-browser) —
   # on by default so sidecars whose UIs break behind the path-prefixed
   # service proxy (rancher, keycloak) get direct node-IP links
   nodePort: true
