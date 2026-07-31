@@ -130,6 +130,7 @@ export default {
                 :options="p.options || []"
                 :taggable="!!p.taggable"
                 :searchable="!!p.taggable"
+                :append-to-body="true"
                 @update:value="values[p.id] = typeof $event === 'object' ? ($event && $event.value) : $event"
               />
               <LabeledInput
@@ -252,10 +253,12 @@ export default {
 }
 
 /* ---- config modal (teleported to body) ---- */
+/* Below vue-select's appended dropdown (--vs-dropdown-z-index: 1000) so the
+   config selects' menus render above the modal, but above the page. */
 .sc-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: 200;
   display: flex;
   align-items: center;
   justify-content: center;

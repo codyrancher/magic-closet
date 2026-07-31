@@ -320,11 +320,57 @@ export default {
       return this.start(s);
     },
 
-    // Modal Save: apply the chosen config by (re)starting the sidecar.
+    // Did a restart-requiring param (e.g. tag, prime) change from its current
+    // value?
+    restartNeeded(s) {
+      return (s.params || []).some((p) => {
+        if (HIDDEN_PARAMS.includes(p.id)) {
+          return false;
+        }
+        const cur = String(p.value ?? p.default ?? '');
+        const edited = String(this.edits[s.name]?.[p.id] ?? '');
+
+        return edited !== cur;
+      });
+    },
+
+    // Did the rancher auth selection change from what's currently applied?
+    authChanged(s) {
+      return s.name === 'rancher' && this.authProviders.length > 1 && this.authSel !== (this.rancher.authProvider || '');
+    },
+
+    // The single save button's label reflects the pending change: starting a
+    // stopped sidecar, restarting for a param change, or just applying an auth
+    // change (no restart).
+    saveLabelFor(s) {
+      if (s.status !== 'running') {
+        return 'Save & Start';
+      }
+      if (this.restartNeeded(s)) {
+        return 'Save & Restart';
+      }
+      if (this.authChanged(s)) {
+        return 'Save & Apply';
+      }
+
+      return 'Save & Restart';
+    },
+
+    // Modal Save: apply auth if it changed (no restart), and (re)start the
+    // sidecar unless the only change was an auth apply on a running sidecar.
     onSave(s) {
+      const running = s.status === 'running';
+      const restart = this.restartNeeded(s);
+      const auth = this.authChanged(s);
+
       this.configFor = null;
 
-      return this.start(s);
+      if (auth) {
+        this.applyAuth();
+      }
+      if (!running || restart || !auth) {
+        this.start(s);
+      }
     },
 
     async applyAuth() {
@@ -366,7 +412,7 @@ export default {
           :values="edits[s.name] || {}"
           :unsupported="s.unsupported || ''"
           :config-open="configFor === s.name"
-          :save-label="s.status === 'running' ? 'Save & Restart' : 'Save & Start'"
+          :save-label="saveLabelFor(s)"
           @update:config-open="configFor = $event ? s.name : null"
           @save="onSave(s)"
         >
@@ -393,22 +439,14 @@ export default {
           </template>
 
           <template v-if="s.name === 'rancher' && authProviders.length > 1" #config-extra>
-            <div class="auth">
-              <LabeledSelect
-                label="rancher auth"
-                :value="authSel"
-                :options="authProviders"
-                :searchable="false"
-                @update:value="authSel = typeof $event === 'object' ? ($event && $event.value) : $event"
-              />
-              <RcButton
-                variant="secondary"
-                :disabled="!rancher.running || applying"
-                @click="applyAuth()"
-              >
-                {{ applying ? 'Applying…' : 'Apply' }}
-              </RcButton>
-            </div>
+            <LabeledSelect
+              label="rancher auth"
+              :value="authSel"
+              :options="authProviders"
+              :searchable="false"
+              :append-to-body="true"
+              @update:value="authSel = typeof $event === 'object' ? ($event && $event.value) : $event"
+            />
           </template>
 
           <template v-if="!(s.unsupported && s.status === 'not_created')" #actions>
@@ -470,14 +508,6 @@ main:has(.closet-dashboard) .metadata-section,
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 16px;
-  }
-
-  .auth {
-    display: flex;
-    align-items: flex-end;
-    gap: 8px;
-
-    > :first-child { flex: 1; }
   }
 }
 </style>
