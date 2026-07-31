@@ -62,10 +62,22 @@ data:
     helm upgrade --install cert-manager jetstack/cert-manager \
       -n cert-manager --create-namespace \
       --set crds.enabled=true --wait --timeout 10m
+    # Rancher Prime is the same rancher/rancher image presented as Prime (SUSE
+    # branding) via env vars — mirrors the compose rancher sidecar. RANCHER_TAG
+    # pins the image tag (skip for the 'head' dev default / unset).
+    PRIME_ARGS=""
+    if [ -n "$RANCHER_PRIME" ] && [ "$RANCHER_PRIME" != "false" ]; then
+      PRIME_ARGS="--set-string extraEnv[0].name=RANCHER_VERSION_TYPE --set-string extraEnv[0].value=prime --set-string extraEnv[1].name=CATTLE_BASE_UI_BRAND --set-string extraEnv[1].value=suse"
+    fi
+    TAG_ARGS=""
+    if [ -n "$RANCHER_TAG" ] && [ "$RANCHER_TAG" != "head" ]; then
+      TAG_ARGS="--set rancherImageTag=$RANCHER_TAG"
+    fi
     helm upgrade --install rancher rancher-latest/rancher \
       -n cattle-system --create-namespace \
       --set hostname=rancher.magic-closet.local --set replicas=1 \
       --set bootstrapPassword="$CATTLE_BOOTSTRAP_PASSWORD" \
+      $PRIME_ARGS $TAG_ARGS \
       --wait --timeout 20m
 
     unset KUBECONFIG
@@ -104,6 +116,10 @@ spec:
         - name: manager
           image: {{ .Values.images.rancherManager }}
           command: ["/bin/sh", "/scripts/manage.sh"]
+          # closet-config carries RANCHER_PRIME / RANCHER_TAG that manage.sh
+          # feeds into the rancher install
+          envFrom:
+            - configMapRef: { name: closet-config }
           env:
             - name: NS
               valueFrom:
