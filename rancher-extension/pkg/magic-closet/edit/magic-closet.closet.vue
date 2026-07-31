@@ -1,8 +1,8 @@
 <script>
 import CruResource from '@shell/components/CruResource';
-import NameNsDescription from '@shell/components/form/NameNsDescription';
 import FormValidation from '@shell/mixins/form-validation';
 import LabeledSelect from '@shell/components/form/LabeledSelect';
+import { LabeledInput } from '@components/Form/LabeledInput';
 import {
   createCloset, listSecretSets, readSecretSet, setCluster, setSecretOwner,
   registerPendingCloset, clearPendingCloset,
@@ -36,7 +36,7 @@ export default {
   name: 'ClosetCreate',
 
   components: {
-    CruResource, NameNsDescription, LabeledSelect,
+    CruResource, LabeledSelect, LabeledInput,
   },
 
   mixins: [FormValidation],
@@ -140,26 +140,32 @@ export default {
     @cancel="cancel"
     @error="e => errors = e"
   >
-    <NameNsDescription
-      :value="value"
-      :mode="mode"
-      :namespaced="false"
-      :description-hidden="true"
-      :rules="{ name: fvGetAndReportPathRules('metadata.name') }"
-    />
-
-    <LabeledSelect
-      class="secret-set-select"
-      label="Secret set"
-      tooltip="Credentials (tokens, keys) injected into the closet. Manage these under Secret Sets."
-      :value="secretSetName"
-      :options="secretSetOptions"
-      :searchable="false"
-      @update:value="secretSetName = typeof $event === 'object' ? ($event && $event.value) : $event"
-    />
+    <div class="row">
+      <div class="col span-6">
+        <LabeledInput
+          label="Name"
+          :required="true"
+          :mode="mode"
+          placeholder="A unique name"
+          :value="value.metadata.name"
+          :rules="fvGetAndReportPathRules('metadata.name')"
+          @update:value="value.metadata.name = $event"
+        />
+      </div>
+      <div class="col span-6">
+        <LabeledSelect
+          label="Secret set"
+          tooltip="Credentials (tokens, keys) injected into the closet. Manage these under Secret Sets."
+          :value="secretSetName"
+          :options="secretSetOptions"
+          :searchable="false"
+          @update:value="secretSetName = typeof $event === 'object' ? ($event && $event.value) : $event"
+        />
+      </div>
+    </div>
   </CruResource>
 </template>
 
 <style lang="scss" scoped>
-.secret-set-select { margin: 20px 0; max-width: 480px; }
+.row { margin-top: 20px; }
 </style>
