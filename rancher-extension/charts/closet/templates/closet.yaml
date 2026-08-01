@@ -30,9 +30,12 @@ data:
     NAME=$(echo "${MC_TUNNEL_NAME:-closet}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed 's/^-*//; s/-*$//' | cut -c1-20)
     mkdir -p "$T/cli"
     if [ ! -x "$T/code" ]; then
-      ( cd "$T" && curl -fsSL "https://update.code.visualstudio.com/latest/cli-linux-x64/stable" -o code.tgz && tar -xzf code.tgz && chmod +x ./code && rm -f code.tgz )
+      ( cd "$T" && curl -fsSL --max-time 180 "https://update.code.visualstudio.com/latest/cli-linux-x64/stable" -o code.tgz && tar -xzf code.tgz && chmod +x ./code && rm -f code.tgz )
     fi
-    if [ -x "$T/code" ] && ! pgrep -f 'code tunnel' >/dev/null; then
+    if [ -x "$T/code" ] && ! pgrep -x code >/dev/null; then
+      # no tunnel running -> clear any stale singleton lock an ungraceful exit
+      # left behind (else the CLI retries "access singleton" forever)
+      rm -f "$T/cli/tunnel-stable.lock"
       nohup "$T/code" tunnel --accept-server-license-terms --name "$NAME" --cli-data-dir "$T/cli" >"$T/tunnel.log" 2>&1 &
     fi
 
@@ -83,11 +86,15 @@ spec:
           ports:
             - containerPort: 8005
           # Set up VS Code remote access on every boot (sshd + `code tunnel`);
-          # see the closet-scripts ConfigMap. Best-effort — never fails the pod.
+          # see the closet-scripts ConfigMap. Detached + returns immediately so
+          # the (slow, apt+download) setup never blocks the pod becoming Ready.
           lifecycle:
             postStart:
               exec:
-                command: ["/bin/bash", "/scripts/mc-remote-setup.sh"]
+                command:
+                  - /bin/bash
+                  - -c
+                  - setsid bash /scripts/mc-remote-setup.sh </dev/null >/workspace/.mc-remote.log 2>&1 & exit 0
           volumeMounts:
             - { name: workspace, mountPath: /workspace }
             - { name: claude-data, mountPath: /claude-data }
