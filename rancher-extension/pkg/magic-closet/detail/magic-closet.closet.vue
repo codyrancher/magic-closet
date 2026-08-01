@@ -52,6 +52,7 @@ export default {
       authSel:  '',
       configFor: null,     // name of the sidecar whose config modal is open
       copied:    false,    // "Connect VS Code" command copied feedback
+      tunnel:    { state: 'off' }, // VS Code tunnel status (from the closet api)
     };
   },
 
@@ -148,6 +149,12 @@ export default {
       } catch (e) {
         this.error = e.message;
       }
+
+      // Best-effort: VS Code tunnel status (separate so a missing/old endpoint
+      // never breaks the dashboard).
+      try {
+        this.tunnel = await rancherFetch(`${ this.apiBase }/tunnel`);
+      } catch { /* older api without /tunnel */ }
     },
 
     // Drop an optimistic entry once the real status reaches its goal (held a
@@ -529,20 +536,50 @@ export default {
       class="sidecar-group"
     >
       <div class="vscode-remote">
-        <p class="hint">
-          Paste this in a local terminal (with <code>kubectl</code> pointed at this cluster — download the KubeConfig from Rancher) to add a Remote-SSH host for this closet's <code>/workspace</code>. Then in VS&nbsp;Code: <b>Remote-SSH → Connect to Host → {{ value.metadata.name }}</b>.
-        </p>
-        <div class="cmd">
-          <code>{{ vscodeCommand }}</code>
-          <RcButton
-            variant="secondary"
-            size="small"
-            class="copy"
-            @click="copyVscode"
-          >
-            {{ copied ? 'Copied' : 'Copy' }}
-          </RcButton>
+        <div class="tunnel">
+          <template v-if="tunnel.state === 'connected'">
+            <p class="hint">
+              The VS&nbsp;Code tunnel is up — open this closet's <code>/workspace</code> (no kubectl needed):
+            </p>
+            <div class="links">
+              <a
+                :href="tunnel.connectUrl || ('https://vscode.dev/tunnel/' + tunnel.name)"
+                target="_blank"
+                rel="noopener"
+              >Open in vscode.dev</a>
+              <span class="muted">or Desktop VS&nbsp;Code → <b>Remote Tunnels</b> → <code>{{ tunnel.name }}</code></span>
+            </div>
+          </template>
+          <template v-else-if="tunnel.state === 'auth' && tunnel.deviceCode">
+            <p class="hint">One-time sign-in to authorize the tunnel:</p>
+            <ol class="steps">
+              <li>Open <a href="https://github.com/login/device" target="_blank" rel="noopener">github.com/login/device</a></li>
+              <li>Enter code <code class="devcode">{{ tunnel.deviceCode }}</code></li>
+            </ol>
+            <p class="muted">Then this closet appears in Desktop VS&nbsp;Code under <b>Remote Tunnels</b>.</p>
+          </template>
+          <template v-else>
+            <p class="hint">Starting the VS&nbsp;Code tunnel… (the first boot downloads the CLI — give it a moment and it'll show a sign-in code here).</p>
+          </template>
         </div>
+
+        <details class="advanced">
+          <summary>Advanced: Remote-SSH (requires kubectl)</summary>
+          <p class="hint">
+            With <code>kubectl</code> pointed at this cluster (download the KubeConfig from Rancher), paste this locally to add a Remote-SSH host, then VS&nbsp;Code: <b>Remote-SSH → Connect to Host → {{ value.metadata.name }}</b>.
+          </p>
+          <div class="cmd">
+            <code>{{ vscodeCommand }}</code>
+            <RcButton
+              variant="secondary"
+              size="small"
+              class="copy"
+              @click="copyVscode"
+            >
+              {{ copied ? 'Copied' : 'Copy' }}
+            </RcButton>
+          </div>
+        </details>
       </div>
     </RcSection>
   </div>
@@ -584,6 +621,47 @@ main:has(.closet-dashboard) .metadata-section,
       margin: 0 0 8px;
 
       code { font-size: 12px; }
+    }
+
+    .muted { color: var(--muted); font-size: 13px; }
+
+    .tunnel {
+      .links {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+
+        a { cursor: pointer; }
+      }
+
+      .steps {
+        margin: 0 0 8px;
+        padding-left: 20px;
+        font-size: 13px;
+
+        li { margin: 2px 0; }
+      }
+
+      .devcode {
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: 1px;
+        padding: 2px 8px;
+        background: var(--input-bg, var(--body-bg));
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        user-select: all;
+      }
+    }
+
+    .advanced {
+      margin-top: 14px;
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+
+      summary { cursor: pointer; color: var(--muted); font-size: 13px; user-select: none; }
+      &[open] > summary { margin-bottom: 8px; }
     }
 
     .cmd {

@@ -605,6 +605,12 @@ function sidecarApiUrl(k8sUrl, scheme, portEnv, offset) {
 
 let rancherBootstrap = { state: 'idle', containerId: null }; // idle|running|done|failed
 
+// Latest VS Code tunnel status, pushed by the closet pod's reporter (POST
+// /tunnel) and read by the extension detail page (GET /tunnel). state is one of
+// off|starting|auth|connected; auth carries a deviceUrl/deviceCode, connected a
+// connectUrl + name.
+let tunnelStatus = { state: 'off', updated: 0 };
+
 // The host's externally-reachable IP, for Rancher's server-url. EC2 instance
 // metadata first, then a public-IP echo service. Only SUCCESS is cached — a
 // transient failure must not permanently strand server-url on the in-network
@@ -1806,6 +1812,25 @@ const handler = (async (req, res) => {
       const types = { '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.map': 'application/json' };
       res.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream' });
       return res.end(fs.readFileSync(file));
+    }
+    // VS Code tunnel: the closet pod reports its state here; the detail page
+    // reads it to show the device-login code / connect link.
+    if (req.method === 'POST' && url.pathname === '/tunnel') {
+      const body = await readBody(req);
+
+      tunnelStatus = {
+        state:      body.state || 'off',
+        deviceUrl:  body.deviceUrl || '',
+        deviceCode: body.deviceCode || '',
+        connectUrl: body.connectUrl || '',
+        name:       body.name || '',
+        updated:    Date.now(),
+      };
+
+      return sendJson(res, 200, { ok: true });
+    }
+    if (req.method === 'GET' && url.pathname === '/tunnel') {
+      return sendJson(res, 200, { ...tunnelStatus, stale: Date.now() - (tunnelStatus.updated || 0) > 20000 });
     }
     if (req.method === 'POST' && url.pathname === '/browser/open') {
       return handleBrowserOpen(await readBody(req), res);

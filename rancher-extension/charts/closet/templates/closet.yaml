@@ -1,3 +1,61 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: closet-scripts
+data:
+  # Runs (best-effort) from the closet container's postStart on every boot.
+  # Sets up two ways for the user to attach VS Code to /workspace:
+  #  1. sshd on 127.0.0.1:2222 — Remote-SSH via a `kubectl exec … nc` proxy.
+  #  2. `code tunnel` — Remote-Tunnels / vscode.dev, no kubectl or open port.
+  # Keys + the tunnel's auth token live on the persistent /workspace volume, so
+  # both survive restarts. A reporter pushes tunnel state to the api so the
+  # detail page can show the one-time device-login code + the connect link.
+  mc-remote-setup.sh: |
+    #!/bin/bash
+    set +e
+    export DEBIAN_FRONTEND=noninteractive
+
+    # ---- sshd (Remote-SSH via kubectl exec) ----
+    if ! command -v sshd >/dev/null || ! command -v nc >/dev/null; then
+      apt-get update -qq && apt-get install -y -qq openssh-server netcat-openbsd
+    fi
+    mkdir -p /run/sshd /workspace/.mc-ssh && chmod 700 /workspace/.mc-ssh
+    [ -f /workspace/.mc-ssh/host_ed25519 ] || ssh-keygen -t ed25519 -N '' -f /workspace/.mc-ssh/host_ed25519 -q
+    touch /workspace/.mc-ssh/authorized_keys && chmod 600 /workspace/.mc-ssh/authorized_keys
+    printf 'Port 2222\nListenAddress 127.0.0.1\nHostKey /workspace/.mc-ssh/host_ed25519\nPermitRootLogin prohibit-password\nAuthorizedKeysFile /workspace/.mc-ssh/authorized_keys\nUsePAM no\nStrictModes no\n' > /etc/ssh/sshd_config_vscode
+    pgrep -x sshd >/dev/null || /usr/sbin/sshd -f /etc/ssh/sshd_config_vscode
+
+    # ---- VS Code tunnel (no kubectl to connect) ----
+    T=/workspace/.mc-tunnel
+    NAME=$(echo "${MC_TUNNEL_NAME:-closet}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed 's/^-*//; s/-*$//' | cut -c1-20)
+    mkdir -p "$T/cli"
+    if [ ! -x "$T/code" ]; then
+      ( cd "$T" && curl -fsSL "https://update.code.visualstudio.com/latest/cli-linux-x64/stable" -o code.tgz && tar -xzf code.tgz && chmod +x ./code && rm -f code.tgz )
+    fi
+    if [ -x "$T/code" ] && ! pgrep -f 'code tunnel' >/dev/null; then
+      nohup "$T/code" tunnel --accept-server-license-terms --name "$NAME" --cli-data-dir "$T/cli" >"$T/tunnel.log" 2>&1 &
+    fi
+
+    # ---- reporter: push tunnel state to the api for the detail page ----
+    cat > "$T/report.sh" <<'RPT'
+    #!/bin/bash
+    T=/workspace/.mc-tunnel; N="$1"; L="$T/tunnel.log"
+    while true; do
+      code=$(grep -oiE 'use code [A-Z0-9-]{9}' "$L" 2>/dev/null | tail -1 | awk '{print $3}')
+      url=$(grep -oiE 'https://vscode.dev/tunnel/[A-Za-z0-9/_-]+' "$L" 2>/dev/null | tail -1)
+      if grep -qiE 'Open this link|Connected to an existing tunnel|is available at' "$L" 2>/dev/null || [ -n "$url" ]; then
+        st=connected; [ -z "$url" ] && url="https://vscode.dev/tunnel/$N"
+      elif [ -n "$code" ]; then st=auth
+      else st=starting; fi
+      curl -fsS -m3 -X POST http://api:8080/tunnel -H 'content-type: application/json' \
+        -d "{\"state\":\"$st\",\"deviceUrl\":\"https://github.com/login/device\",\"deviceCode\":\"$code\",\"connectUrl\":\"$url\",\"name\":\"$N\"}" >/dev/null 2>&1
+      sleep 5
+    done
+    RPT
+    chmod +x "$T/report.sh"
+    pgrep -f "$T/report.sh" >/dev/null || nohup "$T/report.sh" "$NAME" >/dev/null 2>&1 &
+    exit 0
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -19,35 +77,24 @@ spec:
           envFrom:
             - secretRef: { name: closet-secrets }
             - configMapRef: { name: closet-config }
+          env:
+            - name: MC_TUNNEL_NAME
+              value: {{ .Release.Namespace | quote }}
           ports:
             - containerPort: 8005
-          # Run a tiny sshd on 127.0.0.1:2222 so VS Code Remote-SSH can attach
-          # to /workspace via a `kubectl exec … nc` ProxyCommand (no exposed
-          # port). Host key + authorized_keys live on the persistent /workspace
-          # volume, so it survives restarts; the closet detail page hands out a
-          # one-liner that injects the user's key.
+          # Set up VS Code remote access on every boot (sshd + `code tunnel`);
+          # see the closet-scripts ConfigMap. Best-effort — never fails the pod.
           lifecycle:
             postStart:
               exec:
-                command:
-                  - /bin/bash
-                  - -c
-                  - |
-                    set +e
-                    export DEBIAN_FRONTEND=noninteractive
-                    if ! command -v sshd >/dev/null || ! command -v nc >/dev/null; then
-                      apt-get update -qq && apt-get install -y -qq openssh-server netcat-openbsd
-                    fi
-                    mkdir -p /run/sshd /workspace/.mc-ssh && chmod 700 /workspace/.mc-ssh
-                    [ -f /workspace/.mc-ssh/host_ed25519 ] || ssh-keygen -t ed25519 -N '' -f /workspace/.mc-ssh/host_ed25519 -q
-                    touch /workspace/.mc-ssh/authorized_keys && chmod 600 /workspace/.mc-ssh/authorized_keys
-                    printf 'Port 2222\nListenAddress 127.0.0.1\nHostKey /workspace/.mc-ssh/host_ed25519\nPermitRootLogin prohibit-password\nAuthorizedKeysFile /workspace/.mc-ssh/authorized_keys\nUsePAM no\nStrictModes no\n' > /etc/ssh/sshd_config_vscode
-                    pgrep -x sshd >/dev/null || /usr/sbin/sshd -f /etc/ssh/sshd_config_vscode
-                    exit 0
+                command: ["/bin/bash", "/scripts/mc-remote-setup.sh"]
           volumeMounts:
             - { name: workspace, mountPath: /workspace }
             - { name: claude-data, mountPath: /claude-data }
+            - { name: scripts, mountPath: /scripts }
       volumes:
+        - name: scripts
+          configMap: { name: closet-scripts }
         - name: workspace
 {{- if eq .Values.storage.mode "pvc" }}
           persistentVolumeClaim: { claimName: workspace }
