@@ -543,11 +543,11 @@ export default {
             </p>
             <div class="links">
               <a
-                :href="tunnel.connectUrl || ('https://vscode.dev/tunnel/' + tunnel.name)"
+                :href="tunnel.connectUrl || ('https://vscode.dev/tunnel/' + tunnel.name + '/workspace')"
                 target="_blank"
                 rel="noopener"
-              >Open in vscode.dev</a>
-              <span class="muted">or Desktop VS&nbsp;Code → <b>Remote Tunnels</b> → <code>{{ tunnel.name }}</code></span>
+              >Open <code>/workspace</code> in vscode.dev</a>
+              <span class="muted">or Desktop VS&nbsp;Code → <b>Remote Tunnels</b> → <code>{{ tunnel.name }}</code>, then open <code>/workspace</code></span>
             </div>
           </template>
           <template v-else-if="tunnel.state === 'auth' && tunnel.deviceCode">

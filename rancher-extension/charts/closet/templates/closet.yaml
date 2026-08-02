@@ -25,6 +25,14 @@ data:
     printf 'Port 2222\nListenAddress 127.0.0.1\nHostKey /workspace/.mc-ssh/host_ed25519\nPermitRootLogin prohibit-password\nAuthorizedKeysFile /workspace/.mc-ssh/authorized_keys\nUsePAM no\nStrictModes no\n' > /etc/ssh/sshd_config_vscode
     pgrep -x sshd >/dev/null || /usr/sbin/sshd -f /etc/ssh/sshd_config_vscode
 
+    # ---- clone the working repo into /workspace/dashboard (once) ----
+    # GITHUB_URL may be a repo / PR / issue URL; take its repo root. Defaults to
+    # rancher/dashboard (default branch = master).
+    if [ ! -e /workspace/dashboard ] && command -v git >/dev/null; then
+      REPO=$(echo "${GITHUB_URL:-https://github.com/rancher/dashboard}" | sed -E 's#(https://github.com/[^/]+/[^/]+)(/.*)?#\1#')
+      nohup git clone --filter=blob:none "$REPO" /workspace/dashboard >/workspace/.mc-clone.log 2>&1 &
+    fi
+
     # ---- VS Code tunnel (no kubectl to connect) ----
     T=/workspace/.mc-tunnel
     NAME=$(echo "${MC_TUNNEL_NAME:-closet}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed 's/^-*//; s/-*$//' | cut -c1-20)
@@ -47,7 +55,7 @@ data:
       code=$(grep -oiE 'use code [A-Z0-9-]{9}' "$L" 2>/dev/null | tail -1 | awk '{print $3}')
       url=$(grep -oiE 'https://vscode.dev/tunnel/[A-Za-z0-9/_-]+' "$L" 2>/dev/null | tail -1)
       if grep -qiE 'Open this link|Connected to an existing tunnel|is available at' "$L" 2>/dev/null || [ -n "$url" ]; then
-        st=connected; [ -z "$url" ] && url="https://vscode.dev/tunnel/$N"
+        st=connected; url="https://vscode.dev/tunnel/$N/workspace"
       elif [ -n "$code" ]; then st=auth
       else st=starting; fi
       curl -fsS -m3 -X POST http://api:8080/tunnel -H 'content-type: application/json' \
