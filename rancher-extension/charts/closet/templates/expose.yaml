@@ -9,7 +9,7 @@ spec:
   ports:
     - { name: api-http, port: 8080, targetPort: 8080 }
     - { name: api-https, port: 8443, targetPort: 8443 }
-{{- range $svc := list "rancher" "keycloak" "rancher-browser" }}
+{{- range $svc := list "closet" "rancher" "keycloak" "rancher-browser" }}
 ---
 apiVersion: v1
 kind: Service
@@ -23,7 +23,9 @@ spec:
   selector: { app: {{ $svc }} }
 {{- end }}
   ports:
-{{- if eq $svc "rancher" }}
+{{- if eq $svc "closet" }}
+    - { name: dev, port: 8005, targetPort: 8005 }
+{{- else if eq $svc "rancher" }}
     - { name: https, port: 443, targetPort: 443 }
 {{- else if eq $svc "keycloak" }}
     - { name: http, port: 8080, targetPort: 8080 }
