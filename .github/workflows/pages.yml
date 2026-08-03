@@ -79,15 +79,52 @@ jobs:
             echo '</ul>'
           } > site/index.html
 
-      - name: Publish to gh-pages branch
+      - name: Publish to the pages branch (additive — never clobbers sibling extensions)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Defaults keep the standalone-repo behavior: publish at the root of
+          # gh-pages. For the move to a shared repo (e.g. rancher/ui-internal-tools,
+          # where sibling extensions live under ai/*), set PAGES_PREFIX to this
+          # extension's subdir (e.g. ai/magic-closet) — the publish then replaces
+          # only that subtree and leaves siblings untouched — and PAGES_BRANCH to
+          # the shared catalog branch. NB: the "Fetch previous catalog" step above
+          # reads the branch root; when you set PAGES_PREFIX, point that fetch at
+          # the same subdir so the Helm index merge still sees prior versions.
+          PAGES_BRANCH: gh-pages
+          PAGES_PREFIX: ''
         run: |
-          cd site
-          git init -q
-          git checkout -q -b gh-pages
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -q -m "Publish extension catalog"
-          git push -f -q "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
+          set -euo pipefail
+          REMOTE="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          rm -rf pages-branch
+          # Check out the existing branch so we build ON TOP of it (never replace it
+          # wholesale); start an orphan branch only if it doesn't exist yet.
+          if ! git clone --depth 1 --branch "$PAGES_BRANCH" "$REMOTE" pages-branch 2>/dev/null; then
+            git clone --depth 1 "$REMOTE" pages-branch
+            ( cd pages-branch && git checkout --orphan "$PAGES_BRANCH" && git reset -q \
+              && find . -mindepth 1 -maxdepth 1 -not -name .git -exec rm -rf {} + )
+          fi
+          ( cd pages-branch
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com" )
+          # Lay our freshly built site down. With a prefix, replace ONLY our subtree
+          # (so a stale removed file doesn't linger); without one, union-copy at root.
+          if [ -n "$PAGES_PREFIX" ]; then
+            rm -rf "pages-branch/$PAGES_PREFIX"
+            mkdir -p "pages-branch/$PAGES_PREFIX"
+            cp -r site/. "pages-branch/$PAGES_PREFIX/"
+          else
+            cp -r site/. pages-branch/
+          fi
+          ( cd pages-branch
+            git add -A
+            if git diff --cached --quiet; then echo "nothing to publish"; exit 0; fi
+            git commit -q -m "Publish ${PAGES_PREFIX:-magic-closet} extension catalog"
+            # Plain push (no --force). Retry with a rebase in case a sibling
+            # extension pushed to the same branch while we were building.
+            for i in 1 2 3 4 5; do
+              if git push -q origin "$PAGES_BRANCH"; then exit 0; fi
+              echo "push rejected — fetching + rebasing, then retrying ($i/5)"
+              git fetch -q origin "$PAGES_BRANCH"
+              git rebase -q FETCH_HEAD
+            done
+            echo "failed to push after retries" >&2; exit 1 )
