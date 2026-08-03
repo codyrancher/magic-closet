@@ -53,6 +53,7 @@ export default {
       configFor: null,     // name of the sidecar whose config modal is open
       copied:    false,    // "Connect VS Code" command copied feedback
       tunnel:    { state: 'off' }, // VS Code tunnel status (from the closet api)
+      dev:       { url: '' },      // dashboard dev-server external URL
     };
   },
 
@@ -128,6 +129,7 @@ export default {
 
         this.sidecars = (data.sidecars || []).filter((s) => !HIDDEN_SIDECARS.includes(s.name));
         this.rancher = data.rancher || { running: false, authProvider: null };
+        this.dev = data.dev || { url: '' };
         for (const s of this.sidecars) {
           const cur = this.edits[s.name] || {};
 
@@ -563,6 +565,16 @@ export default {
           </template>
         </div>
 
+        <div v-if="dev.url" class="devserver">
+          <p class="hint">
+            <b>Dashboard dev server</b> — run <code>API=https://rancher yarn dev</code> in <code>/workspace/dashboard</code>, then open:
+          </p>
+          <div class="links">
+            <a :href="dev.url" target="_blank" rel="noopener">{{ dev.url }}</a>
+            <span class="muted">https, self-signed cert — accept the warning</span>
+          </div>
+        </div>
+
         <details class="advanced">
           <summary>Advanced: Remote-SSH (requires kubectl)</summary>
           <p class="hint">
@@ -652,6 +664,19 @@ main:has(.closet-dashboard) .metadata-section,
         border: 1px solid var(--border);
         border-radius: 4px;
         user-select: all;
+      }
+    }
+
+    .devserver {
+      margin-top: 12px;
+
+      .links {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+
+        a { cursor: pointer; word-break: break-all; }
       }
     }
 

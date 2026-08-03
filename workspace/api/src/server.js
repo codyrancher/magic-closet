@@ -123,6 +123,7 @@ async function refreshK8sCache() {
 if (K8S) {
   refreshK8sCache();
   setInterval(refreshK8sCache, 5000);
+  detectPublicHost(); // warm publicHostCache for devServerUrl() (hoisted fn)
   console.log(`kubernetes mode: namespace ${K8S.ns}`);
 }
 
@@ -1416,6 +1417,16 @@ function k8sExternalUrl(name) {
   return `${spec.scheme}://${nodeIp}:${nodePort}`;
 }
 
+// Public URL of the dashboard dev server (https on :8005), reachable through
+// the closet-external NodePort at the host's public address.
+function devServerUrl() {
+  if (!K8S) return null;
+  const np = k8sNodePortCache.get('closet');
+  const host = publicHostCache || process.env.NODE_IP;
+
+  return (np && host) ? `https://${ host }:${ np }` : null;
+}
+
 // Sidecars that cannot run as pods (k8s mode only)
 const K8S_UNSUPPORTED = {};
 
@@ -1444,6 +1455,7 @@ function handleList(res) {
       running: containerStatus('rancher').status === 'running',
       authProvider: selectedAuthProvider(),
     },
+    dev: { url: devServerUrl() },
   });
 }
 

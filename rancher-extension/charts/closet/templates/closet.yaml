@@ -33,6 +33,16 @@ data:
       nohup git clone --filter=blob:none "$REPO" /workspace/dashboard >/workspace/.mc-clone.log 2>&1 &
     fi
 
+    # ---- make webpack HMR use the page's host:port (dashboard hardcodes the
+    #      ws to :8005) so hot-reload works over the external NodePort URL.
+    #      skip-worktree keeps this dev-only tweak out of git status. ----
+    ( for i in $(seq 1 180); do [ -f /workspace/dashboard/shell/vue.config.js ] && break; sleep 5; done
+      DC=/workspace/dashboard/shell/vue.config.js
+      if grep -q "hostname: '0.0.0.0', port: devPorts ? 8005 : 80" "$DC" 2>/dev/null; then
+        sed -i "s#webSocketURL: { hostname: '0.0.0.0', port: devPorts ? 8005 : 80 }#webSocketURL: 'auto://0.0.0.0:0/ws'#" "$DC"
+        git -C /workspace/dashboard update-index --skip-worktree shell/vue.config.js 2>/dev/null || true
+      fi ) >/workspace/.mc-hmr.log 2>&1 &
+
     # ---- VS Code tunnel (no kubectl to connect) ----
     T=/workspace/.mc-tunnel
     NAME=$(echo "${MC_TUNNEL_NAME:-closet}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed 's/^-*//; s/-*$//' | cut -c1-20)
