@@ -25,19 +25,29 @@ host.
 
 Requires Docker. From this directory:
 
+**1. (Optional) Generate `.env`:**
+
+```bash
+./setup.sh          # copies .env.example → .env
+```
+
+Then edit `.env` to fill in what you want — ports, tokens, or which sidecars
+start. **You can skip this entirely** if you just want to try it out:
+`docker compose up -d` runs with sensible defaults and generates what it needs
+(the `.env` and login secrets) on first boot.
+
+**2. Start everything:**
+
 ```bash
 docker compose up -d
 ```
 
-The first run creates `.env`, generates secrets, and builds the stack inside the
-container (give it a few minutes — watch with `docker compose logs -f`). Then
-open the dashboard:
+The first run builds the stack inside the container (give it a few minutes —
+watch with `docker compose logs -f`). Then open the dashboard:
 
 **http://localhost:8300**
 
-Start/stop sidecars and open them (a browser, Rancher, ...) from there. To
-customize first — ports, tokens, or which sidecars start — copy `.env.example`
-to `.env` and edit before running.
+Start/stop sidecars and open them (a browser, Rancher, ...) from there.
 
 ### Everyday commands
 
