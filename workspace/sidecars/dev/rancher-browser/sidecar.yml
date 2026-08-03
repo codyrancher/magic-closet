@@ -3,4 +3,16 @@ description: Chromium with Rancher quick-login.
 port: RANCHER_BROWSER_PORT
 scheme: https
 params: []
+# User-provided credentials this sidecar consumes (its Ctrl+M command menu).
+# Surfaced on the closet secret-set page, deduped by key across sidecars.
+credentials:
+  - { key: appcoEmail,          label: AppCo email,           group: Application Collection, usage: "command menu: log in to the SUSE Application Collection chart repo" }
+  - { key: appcoToken,          label: AppCo token,           group: Application Collection, usage: "command menu: log in to the SUSE Application Collection chart repo" }
+  - { key: awsAccessKey,        label: AWS access key,        group: AWS,   usage: "command menu: EC2/EKS cluster creation" }
+  - { key: awsSecretKey,        label: AWS secret key,        group: AWS,   usage: "command menu: EC2/EKS cluster creation" }
+  - { key: azureClientId,       label: Azure client ID,       group: Azure, usage: "command menu: AKS cluster creation" }
+  - { key: azureClientSecret,   label: Azure client secret,   group: Azure, usage: "command menu: AKS cluster creation" }
+  - { key: azureSubscriptionId, label: Azure subscription ID, group: Azure, usage: "command menu: AKS cluster creation" }
+  - { key: azureTenantId,       label: Azure tenant ID,       group: Azure, usage: "command menu: AKS cluster creation" }
+  - { key: gcpServiceAccountKey, label: GCP service account key, group: GCP, usage: "command menu: GKE cluster creation" }
 notes: Chromium with a Rancher quick-login bar and a Ctrl+M command menu. Open a tab with `mc open <url>`. For automation, get the CDP endpoint with `cdp-url` and connect Playwright (chromium.connectOverCDP).

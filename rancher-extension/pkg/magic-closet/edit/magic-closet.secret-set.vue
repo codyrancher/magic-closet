@@ -7,34 +7,11 @@ import {
   readSecretSet, saveSecretSet, setCluster, setSecretOwner,
 } from '../api';
 import { EXPLORER, SECRET_SET_TYPE } from '../product';
-
-// The known secret keys a set can hold, laid out in rows: related credentials
-// (AppCo, AWS, Azure) share a line; each field is half width.
-const SECRET_GROUPS = [
-  [
-    { key: 'ghToken', label: 'GitHub token (ghToken)' },
-    { key: 'apiKey', label: 'Figma API key (apiKey)' },
-  ],
-  [
-    { key: 'appcoEmail', label: 'AppCo email (appcoEmail)' },
-    { key: 'appcoToken', label: 'AppCo token (appcoToken)' },
-  ],
-  [
-    { key: 'awsAccessKey', label: 'AWS access key (awsAccessKey)' },
-    { key: 'awsSecretKey', label: 'AWS secret key (awsSecretKey)' },
-  ],
-  [
-    { key: 'gcpServiceAccountKey', label: 'GCP service account key (gcpServiceAccountKey)' },
-  ],
-  [
-    { key: 'azureClientId', label: 'Azure client ID (azureClientId)' },
-    { key: 'azureClientSecret', label: 'Azure client secret (azureClientSecret)' },
-  ],
-  [
-    { key: 'azureSubscriptionId', label: 'Azure subscription ID (azureSubscriptionId)' },
-    { key: 'azureTenantId', label: 'Azure tenant ID (azureTenantId)' },
-  ],
-];
+// Credential groups + per-sidecar usage are generated from the sidecar.yml
+// declarations (workspace/sidecars/**) by scripts/gen-credentials.mjs — this
+// page never hardcodes the key list, so adding a credential to a sidecar
+// surfaces it here automatically.
+import { CREDENTIAL_GROUPS } from '../credentials.generated';
 
 export default {
   name: 'SecretSetEdit',
@@ -63,11 +40,11 @@ export default {
     }
 
     return {
-      secretGroups:   SECRET_GROUPS,
-      isDefault:      !!this.value?.spec?.isDefault,
-      values:         {},
-      errors:         [],
-      fvFormRuleSets: [{ path: 'metadata.name', rules: ['required'] }],
+      credentialGroups: CREDENTIAL_GROUPS,
+      isDefault:        !!this.value?.spec?.isDefault,
+      values:           {},
+      errors:           [],
+      fvFormRuleSets:   [{ path: 'metadata.name', rules: ['required'] }],
     };
   },
 
@@ -94,6 +71,11 @@ export default {
   },
 
   methods: {
+    // "figma: <usage>; rancher-browser: <usage>" — one clause per consuming sidecar
+    usageText(field) {
+      return (field.usages || []).map((u) => `${ u.sidecar }: ${ u.usage }`).join('; ');
+    },
+
     async save(saveCb) {
       this.errors = [];
       try {
@@ -142,22 +124,45 @@ export default {
       :disabled="mode === 'view'"
     />
 
+    <p class="text-muted mb-20">
+      A secret set is a reusable bundle of tokens and keys. Leave a field blank to
+      skip it. Each group below notes how the closet uses those values.
+    </p>
+
     <div
-      v-for="(group, gi) in secretGroups"
-      :key="gi"
-      class="row mb-10"
+      v-for="group in credentialGroups"
+      :key="group.name"
+      class="cred-group"
     >
-      <div
-        v-for="k in group"
-        :key="k.key"
-        class="col span-6"
+      <h3 class="cred-group__title">
+        {{ group.name }}
+      </h3>
+      <p
+        v-if="group.description"
+        class="text-muted cred-group__desc"
       >
-        <LabeledInput
-          v-model:value="values[k.key]"
-          type="password"
-          :mode="mode"
-          :label="k.label"
-        />
+        {{ group.description }}
+      </p>
+
+      <div class="row">
+        <div
+          v-for="field in group.fields"
+          :key="field.key"
+          class="col span-6 mb-10"
+        >
+          <LabeledInput
+            v-model:value="values[field.key]"
+            type="password"
+            :mode="mode"
+            :label="`${ field.label } (${ field.key })`"
+          />
+          <p
+            v-if="usageText(field)"
+            class="text-muted cred-usage"
+          >
+            {{ usageText(field) }}
+          </p>
+        </div>
       </div>
     </div>
   </CruResource>
@@ -167,5 +172,22 @@ export default {
 // Equal gap above (masthead divider) and below (default checkbox)
 .name-input {
   margin: 20px 0;
+}
+
+.cred-group {
+  margin-top: 24px;
+
+  &__title {
+    margin: 0 0 2px 0;
+  }
+
+  &__desc {
+    margin: 0 0 12px 0;
+  }
+}
+
+.cred-usage {
+  margin: 4px 0 0 0;
+  font-size: 12px;
 }
 </style>

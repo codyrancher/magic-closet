@@ -2,4 +2,9 @@ name: figma
 description: Figma MCP server.
 port: FIGMA_PORT
 params: []
+# User-provided credentials this sidecar consumes. Surfaced on the closet
+# secret-set page (deduped by key across sidecars); `usage` explains this
+# sidecar's use of the value.
+credentials:
+  - { key: apiKey, label: Figma API key, group: Figma, usage: Figma MCP server authentication }
 notes: Figma MCP server at http://figma:8000. Needs $FIGMA_API_KEY (set in .env, or `mc start figma apiKey=...`).

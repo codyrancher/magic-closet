@@ -1,6 +1,9 @@
 import { IPlugin } from '@shell/core/types';
 import { STATE, NAME } from '@shell/config/table-headers';
 import { closetApiBase, listClosets, listSecretSets, setCluster, setSecretOwner } from './api';
+// Generated from the sidecar.yml credential declarations — the same source the
+// edit form renders from, so the "N/total" Keys column can't drift out of sync.
+import { CREDENTIAL_KEYS } from './credentials.generated';
 
 // Everything is registered on the cluster explorer product: closets appear as
 // a single flat nav entry (like the dashboard links) instead of a product
@@ -8,13 +11,6 @@ import { closetApiBase, listClosets, listSecretSets, setCluster, setSecretOwner 
 export const EXPLORER = 'explorer';
 export const CLOSET_TYPE = 'magic-closet.closet';
 export const SECRET_SET_TYPE = 'magic-closet.secret-set';
-
-// Known credential keys a secret set can hold (keep in sync with the edit
-// form); used for the "N/total" Keys column so it doesn't overflow the row
-const SECRET_KEY_IDS = [
-  'ghToken', 'apiKey', 'appcoEmail', 'appcoToken', 'awsAccessKey', 'awsSecretKey',
-  'gcpServiceAccountKey', 'azureClientId', 'azureClientSecret', 'azureSubscriptionId', 'azureTenantId',
-];
 
 export function init($plugin: IPlugin, store: any) {
   // spoofedType exists at runtime but is missing from DSLReturnType
@@ -116,7 +112,7 @@ export function init($plugin: IPlugin, store: any) {
         id:       set.name,
         type:     SECRET_SET_TYPE,
         isDefault: set.isDefault,
-        keyList:  `${ (set.keys || []).length }/${ SECRET_KEY_IDS.length }`,
+        keyList:  `${ (set.keys || []).length }/${ CREDENTIAL_KEYS.length }`,
         spec:     set,
         metadata: { name: set.name },
       }));
