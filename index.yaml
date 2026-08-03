@@ -6,10 +6,10 @@ entries:
       catalog.cattle.io/os: linux
     apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-08-03T00:47:39.198992284Z"
+    created: "2026-08-03T08:42:23.137355074Z"
     description: A magic closet dev environment — project container plus optional
       sidecars, managed by its own in-cluster api/dashboard.
-    digest: 77f2e6ed004435db96ff42428a34eb94bec34aff9f1f972129d4d8e6d8db93d9
+    digest: 8c8ff298b49465b60d7ee67db6f0993f14a4dfec5fa0d2fbde036801439080cd
     home: https://github.com/codyrancher/magic-closet
     icon: https://codyrancher.github.io/magic-closet/logo.svg
     name: closet
@@ -446,9 +446,9 @@ entries:
       catalog.cattle.io/ui-extensions-version: '>= 3.0.0 < 4.0.0'
     apiVersion: v2
     appVersion: 0.5.11
-    created: "2026-08-03T00:47:39.199220653Z"
+    created: "2026-08-03T08:42:23.137603476Z"
     description: Provision and manage magic closet dev environments from Rancher
-    digest: 4762f362ea22b319a39d767a3049c9ba0e0438b26940b9aeef7d43b5fd7e35f6
+    digest: 5d64753cf1cc5775a9ea07b9e492aa7f2cc32d21e4a6becd55bf8d370ec314af
     home: https://github.com/codyrancher/magic-closet
     icon: https://codyrancher.github.io/magic-closet/logo.svg
     name: magic-closet
@@ -1798,4 +1798,4 @@ entries:
     urls:
     - assets/magic-closet/magic-closet-0.1.1.tgz
     version: 0.1.1
-generated: "2026-08-03T00:47:39.198432521Z"
+generated: "2026-08-03T08:42:23.136552683Z"
