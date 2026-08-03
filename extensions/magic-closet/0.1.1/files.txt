@@ -1,0 +1,5 @@
+plugin/magic-closet-0.1.1.umd.min.37.js
+plugin/magic-closet-0.1.1.umd.min.37.js.map
+plugin/magic-closet-0.1.1.umd.min.js
+plugin/magic-closet-0.1.1.umd.min.js.map
+plugin/package.json

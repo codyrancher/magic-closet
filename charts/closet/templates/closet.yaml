@@ -1,0 +1,161 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: closet-scripts
+data:
+  # Runs (best-effort) from the closet container's postStart on every boot.
+  # Sets up two ways for the user to attach VS Code to /workspace:
+  #  1. sshd on 127.0.0.1:2222 — Remote-SSH via a `kubectl exec … nc` proxy.
+  #  2. `code tunnel` — Remote-Tunnels / vscode.dev, no kubectl or open port.
+  # Keys + the tunnel's auth token live on the persistent /workspace volume, so
+  # both survive restarts. A reporter pushes tunnel state to the api so the
+  # detail page can show the one-time device-login code + the connect link.
+  mc-remote-setup.sh: |
+    #!/bin/bash
+    set +e
+    export DEBIAN_FRONTEND=noninteractive
+
+    # ---- sshd (Remote-SSH via kubectl exec) ----
+    if ! command -v sshd >/dev/null || ! command -v nc >/dev/null; then
+      apt-get update -qq && apt-get install -y -qq openssh-server netcat-openbsd
+    fi
+    mkdir -p /run/sshd /workspace/.mc-ssh && chmod 700 /workspace/.mc-ssh
+    [ -f /workspace/.mc-ssh/host_ed25519 ] || ssh-keygen -t ed25519 -N '' -f /workspace/.mc-ssh/host_ed25519 -q
+    touch /workspace/.mc-ssh/authorized_keys && chmod 600 /workspace/.mc-ssh/authorized_keys
+    printf 'Port 2222\nListenAddress 127.0.0.1\nHostKey /workspace/.mc-ssh/host_ed25519\nPermitRootLogin prohibit-password\nAuthorizedKeysFile /workspace/.mc-ssh/authorized_keys\nUsePAM no\nStrictModes no\n' > /etc/ssh/sshd_config_vscode
+    pgrep -x sshd >/dev/null || /usr/sbin/sshd -f /etc/ssh/sshd_config_vscode
+
+    # ---- clone the working repo into /workspace/dashboard (once) ----
+    # GITHUB_URL may be a repo / PR / issue URL; take its repo root. Defaults to
+    # rancher/dashboard (default branch = master).
+    if [ ! -e /workspace/dashboard ] && command -v git >/dev/null; then
+      REPO=$(echo "${GITHUB_URL:-https://github.com/rancher/dashboard}" | sed -E 's#(https://github.com/[^/]+/[^/]+)(/.*)?#\1#')
+      nohup git clone --filter=blob:none "$REPO" /workspace/dashboard >/workspace/.mc-clone.log 2>&1 &
+    fi
+
+    # ---- drop a re-runnable HMR fix into /workspace and run it once the repo
+    #      is cloned. It rewrites the dashboard's webpack HMR websocket to use
+    #      the page host:port so hot-reload works over the external dev URL. ----
+    cat > /workspace/enable-external-hmr.sh <<'FIX'
+    #!/bin/bash
+    # Make webpack HMR use the page's host:port (the dashboard hardcodes it to
+    # :8005) so hot-reload works over the external dev-server URL, not just
+    # localhost:8005. Runs automatically after the repo is cloned; re-run anytime:
+    #   bash /workspace/enable-external-hmr.sh
+    REPO="${1:-/workspace/dashboard}"
+    DC="$REPO/shell/vue.config.js"
+    [ -f "$DC" ] || { echo "not found: $DC — clone the repo first"; exit 1; }
+    if grep -q "hostname: '0.0.0.0', port: devPorts ? 8005 : 80" "$DC"; then
+    sed -i "s#webSocketURL: { hostname: '0.0.0.0', port: devPorts ? 8005 : 80 }#webSocketURL: 'auto://0.0.0.0:0/ws'#" "$DC"
+    echo "HMR: rewrote $DC to use the page host:port"
+    else
+    echo "HMR: already applied (or the hardcoded ws was not found) in $DC"
+    fi
+    git -C "$REPO" update-index --skip-worktree shell/vue.config.js 2>/dev/null || true
+    FIX
+    chmod +x /workspace/enable-external-hmr.sh
+    ( for i in $(seq 1 180); do [ -f /workspace/dashboard/shell/vue.config.js ] && break; sleep 5; done
+      bash /workspace/enable-external-hmr.sh ) >/workspace/.mc-hmr.log 2>&1 &
+
+    # ---- VS Code tunnel (no kubectl to connect) ----
+    T=/workspace/.mc-tunnel
+    NAME=$(echo "${MC_TUNNEL_NAME:-closet}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed 's/^-*//; s/-*$//' | cut -c1-20)
+    mkdir -p "$T/cli"
+    if [ ! -x "$T/code" ]; then
+      ( cd "$T" && curl -fsSL --max-time 180 "https://update.code.visualstudio.com/latest/cli-linux-x64/stable" -o code.tgz && tar -xzf code.tgz && chmod +x ./code && rm -f code.tgz )
+    fi
+    if [ -x "$T/code" ] && ! pgrep -x code >/dev/null; then
+      # no tunnel running -> clear any stale singleton lock an ungraceful exit
+      # left behind (else the CLI retries "access singleton" forever)
+      rm -f "$T/cli/tunnel-stable.lock"
+      nohup "$T/code" tunnel --accept-server-license-terms --name "$NAME" --cli-data-dir "$T/cli" >"$T/tunnel.log" 2>&1 &
+    fi
+
+    # ---- reporter: push tunnel state to the api for the detail page ----
+    cat > "$T/report.sh" <<'RPT'
+    #!/bin/bash
+    T=/workspace/.mc-tunnel; N="$1"; L="$T/tunnel.log"
+    while true; do
+      code=$(grep -oiE 'use code [A-Z0-9-]{9}' "$L" 2>/dev/null | tail -1 | awk '{print $3}')
+      url=$(grep -oiE 'https://vscode.dev/tunnel/[A-Za-z0-9/_-]+' "$L" 2>/dev/null | tail -1)
+      if grep -qiE 'Open this link|Connected to an existing tunnel|is available at' "$L" 2>/dev/null || [ -n "$url" ]; then
+        st=connected; url="https://vscode.dev/tunnel/$N/workspace"
+      elif [ -n "$code" ]; then st=auth
+      else st=starting; fi
+      curl -fsS -m3 -X POST http://api:8080/tunnel -H 'content-type: application/json' \
+        -d "{\"state\":\"$st\",\"deviceUrl\":\"https://github.com/login/device\",\"deviceCode\":\"$code\",\"connectUrl\":\"$url\",\"name\":\"$N\"}" >/dev/null 2>&1
+      sleep 5
+    done
+    RPT
+    chmod +x "$T/report.sh"
+    pgrep -f "$T/report.sh" >/dev/null || nohup "$T/report.sh" "$NAME" >/dev/null 2>&1 &
+    exit 0
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: closet
+  labels: { app: closet }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: closet }
+  template:
+    metadata:
+      labels: { app: closet }
+    spec:
+      containers:
+        - name: closet
+          image: {{ .Values.images.closet }}
+          imagePullPolicy: Always
+          envFrom:
+            - secretRef: { name: closet-secrets }
+            - configMapRef: { name: closet-config }
+          env:
+            - name: MC_TUNNEL_NAME
+              value: {{ .Release.Namespace | quote }}
+          ports:
+            - containerPort: 8005
+          # Set up VS Code remote access on every boot (sshd + `code tunnel`);
+          # see the closet-scripts ConfigMap. Detached + returns immediately so
+          # the (slow, apt+download) setup never blocks the pod becoming Ready.
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - /bin/bash
+                  - -c
+                  - setsid bash /scripts/mc-remote-setup.sh </dev/null >/workspace/.mc-remote.log 2>&1 & exit 0
+          volumeMounts:
+            - { name: workspace, mountPath: /workspace }
+            - { name: claude-data, mountPath: /claude-data }
+            - { name: scripts, mountPath: /scripts }
+      volumes:
+        - name: scripts
+          configMap: { name: closet-scripts }
+        - name: workspace
+{{- if eq .Values.storage.mode "pvc" }}
+          persistentVolumeClaim: { claimName: workspace }
+{{- else }}
+          hostPath:
+            path: {{ .Values.storage.hostPathBase }}/{{ .Release.Namespace }}/workspace
+            type: DirectoryOrCreate
+{{- end }}
+        - name: claude-data
+{{- if eq .Values.storage.mode "pvc" }}
+          persistentVolumeClaim: { claimName: claude-data }
+{{- else }}
+          hostPath:
+            path: {{ .Values.storage.hostPathBase }}/{{ .Release.Namespace }}/claude-data
+            type: DirectoryOrCreate
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: closet
+spec:
+  selector: { app: closet }
+  ports:
+    - { name: dev, port: 8005, targetPort: 8005 }

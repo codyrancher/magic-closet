@@ -1,0 +1,21 @@
+{
+  "name": "magic-closet",
+  "description": "Provision and manage magic closet dev environments from Rancher",
+  "version": "0.3.1",
+  "private": false,
+  "icon": "https://codyrancher.github.io/magic-closet/logo.svg",
+  "homepage": "https://github.com/codyrancher/magic-closet",
+  "rancher": true,
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "@vue/cli-plugin-babel": "5.0.9",
+    "@vue/cli-service": "5.0.8",
+    "@vue/cli-plugin-typescript": "5.0.9"
+  },
+  "files": [
+    "**/*"
+  ],
+  "main": "magic-closet-0.3.1.umd.min.js"
+}

@@ -1,0 +1,156 @@
+# In-cluster rancher: the docker-style rancher image (embedded k3s) cannot run
+# as a pod (its kubelet fights the host cluster over cgroups), so instead a
+# manager pod installs a vcluster (k3s control plane only — its workloads are
+# synced to the host cluster as normal pods) and helm-installs cert-manager +
+# rancher inside it: the topology rancher actually supports. The manager then
+# relays :443 to the rancher service replicated out of the vcluster, so the
+# closet's `rancher` / `rancher-external` services (selector app: rancher)
+# work unchanged, as do the api bootstrap (https://rancher) and NodePort link.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rancher-manager
+data:
+  vcluster-values.yaml: |
+    controlPlane:
+      distro:
+        k8s:
+          enabled: true
+          # Kept below the rancher chart's kubeVersion ceiling
+          version: v1.34.1
+      statefulSet:
+        persistence:
+          volumeClaim:
+            enabled: false
+{{- if ne .Values.storage.mode "pvc" }}
+          dataVolume:
+            - name: data
+              hostPath:
+                path: {{ .Values.storage.hostPathBase }}/{{ .Release.Namespace }}/vcluster-data
+                type: DirectoryOrCreate
+{{- end }}
+    networking:
+      replicateServices:
+        toHost:
+          - from: cattle-system/rancher
+            to: rancher-vc
+  manage.sh: |
+    #!/bin/sh
+    set -x
+    apk add --no-cache socat || true
+    # Watchdog (started first): a rollout's old pod runs the preStop pause
+    # and can race this pod's install at any phase - keep the vcluster
+    # scaled up while this manager lives (a real stop removes the manager,
+    # so the pause sticks)
+    ( while true; do kubectl -n "$NS" scale deploy vc --replicas=1 >/dev/null 2>&1 || true; sleep 30; done ) &
+    helm repo add loft https://charts.loft.sh
+    helm repo add jetstack https://charts.jetstack.io
+    helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
+    helm repo update
+
+    helm upgrade --install vc loft/vcluster -n "$NS" \
+      --version "$VCLUSTER_VERSION" -f /scripts/vcluster-values.yaml \
+      --wait --timeout 10m
+
+    until kubectl -n "$NS" get secret vc-vc; do sleep 5; done
+    kubectl -n "$NS" get secret vc-vc -o jsonpath='{.data.config}' | base64 -d \
+      | sed -e "s|server: https://localhost:8443|server: https://vc.$NS.svc:443|" \
+            -e "s|certificate-authority-data:.*|insecure-skip-tls-verify: true|" > /tmp/kc
+    export KUBECONFIG=/tmp/kc
+    until kubectl get ns default; do sleep 5; done
+
+    helm upgrade --install cert-manager jetstack/cert-manager \
+      -n cert-manager --create-namespace \
+      --set crds.enabled=true --wait --timeout 10m
+    # Rancher Prime is the same rancher/rancher image presented as Prime (SUSE
+    # branding) via env vars — mirrors the compose rancher sidecar. RANCHER_TAG
+    # pins the image tag (skip for the 'head' dev default / unset).
+    PRIME_ARGS=""
+    if [ -n "$RANCHER_PRIME" ] && [ "$RANCHER_PRIME" != "false" ]; then
+      PRIME_ARGS="--set-string extraEnv[0].name=RANCHER_VERSION_TYPE --set-string extraEnv[0].value=prime --set-string extraEnv[1].name=CATTLE_BASE_UI_BRAND --set-string extraEnv[1].value=suse"
+    fi
+    TAG_ARGS=""
+    if [ -n "$RANCHER_TAG" ] && [ "$RANCHER_TAG" != "head" ]; then
+      TAG_ARGS="--set rancherImageTag=$RANCHER_TAG"
+    fi
+    helm upgrade --install rancher rancher-latest/rancher \
+      -n cattle-system --create-namespace \
+      --set hostname=rancher.magic-closet.local --set replicas=1 \
+      --set bootstrapPassword="$CATTLE_BOOTSTRAP_PASSWORD" \
+      $PRIME_ARGS $TAG_ARGS \
+      --wait --timeout 20m
+
+    unset KUBECONFIG
+    # Relay the closet services (selector app: rancher -> this pod) to the
+    # rancher service replicated out of the vcluster
+    socat TCP-LISTEN:443,fork,reuseaddr "TCP:rancher-vc.$NS.svc:443" &
+    wait
+  pause.sh: |
+    #!/bin/sh
+    kubectl -n "$NS" scale deploy vc --replicas=0 2>/dev/null
+    kubectl -n "$NS" scale sts vc --replicas=0 2>/dev/null
+    kubectl -n "$NS" delete pods -l vcluster.loft.sh/managed-by=vc --wait=false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rancher
+  labels: { app: rancher }
+spec:
+  replicas: {{ ternary 1 0 .Values.sidecars.rancher }}
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: rancher }
+  template:
+    metadata:
+      # role: relay disambiguates from the synced vcluster rancher pod, which
+      # keeps its own app: rancher label on the host cluster
+      labels: { app: rancher, role: relay }
+      annotations:
+        # Roll the manager (which re-runs the idempotent installs) on every
+        # chart upgrade so configmap changes take effect
+        closet/chart-version: {{ .Chart.Version | quote }}
+    spec:
+      serviceAccountName: rancher-manager
+      containers:
+        - name: manager
+          image: {{ .Values.images.rancherManager }}
+          command: ["/bin/sh", "/scripts/manage.sh"]
+          # closet-config carries RANCHER_PRIME / RANCHER_TAG that manage.sh
+          # feeds into the rancher install
+          envFrom:
+            - configMapRef: { name: closet-config }
+          env:
+            - name: NS
+              valueFrom:
+                fieldRef: { fieldPath: metadata.namespace }
+            - name: VCLUSTER_VERSION
+              value: {{ .Values.vclusterVersion | quote }}
+            - name: CATTLE_BOOTSTRAP_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: closet-secrets, key: RANCHER_BOOTSTRAP_PASSWORD }
+          ports:
+            - containerPort: 443
+          readinessProbe:
+            tcpSocket: { port: 443 }
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            failureThreshold: 90
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "/scripts/pause.sh"]
+          volumeMounts:
+            - { name: scripts, mountPath: /scripts }
+      volumes:
+        - name: scripts
+          configMap: { name: rancher-manager }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rancher
+spec:
+  selector: { app: rancher, role: relay }
+  ports:
+    - { name: https, port: 443, targetPort: 443 }

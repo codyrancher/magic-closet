@@ -1,0 +1,34 @@
+{{- if eq .Values.storage.mode "pvc" }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: workspace
+spec:
+  accessModes: ["ReadWriteOnce"]
+  {{- if .Values.storage.className }}
+  storageClassName: {{ .Values.storage.className }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.workspace }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: claude-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rancher-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.storage.rancher }}
+{{- end }}

@@ -1,0 +1,62 @@
+images:
+  api: ghcr.io/codyrancher/magic-closet-api:latest
+  closet: ghcr.io/codyrancher/magic-closet-closet:latest
+  rancherManager: dtzar/helm-kubectl:latest
+  keycloak: quay.io/keycloak/keycloak:latest
+  openldap: osixia/openldap:1.5.0
+  rancherBrowser: lscr.io/linuxserver/chromium:latest
+  figma: acuvity/mcp-server-figma:latest
+
+# Which sidecars start enabled (deployments always exist; these set the
+# initial replica count — the closet api scales them after install). Closets
+# start empty; the user turns sidecars on from the detail page.
+# rancher runs as a vcluster + helm-installed rancher (see
+# templates/rancher.yaml); first start takes ~10 minutes
+sidecars:
+  rancher: false
+  keycloak: false
+  rancherBrowser: false
+  openldap: false
+  figma: false
+
+# Params (the closet-config ConfigMap; editable from the closet dashboard)
+config:
+  RANCHER_AUTH_PROVIDER: "keycloak"
+  NODE_VERSION: "24"
+  GH_TOKEN: ""
+  GITHUB_URL: ""
+  RANCHER_PRIME: ""
+  FIGMA_API_KEY: ""
+  APPCO_EMAIL: ""
+  APPCO_TOKEN: ""
+  AWS_ACCESS_KEY: ""
+  AWS_SECRET_KEY: ""
+  AWS_DEFAULT_REGION: "us-west-2"
+
+# Helm chart version of vcluster used by the rancher sidecar
+vclusterVersion: "0.36.0"
+
+storage:
+  # hostPath: single-node friendly (works without any StorageClass; data
+  # lives on the node under /var/lib/magic-closet/<namespace>).
+  # pvc: use PersistentVolumeClaims (requires a default StorageClass or
+  # storage.className).
+  mode: hostPath
+  # Base dir on the node for hostPath volumes. Default lives under k3s's own
+  # data dir so that when the "node" is itself a container (rancher's embedded
+  # k3s), the data lands on its persistent volume — a real filesystem, which
+  # the nested rancher sidecar needs (overlayfs can't nest for its containerd)
+  hostPathBase: /var/lib/rancher/magic-closet
+  className: ""
+  workspace: 5Gi
+  rancher: 5Gi
+
+expose:
+  # NodePort services (api, rancher, keycloak, rancher-browser) —
+  # on by default so sidecars whose UIs break behind the path-prefixed
+  # service proxy (rancher, keycloak) get direct node-IP links
+  nodePort: true
+  # Host-based ingress: <service>.<host>
+  ingress:
+    enabled: false
+    host: ""

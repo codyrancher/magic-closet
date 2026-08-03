@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  labels: { app: keycloak }
+spec:
+  replicas: {{ ternary 1 0 .Values.sidecars.keycloak }}
+  selector:
+    matchLabels: { app: keycloak }
+  template:
+    metadata:
+      labels: { app: keycloak }
+    spec:
+      containers:
+        - name: keycloak
+          image: {{ .Values.images.keycloak }}
+          imagePullPolicy: IfNotPresent
+          args: ["start-dev"]
+          env:
+            - { name: KC_BOOTSTRAP_ADMIN_USERNAME, value: admin }
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: closet-secrets, key: KEYCLOAK_ADMIN_PASSWORD }
+            - { name: KEYCLOAK_ADMIN, value: admin }
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: closet-secrets, key: KEYCLOAK_ADMIN_PASSWORD }
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+spec:
+  selector: { app: keycloak }
+  ports:
+    - { name: http, port: 8080, targetPort: 8080 }
