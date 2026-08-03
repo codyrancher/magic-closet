@@ -505,6 +505,43 @@
     border-bottom-left-radius: var(--radius-lg);
     border-bottom-right-radius: var(--radius-lg);
   }
+
+  /* "Develop" section — mirrors the closet detail page's dev-server + VS Code
+     guidance, adapted to compose mode (host dev port + Attach to Container). */
+  .develop {
+    margin-top: var(--spacing-xl, 24px);
+  }
+  .develop-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: var(--spacing-lg);
+    margin-top: var(--spacing-md, 12px);
+  }
+  .develop-card {
+    background: var(--color-bg-secondary);
+    border: var(--border-width-sm) solid var(--color-border-medium);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+  }
+  .develop-name {
+    font-weight: 600;
+    margin-bottom: var(--spacing-xs);
+  }
+  .develop .hint {
+    display: block;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    margin: 4px 0;
+  }
+  .develop code {
+    font-size: 12px;
+    padding: 1px 5px;
+    background: var(--color-bg-primary, rgba(128, 128, 128, 0.15));
+    border-radius: 3px;
+  }
+  .develop .dev-link {
+    word-break: break-all;
+  }
 </style>
 </head>
 <body>
@@ -516,6 +553,22 @@
   </header>
   <main>
     <div class="grid" id="grid"><div class="empty">Loading…</div></div>
+
+    <section class="develop">
+      <h2 class="group-title">Develop</h2>
+      <div class="develop-grid">
+        <div class="develop-card">
+          <div class="develop-name">Dashboard dev server</div>
+          <p class="hint">Run <code>API=https://rancher yarn dev</code> in <code>/workspace/dashboard</code>, then open:</p>
+          <a class="dev-link" id="dev-link" target="_blank" rel="noopener"></a>
+          <span class="hint">https, self-signed cert — accept the warning</span>
+        </div>
+        <div class="develop-card">
+          <div class="develop-name">VS Code</div>
+          <p class="hint">Dev Containers &rarr; <b>Attach to Running Container &rarr; <code>magic-closet</code></b> — you land in as <code>node</code>, where <code>/workspace</code>, <code>claude</code>, and <code>mc</code> live.</p>
+        </div>
+      </div>
+    </section>
   </main>
   <div class="toast" id="toast"></div>
 
@@ -998,6 +1051,17 @@ function closeLogs() {
 document.getElementById('logs-close').onclick = closeLogs;
 logsModal.addEventListener('click', (e) => { if (e.target === logsModal) closeLogs(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && logsName) closeLogs(); });
+
+// Dashboard dev-server link: the dev server binds DEV_PORT (= API_PORT + 5) on
+// this same host; the dashboard itself is served on API_PORT (location.port).
+(function setupDevLink() {
+  const el = document.getElementById('dev-link');
+  if (!el) return;
+  const devPort = Number(location.port || 80) + 5;
+  const url = `https://${location.hostname}:${devPort}`;
+  el.href = url;
+  el.textContent = url;
+})();
 
 refresh();
 setInterval(() => { if (!busy.size) refresh(); }, 4000);
