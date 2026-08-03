@@ -54,9 +54,12 @@ mkdir -p "$MC_DATA_DIR/.state"
 SECRETS_FILE="$MC_DATA_DIR/.state/secrets.env"
 [ -f "$SECRETS_FILE" ] || : > "$SECRETS_FILE"
 set -a; . "$SECRETS_FILE"; set +a
-for key in $(for f in workspace/sidecars/*/sidecar.json workspace/sidecars/*/*/sidecar.json; do
+for key in $(for f in workspace/sidecars/*/sidecar.yml workspace/sidecars/*/*/sidecar.yml; do
     [ -f "$f" ] || continue
-    tr '\n' ' ' < "$f" | grep -oE '"secrets"[[:space:]]*:[[:space:]]*\[[^]]*\]' \
+    # Extract the items under the YAML `secrets:` list (stop at the next
+    # top-level key), then isolate the *_PASSWORD/*_SECRET token from each —
+    # scoped so `$..._PASSWORD` references elsewhere (e.g. notes) aren't picked up.
+    awk '/^secrets:[[:space:]]*$/{s=1;next} /^[^[:space:]#-]/{s=0} s&&/^[[:space:]]*-/{print}' "$f" \
       | grep -oE '[A-Z0-9_]+_(PASSWORD|SECRET)'
   done | sort -u); do
   eval "cur=\${$key:-}"
@@ -186,6 +189,11 @@ export MC_ENV_FILE="${MC_ENV_FILE:-.env}"
 export MC_COMPOSE_FILE="${MC_COMPOSE_FILE:-compose.stack.yml}"
 export MC_API_PORT="$API_PORT"
 export MC_API_HTTPS_PORT="${API_HTTPS_PORT:-$((API_PORT + 1))}"
+# The api needs js-yaml (sidecar.yml). node_modules is gitignored, so link the
+# baked deps next to the api unless the mounted repo already carries its own.
+if [ ! -e /magic-closet/workspace/api/node_modules ] && [ -d /opt/api-deps/node_modules ]; then
+  ln -s /opt/api-deps/node_modules /magic-closet/workspace/api/node_modules 2>/dev/null || true
+fi
 ( while true; do
     echo "[mc] starting api (http :$MC_API_PORT / https :$MC_API_HTTPS_PORT)"
     node /magic-closet/workspace/api/src/server.js

@@ -1,0 +1,24 @@
+name: rancher
+description: Rancher server.
+port: RANCHER_PORT
+scheme: https
+params:
+  - id: tag
+    env: RANCHER_TAG
+    default: head
+    description: rancher/rancher image tag (e.g. v2.14.3, or head for the dev build)
+    options:
+      source: github-releases
+      repo: rancher/rancher
+      limit: 15
+  - id: prime
+    env: RANCHER_PRIME
+    type: boolean
+    default: ''
+    description: Rancher Prime (RANCHER_VERSION_TYPE=prime, SUSE branding); applies on restart
+secrets:
+  - RANCHER_BOOTSTRAP_PASSWORD
+  - RANCHER_USER1_PASSWORD
+  - RANCHER_USER2_PASSWORD
+  - RANCHER_USER3_PASSWORD
+notes: Rancher server at https://rancher (host :${RANCHER_PORT}). Log in as a local user admin / $RANCHER_BOOTSTRAP_PASSWORD, or user1-3 / $RANCHER_USER{1,2,3}_PASSWORD. First boot takes several minutes. OIDC/LDAP logins and any https://rancher URL only resolve in-network — drive them through the rancher-browser sidecar, not a host browser.

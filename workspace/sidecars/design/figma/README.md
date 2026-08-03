@@ -2,4 +2,4 @@
 
 Figma MCP server.
 
-See `sidecar.json` for the description, usage `notes`, params, and secrets.
+See `sidecar.yml` for the description, usage `notes`, params, and secrets.

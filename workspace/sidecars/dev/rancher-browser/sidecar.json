@@ -1,8 +1,0 @@
-{
-  "name": "rancher-browser",
-  "description": "Chromium with Rancher quick-login.",
-  "port": "RANCHER_BROWSER_PORT",
-  "scheme": "https",
-  "params": [],
-  "notes": "Chromium with a Rancher quick-login bar and a Ctrl+M command menu. Open a tab with `mc open <url>`. For automation, get the CDP endpoint with `cdp-url` and connect Playwright (chromium.connectOverCDP)."
-}

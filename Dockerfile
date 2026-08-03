@@ -36,6 +36,13 @@ RUN apt-get update && apt-get install -y \
     openssl \
     && rm -rf /var/lib/apt/lists/*
 
+# ---- api node deps (js-yaml, to read sidecar.yml). The repo is bind-mounted at
+# runtime and workspace/api/node_modules is gitignored, so bake the deps at a
+# fixed path; the entrypoint links them next to the api. Kept off NODE_PATH so
+# they don't leak into the user's node/yarn builds run via /exec.
+COPY workspace/api/package.json workspace/api/yarn.lock /opt/api-deps/
+RUN cd /opt/api-deps && corepack enable && yarn install --production --frozen-lockfile && yarn cache clean
+
 # GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \

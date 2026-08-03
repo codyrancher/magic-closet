@@ -133,10 +133,10 @@ describe('param options — GET /sidecars/<name>/params/<id>/options', () => {
 
 describe('custom sidecars', () => {
   const spec = { name: 'mytool', image: 'redis:7', description: 'a cache', port: 'MYTOOL_PORT', containerPort: 6379 };
-  it('create writes compose.yml + sidecar.json + spec.json', async () => {
+  it('create writes compose.yml + sidecar.yml + spec.json', async () => {
     const r = await h.api('POST', '/sidecars', spec);
     assert.equal(r.status, 201);
-    for (const f of ['compose.yml', 'sidecar.json', 'spec.json']) {
+    for (const f of ['compose.yml', 'sidecar.yml', 'spec.json']) {
       assert.ok(h.exists(`custom-sidecars/mytool/${f}`), `missing ${f}`);
     }
     const list = (await h.api('GET', '/sidecars')).json.sidecars.map((s) => s.name);
@@ -148,7 +148,7 @@ describe('custom sidecars', () => {
   it('edit (PUT) updates the definition', async () => {
     const r = await h.api('PUT', '/sidecars/mytool', { ...spec, description: 'edited' });
     assert.equal(r.status, 200);
-    assert.match(h.readFile('custom-sidecars/mytool/sidecar.json'), /edited/);
+    assert.match(h.readFile('custom-sidecars/mytool/sidecar.yml'), /edited/);
   });
   it('an invalid spec → 400', async () => {
     assert.equal((await h.api('POST', '/sidecars', { name: 'x' }) /* no image/compose */).status, 400);

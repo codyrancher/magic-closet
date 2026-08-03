@@ -72,7 +72,7 @@ magic-closet/
 ├── workspace/           # everything the root container & the sidecars use
 │   ├── api/             # control API src (runs in the root container) + its tests/
 │   ├── template/        # scaffold seeded into /workspace at start
-│   ├── sidecars/        # one dir per sidecar (compose.yml + sidecar.json [+ Dockerfile])
+│   ├── sidecars/        # one dir per sidecar (compose.yml + sidecar.yml [+ Dockerfile])
 │   └── shared/          # artifacts shared into every container at /shared (tools/bin/mc, ...)
 └── rancher-extension/   # Rancher UI extension (Vue plugin) + charts/ (Helm chart)
 ```
@@ -104,7 +104,7 @@ conventions are:
 3. Paths are relative to the **repo root** (the include uses
    `project_directory: .`), e.g. `./workspace/shared`, `./workspace/sidecars/<name>/...`.
 4. Tunables are exposed as env vars with defaults (`${RANCHER_TAG:-head}`) and
-   declared in `sidecar.json` so the API can set them.
+   declared in `sidecar.yml` so the API can set them.
 
 ### Seeding startup files (`template/`)
 The **root container** seeds `workspace/template/` into `/workspace` at startup
@@ -122,30 +122,29 @@ names stay flat (`keycloak`) — the group is purely organizational.
 
 ### Add a new sidecar
 1. `mkdir workspace/sidecars/<name>` (or `sidecars/<group>/<name>`) with a `compose.yml`
-   (follow the conventions above) and a `sidecar.json`:
-   ```json
-   {
-     "name": "<name>",
-     "description": "what it does",
-     "port": "MYTHING_PORT",            // optional: .env var of its host port
-     "params": [
-       { "id": "tag", "env": "MYTHING_TAG", "default": "latest",
-         "description": "image tag" }
-     ]
-   }
+   (follow the conventions above) and a `sidecar.yml`:
+   ```yaml
+   name: <name>
+   description: what it does
+   port: MYTHING_PORT            # optional: .env var of its host port
+   params:
+     - id: tag
+       env: MYTHING_TAG
+       default: latest
+       description: image tag
    ```
 
-   A param may set `"group": "AWS"` — the dashboard renders each group as a
+   A param may set `group: AWS` — the dashboard renders each group as a
    collapsible accordion section on the card (see the rancher-browser sidecar’s AppCo
    and AWS groups); ungrouped params show as flat rows.
 
    Internal secrets are not params and are never authored by hand — list their
-   env vars in a top-level `"secrets"` array instead (see rancher's
+   env vars in a top-level `secrets` list instead (see rancher's
    `RANCHER_BOOTSTRAP_PASSWORD`). Name them `*_PASSWORD` / `*_SECRET`. They
    never appear in the dashboard, the start API, `.env`, or `.env.example`.
    Every `secrets`-array entry is generated at init into the gitignored
    `.state/secrets.env` (kept out of the human `.env`): `dind-entrypoint.sh`
-   scans the sidecar.json files, generates any missing one there **once** —
+   scans the sidecar.yml files, generates any missing one there **once** —
    reused on later boots so rancher/keycloak (which persist their own copy in
    volumes) don't break on restart — and exports them so `compose up`
    interpolates `${*_PASSWORD}`. The api reads `.env` **and** `.state/secrets.env`
@@ -156,7 +155,7 @@ names stay flat (`keycloak`) — the group is purely organizational.
 3. Optionally add its profile to `COMPOSE_PROFILES` and its port/params to
    `.env` / `.env.example`.
 
-The API discovers sidecars by scanning `sidecars/*/sidecar.json` — no code
+The API discovers sidecars by scanning `sidecars/*/sidecar.yml` — no code
 changes needed.
 
 A param can also declare a suggested-values source; the dashboard then renders
@@ -168,40 +167,46 @@ drafts excluded — newest first. This is what the rancher `tag` param uses, so
 the picker only offers real releases (`head` and `vX.Y-head` dev builds are not
 releases — type `head` in the field to run the dev build):
 
-```json
-"options": {
-  "source": "github-releases",
-  "repo": "rancher/rancher",  // owner/repo
-  "limit": 15,                // keep the newest N GA tags
-  "pattern": "^v\\d+\\.\\d+\\.\\d+$", // optional; default GA-semver filter
-  "prepend": ["head"]         // optional fixed values, listed first
-}
+```yaml
+options:
+  source: github-releases
+  repo: rancher/rancher        # owner/repo
+  limit: 15                    # keep the newest N GA tags
+  pattern: ^v\d+\.\d+\.\d+$    # optional; default GA-semver filter
+  prepend: [head]              # optional fixed values, listed first
 ```
 
 `dockerhub` lists a Docker image's tags (server-side `filter`, `pattern` to
 keep, `nextMinor` to also suggest one minor past the newest, `prepend` for
 fixed values):
 
-```json
-"options": {
-  "source": "dockerhub", "repo": "rancher/rancher",
-  "filter": "head", "pattern": "^v2\\.\\d+-head$", "nextMinor": true, "prepend": ["head"]
-}
+```yaml
+options:
+  source: dockerhub
+  repo: rancher/rancher
+  filter: head
+  pattern: ^v2\.\d+-head$
+  nextMinor: true
+  prepend: [head]
 ```
 
 A third source, `github-node-engines`, lists the node major versions a
 GitHub repo's branches declare in `package.json` `engines.node` (main branch's
 version first, then the last `limit` `branchPrefix` branches):
 
-```json
-"options": { "source": "github-node-engines", "repo": "rancher/dashboard",
-             "mainBranch": "master", "branchPrefix": "release-2.", "limit": 6 }
+```yaml
+options:
+  source: github-node-engines
+  repo: rancher/dashboard
+  mainBranch: master
+  branchPrefix: release-2.
+  limit: 6
 ```
 
 (No sidecar uses this today — the workspace's node version comes from the
 workspace's `.nvmrc`, see `workspace/setup-node.sh`, not a param.)
 
-A param with `"defaultFromOptions": true` gets its default from the first
+A param with `defaultFromOptions: true` gets its default from the first
 option: when its env var is unset in `.env`, the api resolves the options and
 persists option[0] — at boot and before any start.
 
@@ -230,7 +235,7 @@ POST   /browser/open            { "url": "https://rancher" } → open a tab in t
 GET    /browser/queue           tabs still waiting for the browser
 ```
 
-- `start` params are validated against `sidecar.json` and **persisted to
+- `start` params are validated against `sidecar.yml` and **persisted to
   `.env`**, so a later `docker compose up -d` keeps them.
 - **Params are global**: every container (closet + every sidecar) loads
   `.env` via `env_file`, so an argument passed for one sidecar is readable as
@@ -310,11 +315,13 @@ before. Apply is only enabled while both rancher and the sidecar are running;
 the active provider shows as "Applied". Under the hood this is
 `POST /auth/apply {"provider": "keycloak-saml"}`, which persists the choice
 as `RANCHER_AUTH_PROVIDER` in `.env` so the bootstraps re-apply it after
-restarts. Declared per sidecar in `sidecar.json`:
+restarts. Declared per sidecar in `sidecar.yml`:
 
-```json
-"rancherAuth": { "modes": [{ "value": "keycloak", "label": "OIDC" },
-                            { "value": "keycloak-saml", "label": "SAML" }] }
+```yaml
+rancherAuth:
+  modes:
+    - { value: keycloak, label: OIDC }
+    - { value: keycloak-saml, label: SAML }
 ```
 
 All auth sidecars get users `user1`-`user3` with the same passwords as the

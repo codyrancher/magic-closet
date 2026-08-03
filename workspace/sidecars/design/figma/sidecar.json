@@ -1,7 +1,0 @@
-{
-  "name": "figma",
-  "description": "Figma MCP server.",
-  "port": "FIGMA_PORT",
-  "params": [],
-  "notes": "Figma MCP server at http://figma:8000. Needs $FIGMA_API_KEY (set in .env, or `mc start figma apiKey=...`)."
-}

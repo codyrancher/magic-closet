@@ -1,14 +1,14 @@
 // magic-closet sidecar control API.
 //
 // Zero-dependency Node HTTP server. Sidecars are discovered by scanning
-// sidecars/*/sidecar.json in the repo (mounted at MC_ROOT, which is the same
+// sidecars/*/sidecar.yml in the repo (mounted at MC_ROOT, which is the same
 // path on the host so docker compose bind mounts resolve correctly).
 //
 //   GET    /                      dashboard (start/stop/delete sidecars in the browser)
 //   GET    /sidecars              list sidecars, their params and status
 //   GET    /sidecars/:name/params/:id/options
 //                                 suggested values for a param (declared via the
-//                                 param's "options" config in sidecar.json)
+//                                 param's "options" config in sidecar.yml)
 //   POST   /sidecars/:name/start  body: { params?: {id: value}, wait?: bool }
 //   POST   /sidecars/:name/stop
 //   DELETE /sidecars/:name        stop + remove the container (volumes kept)
@@ -21,7 +21,19 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const yaml = require('js-yaml');
 const { execFileSync, execFile, spawn } = require('child_process');
+
+// Sidecar/group metadata is authored as YAML (sidecar.yml, group.yml). Read
+// either extension so custom sidecars written before the switch (still .json on
+// a persistent volume) keep loading; JSON is valid YAML, so yaml.load parses both.
+function readMeta(dir, base) {
+  for (const ext of ['yml', 'json']) {
+    const p = path.join(dir, `${base}.${ext}`);
+    if (fs.existsSync(p)) return yaml.load(fs.readFileSync(p, 'utf-8')) || {};
+  }
+  return {};
+}
 
 const MC_ROOT = process.env.MC_ROOT || process.cwd();
 // Runtime/instance state (.state, custom-sidecars, workspaces) lives here so it
@@ -153,8 +165,7 @@ const CUSTOM_SIDECARS_DIR = path.join(DATA_DIR, 'custom-sidecars');
 function scanSidecarRoot(root, custom, byName, groupOrder) {
   if (!fs.existsSync(root)) return;
   const readDef = (dir, name, group) => {
-    let meta = {};
-    try { meta = JSON.parse(fs.readFileSync(path.join(dir, 'sidecar.json'), 'utf-8')); } catch { /* no metadata */ }
+    const meta = readMeta(dir, 'sidecar');
     byName.set(name, {
       name,
       group: meta.group || group,
@@ -173,7 +184,7 @@ function scanSidecarRoot(root, custom, byName, groupOrder) {
     const dir = path.join(root, entry.name);
     if (fs.existsSync(path.join(dir, 'compose.yml'))) { readDef(dir, entry.name, null); continue; }
     try {
-      groupOrder[entry.name] = JSON.parse(fs.readFileSync(path.join(dir, 'group.json'), 'utf-8')).order ?? 100;
+      groupOrder[entry.name] = readMeta(dir, 'group').order ?? 100;
     } catch { if (!(entry.name in groupOrder)) groupOrder[entry.name] = 100; }
     for (const child of fs.readdirSync(dir, { withFileTypes: true })) {
       if (!child.isDirectory()) continue;
@@ -188,7 +199,7 @@ function listSidecarDefs() {
   const groupOrder = {};
   scanSidecarRoot(SIDECARS_DIR, false, byName, groupOrder);
   scanSidecarRoot(CUSTOM_SIDECARS_DIR, true, byName, groupOrder); // custom shadows built-in
-  // Ungrouped first, then groups by their group.json order, then by name
+  // Ungrouped first, then groups by their group.yml order, then by name
   const orderOf = d => (d.group ? groupOrder[d.group] ?? 100 : -1);
   return [...byName.values()].sort((a, b) =>
     orderOf(a) - orderOf(b) ||
@@ -234,7 +245,7 @@ function containerStatus(name) {
 
 // ---------- generated secrets ----------
 //
-// Env vars listed in a sidecar.json "secrets" array are internal — never
+// Env vars listed in a sidecar.yml "secrets" array are internal — never
 // user-supplied. A password is generated (same shape as the claude-harness
 // generator) and persisted to .env the first time it's needed. setup.sh does
 // the same at .env creation so a fresh `docker compose up -d` already has
@@ -281,7 +292,7 @@ function ensureGeneratedSecrets() {
 
 // ---------- param options ----------
 //
-// A param in sidecar.json may declare a declarative "options" source, e.g.:
+// A param in sidecar.yml may declare a declarative "options" source, e.g.:
 //   "options": { "source": "dockerhub", "repo": "rancher/rancher",
 //                "filter": "head", "pattern": "^v2\\.\\d+-head$",
 //                "nextMinor": true, "prepend": ["head"] }
@@ -1638,7 +1649,7 @@ function handleLogsStream(name, params, res) {
 // ---------- custom sidecar definitions (created/edited from within a closet) ----------
 //
 // A spec ({name, image|compose, port, containerPort, params, secrets, ...}) is
-// written to custom-sidecars/<name>/ as a compose fragment + sidecar.json. It's
+// written to custom-sidecars/<name>/ as a compose fragment + sidecar.yml. It's
 // discovered like any built-in and (living under MC_ROOT) is inherited by every
 // future compose closet. A custom name shadows a built-in of the same name.
 
@@ -1696,7 +1707,7 @@ function handleSidecarWrite(spec, res, editing) {
     fs.mkdirSync(dir, { recursive: true });
     // JSON is valid YAML, so a JSON-shaped compose.yml parses fine and diffs cleanly
     fs.writeFileSync(path.join(dir, 'compose.yml'), `${JSON.stringify(specToFragment(spec), null, 2)}\n`);
-    fs.writeFileSync(path.join(dir, 'sidecar.json'), `${JSON.stringify(specToMeta(spec), null, 2)}\n`);
+    fs.writeFileSync(path.join(dir, 'sidecar.yml'), yaml.dump(specToMeta(spec), { lineWidth: -1, noRefs: true }));
     fs.writeFileSync(path.join(dir, 'spec.json'), `${JSON.stringify(spec, null, 2)}\n`); // lets edits round-trip
   } catch (e) {
     return sendJson(res, 500, { error: `failed to write sidecar: ${e.message}` });
