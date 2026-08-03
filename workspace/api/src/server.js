@@ -123,7 +123,6 @@ async function refreshK8sCache() {
 if (K8S) {
   refreshK8sCache();
   setInterval(refreshK8sCache, 5000);
-  detectPublicHost(); // warm publicHostCache for devServerUrl() (hoisted fn)
   console.log(`kubernetes mode: namespace ${K8S.ns}`);
 }
 
@@ -643,6 +642,10 @@ async function detectPublicHost() {
   console.log(host ? `detected public host: ${host}` : 'could not detect public host yet (will retry; server-url stays in-network meanwhile)');
   return host || null;
 }
+
+// Warm the public-host cache at startup so the dev-server URL is available even
+// before rancher is bootstrapped (defined here, after publicHostCache).
+if (K8S) detectPublicHost();
 
 // Scoped https JSON call that accepts rancher's self-signed cert (a global
 // TLS override would also disable verification for Docker Hub/GitHub calls)
