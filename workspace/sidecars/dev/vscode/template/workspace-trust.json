@@ -1,7 +1,0 @@
-{
-    "uriTrustInfo": [
-        { "uri": "file:///workspace", "trusted": true },
-        { "uri": "file:///workspace/dashboard", "trusted": true }
-    ],
-    "trustStateInfo": "trusted"
-}

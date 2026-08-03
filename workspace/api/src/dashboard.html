@@ -698,10 +698,7 @@ function render(sidecars) {
     let launchHref = null;
     if (s.hostPort && s.status === 'running') {
       const scheme = s.scheme || 'http';
-      const base = `${scheme}://${location.hostname}:${s.hostPort}`;
-      // vscode-web needs ?folder to reliably open the workspace (it ignores the
-      // positional folder arg when the browser has saved window state)
-      launchHref = s.name === 'vscode' ? `${base}/?folder=/workspace` : base;
+      launchHref = `${scheme}://${location.hostname}:${s.hostPort}`;
     } else if ((s.proxy || s.external) && s.status === 'running') {
       // In-cluster: the Rancher service proxy (same-origin) or the node-IP NodePort
       const proxyHref = s.proxy ? `../../${s.proxy.scheme}:${s.name}:${s.proxy.port}/proxy/` : null;
@@ -719,7 +716,7 @@ function render(sidecars) {
     // Internal Launch: open the sidecar's in-network URL inside the rancher-browser
     // sidecar, where compose service names resolve
     const browser = lastSidecars.find(x => x.name === 'rancher-browser');
-    if (s.internal && s.status === 'running' && s.name !== 'rancher-browser' && s.name !== 'vscode'
+    if (s.internal && s.status === 'running' && s.name !== 'rancher-browser'
         && browser && browser.status === 'running') {
       const b = document.createElement('a');
       b.className = 'card-link';

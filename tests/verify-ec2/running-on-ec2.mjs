@@ -7,7 +7,7 @@ await recorded('running-on-ec2', async (page) => {
   const { sidecars } = await (await fetch(`${API}/sidecars`)).json();
   const up = sidecars.filter((s) => s.status === 'running').map((s) => s.name);
   console.log('running sidecars:', up.join(', ') || '(none)');
-  const need = ['rancher', 'vscode', 'rancher-browser', 'keycloak'];
+  const need = ['rancher', 'rancher-browser', 'keycloak'];
   const missing = need.filter((n) => !up.includes(n));
 
   await page.goto(DASH, { waitUntil: 'networkidle', timeout: 60000 });

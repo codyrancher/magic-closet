@@ -24,9 +24,6 @@ jobs:
           - name: api
             context: .
             dockerfile: workspace/api/Dockerfile
-          - name: vscode
-            context: workspace/sidecars/dev/vscode
-            dockerfile: workspace/sidecars/dev/vscode/Dockerfile
     steps:
       - uses: actions/checkout@v4
 

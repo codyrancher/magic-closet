@@ -6,8 +6,6 @@ name: magic-closet
 # Each sidecar lives in its own directory under sidecars/ and ships its own
 # compose fragment. Adding a sidecar = create the directory + list it here.
 include:
-  - path: workspace/sidecars/dev/vscode/compose.yml
-    project_directory: .
   - path: workspace/sidecars/dev/rancher-browser/compose.yml
     project_directory: .
   - path: workspace/sidecars/dev/rancher/compose.yml

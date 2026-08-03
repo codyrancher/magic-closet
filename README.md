@@ -1,8 +1,8 @@
 # magic closet
 
 A dev environment as a closet of optional containers — one **workspace** container
-(your source + node) plus opt-in **sidecars** (VS Code, a Chromium browser,
-Rancher, Keycloak, ...), all managed from a small dashboard. The whole stack
+(your source + node) plus opt-in **sidecars** (a Chromium browser, Rancher,
+Keycloak, ...), all managed from a small dashboard. The whole stack
 runs inside a single Docker-in-Docker container, so nothing but that one
 container lands on your host.
 
@@ -20,7 +20,7 @@ open the dashboard:
 
 **http://localhost:8300**
 
-Start/stop sidecars and open them (VS Code, Rancher, ...) from there. To
+Start/stop sidecars and open them (a browser, Rancher, ...) from there. To
 customize first — ports, tokens, or which sidecars start — copy `.env.example`
 to `.env` and edit before running.
 

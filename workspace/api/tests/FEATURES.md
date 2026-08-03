@@ -39,7 +39,6 @@ not by the mocked suite.
 | Sidecar | What | T |
 |---|---|---|
 | closet (core) | source + node toolchain; target of `/exec` | ✅ (discovery/exec) |
-| vscode | openvscode-server, **served over HTTPS** so webviews work; shared toolchain; Claude ext | live |
 | rancher-browser | Chromium + quick-login/command-menu extension; CDP proxy | live |
 | rancher | Rancher server; `tag`/`prime` params; bootstrap (below) | ✅ (params/discovery) |
 | keycloak | Keycloak OIDC/SAML provider; bootstrap | ✅ (discovery/auth) |

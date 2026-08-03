@@ -3,7 +3,7 @@
 A project development environment built from small, optional pieces. **One**
 privileged container is the whole base: the docker-in-docker host, the workspace
 dev environment (your code + node + claude + the `mc` CLI), and the control API.
-Everything else (VS Code, a browser, Rancher, MCP servers, ...) is a **sidecar**
+Everything else (a browser, Rancher, MCP servers, ...) is a **sidecar**
 — an independent, optional container nested inside it, with its own directory
 under `sidecars/`.
 
@@ -30,11 +30,11 @@ sidecar's derived port).
   workspace toolchain (node/nvm, claude, gh, `mc`, build tools), and the api's
   runtime baked in. dockerd runs as root; you work/attach as the `node` user.
 - `docker-compose.yml` — the wrapper that runs it: `build: .`, the repo
-  bind-mounted at `/magic-closet`, the `mc-docker` volume for nested docker
-  data, and the `8300-8399` port mapping. It also mounts a sibling
-  **`../instance/magic-closet`** at `/magic-closet-data` (env `MC_DATA_DIR`) —
-  the runtime/instance state (`.state`, `workspace`, `toolchain`, `claude-data`)
-  lives there, out of the source tree.
+  bind-mounted at `/magic-closet`, and the `8300-8399` port mapping. All
+  persistent state lives in **one** sibling dir, `../instance/magic-closet`,
+  mounted at `/magic-closet-data` (env `MC_DATA_DIR`) — one directory per
+  function: `docker/` (the inner dockerd data-root), `workspace/`, `toolchain/`,
+  `claude-data/`, and `.state/`, out of the source tree.
 - `dind-entrypoint.sh` — PID 1 of that container: boots the inner dockerd, sets
   up the workspace (node user, `/workspace`, shared toolchain, claude), brings
   up the sidecars (`docker compose -f compose.stack.yml up -d --build`), and
@@ -48,8 +48,8 @@ Everyday commands:
 docker compose up -d                 # build + start (first run builds the image + inner stack)
 docker compose logs -f               # inner dockerd + "compose up" progress
 docker exec -it magic-closet bash    # shell in as root; `su - node` for the dev user
-docker compose down                  # stop all (nested data kept in mc-docker)
-docker compose down -v               # also wipe nested docker data
+docker compose down                  # stop all (state kept in ../instance/magic-closet)
+rm -rf ../instance/magic-closet      # wipe all persistent state
 ```
 
 VS Code: Dev Containers → **Attach to Running Container → `magic-closet`** — it
@@ -107,13 +107,11 @@ conventions are:
    declared in `sidecar.json` so the API can set them.
 
 ### Seeding startup files (`template/`)
-A sidecar that **builds its own image** carries a `template/` dir, baked in and
-copied into the container at startup — the convention for initializing data:
-the **workspace** seeds `workspace/template/` into its root (`/workspace`), and
-**vscode** seeds `workspace/sidecars/dev/vscode/template/` (VS Code defaults) into its
-data dir. **Stock-image sidecars** can't bake a template, so they initialize
-another way: rancher/keycloak/openldap via the API bootstrap, rancher-browser
-via the image's `custom-cont-init.d` hook (`ext-init`, which renders creds).
+The **root container** seeds `workspace/template/` into `/workspace` at startup
+— the convention for initializing the workspace. Sidecars run stock images and
+initialize another way: rancher/keycloak/openldap via the API bootstrap,
+rancher-browser via the image's `custom-cont-init.d` hook (`ext-init`, which
+renders creds).
 
 ### Sidecar groups
 A directory under `sidecars/` **without** a `compose.yml` is a group; its
@@ -280,9 +278,9 @@ startup.
 
 ## Workspace code (GITHUB_URL)
 
-The vscode sidecar's `githubUrl` param points at a GitHub PR, issue, or repo;
-the api clones it into `/workspace/dashboard` (blob-less partial clone), locally
-as the node user:
+The `GITHUB_URL` config value points at a GitHub PR, issue, or repo; the api
+clones it into `/workspace/dashboard` (blob-less partial clone), locally as the
+node user:
 
 - `.../pull/123` — PR head checked out on branch `pr-123`
 - `.../issues/456` — default branch on a new branch `issue-456`
@@ -367,8 +365,8 @@ files, recreate the rancher-browser sidecar to pick them up.
 ## Sidecar containers
 
 No fixed `container_name`s anywhere — the api finds containers via compose
-labels (`com.docker.compose.service=<name>`). Sidecars that build an image carry
-explicit tags (`magic-closet-vscode`).
+labels (`com.docker.compose.service=<name>`). Every sidecar runs a stock image
+(pulled, not built).
 
 **Rancher's node IP is pinned.** Rancher's embedded k3s/etcd pins its peer url to
 the container's ip; if that ip changed on a restart (e.g. the root container
@@ -387,8 +385,8 @@ rancher sidecar): a closet list with live per-closet status and **Create
 Closet** (provisions via the controller), and a detail page embedding the
 closet's dashboard in an iframe.
 
-- Build (node 24 — use the vscode sidecar, which mounts the source):
-  `docker exec -u 1000 magic-closet-vscode bash -c 'cd /rancher-extension && yarn build-pkg magic-closet'`
+- Build (node 24):
+  `docker run --rm -u node -v "$PWD/rancher-extension:/app" -w /app node:24-bookworm bash -lc 'corepack enable && yarn install --frozen-lockfile && yarn build-pkg magic-closet'`
 - The api serves the build at
   `/extension/magic-closet-<version>/magic-closet-<version>.umd.min.js`.
 - Load into the rancher sidecar: Extensions → ⋮ → Developer Load (enable
@@ -429,7 +427,6 @@ node -e '...connectOverCDP(...)...' "$(cdp-url)"
   mounts the repo at `${PWD}` so compose paths resolve identically inside it.
 - After editing the root `Dockerfile` (toolchain/api deps) rebuild the root
   container: `docker compose up -d --build`. After editing the api source
-  (`workspace/api/`) just restart the api (it runs from the mounted repo). After
-  editing `workspace/sidecars/dev/vscode/` (built image) run
-  `docker compose up -d --build`; stock-image sidecars just need `up -d`.
+  (`workspace/api/`) just restart the api (it runs from the mounted repo). Every
+  sidecar runs a stock image, so editing one just needs `docker compose up -d`.
 - `figma` needs `FIGMA_API_KEY` set in `.env` (or `mc start figma apiKey=...`).

@@ -2,15 +2,15 @@ name: magic-closet
 
 # ONE privileged container is the whole thing: it's the docker-in-docker host,
 # the workspace dev environment (your code, node, claude, the `mc` CLI), AND the
-# control-plane api. Only the optional SIDECARS (vscode, rancher, keycloak, ...)
+# control-plane api. Only the optional SIDECARS (rancher, keycloak, ...)
 # are nested containers, defined in compose.stack.yml and brought up by
 # dind-entrypoint.sh once the inner dockerd is ready.
 #
 #   docker compose up -d                    # start it (first run builds the image + inner stack)
 #   docker compose logs -f                  # dockerd + inner "compose up" progress
 #   docker exec -it magic-closet bash       # shell in (as root); `su - node` for the dev user
-#   docker compose down                     # stop (nested data kept in the mc-docker volume)
-#   docker compose down -v                  # also wipe the nested docker data
+#   docker compose down                     # stop (all state kept in ../instance/magic-closet)
+#   rm -rf ../instance/magic-closet         # wipe all persistent state (docker data + workspace + ...)
 #
 # VS Code: Dev Containers -> Attach to Running Container -> magic-closet (lands
 # you in as `node`, where /workspace + claude + mc live). No extra setup.
@@ -23,15 +23,16 @@ services:
     cgroup: host                            # nested k3s needs the cgroup v2 memory
                                             # controller, only delegated in the host cgroup ns
     environment:
-      # Runtime/instance state (.state, workspace, toolchain, claude-data) lives
-      # in a sibling dir, not the source tree — mounted below.
+      # ALL persistent state lives in one sibling dir (not the source tree),
+      # one directory per function — see the volume mount below.
       - MC_DATA_DIR=/magic-closet-data
     working_dir: /magic-closet
     entrypoint: ["/bin/bash", "/magic-closet/dind-entrypoint.sh"]
     volumes:
       - .:/magic-closet                     # the repo — live edits to api/, sidecars/, workspace/, .env keep working
-      - ../instance/magic-closet:/magic-closet-data  # runtime/instance state (workspace, toolchain, claude-data, .state)
-      - mc-docker:/var/lib/docker           # nested docker images/volumes survive restarts
+      # ONE data volume, a directory per function (created/used by dind-entrypoint.sh):
+      #   docker/ (inner dockerd data-root), workspace/, toolchain/, claude-data/, .state/
+      - ../instance/magic-closet:/magic-closet-data
     ports:
       # Every port derives from API_PORT (default 8300) — publish the whole
       # 8300-8399 block so any derived (or overridden) port is reachable without
@@ -40,6 +41,3 @@ services:
       # API_PORT within ~8300-8339 so the derived ports stay in range.
       - "8300-8399:8300-8399"
     restart: unless-stopped
-
-volumes:
-  mc-docker:

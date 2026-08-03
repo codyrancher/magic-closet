@@ -1,8 +1,8 @@
 #!/bin/bash
 # Installs the node version the workspace wants (from rancher/dashboard's .nvmrc,
 # else the latest LTS) via nvm, into the shared /opt/toolchain volume, and links
-# /opt/toolchain/node -> the active version. Both the closet container and the
-# slim vscode sidecar put /opt/toolchain/node/bin on PATH, so they share node.
+# /opt/toolchain/node -> the active version. The closet container puts
+# /opt/toolchain/node/bin on PATH; the shared volume keeps node in one place.
 # Safe to re-run (e.g. after the workspace clone brings in a new .nvmrc).
 set -e
 export NVM_DIR="${NVM_DIR:-/opt/toolchain/nvm}"

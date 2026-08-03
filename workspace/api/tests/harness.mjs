@@ -18,7 +18,7 @@ const logFile = path.join(root, 'mock-docker.log');
 
 fs.cpSync(path.join(repoRoot, 'workspace', 'sidecars'), path.join(root, 'workspace', 'sidecars'), { recursive: true });
 try { fs.copyFileSync(path.join(repoRoot, 'compose.stack.yml'), path.join(root, 'compose.stack.yml')); } catch {}
-fs.writeFileSync(path.join(root, '.env'), 'API_PORT=8300\nCOMPOSE_PROFILES=vscode,rancher,keycloak\n');
+fs.writeFileSync(path.join(root, '.env'), 'API_PORT=8300\nCOMPOSE_PROFILES=rancher,keycloak\n');
 fs.writeFileSync(stateFile, '');
 fs.writeFileSync(logFile, '');
 

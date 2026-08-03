@@ -1253,8 +1253,7 @@ async function bootstrapKeycloak() {
 
 // ---------- workspace clone (GITHUB_URL) ----------
 //
-// GITHUB_URL (param on the vscode sidecar, but executed in the project
-// container) points at a rancher/dashboard PR or issue:
+// GITHUB_URL (a closet config value) points at a rancher/dashboard PR or issue:
 //   .../pull/123   -> clone + fetch the PR head onto branch pr-123
 //   .../issues/456 -> clone the default branch + create branch issue-456
 //   bare repo URL  -> clone the default branch
@@ -1476,7 +1475,6 @@ const PORT_OFFSETS = {
   API_PORT:             0,
   API_HTTPS_PORT:       1,
   DEV_PORT:             5,
-  VSCODE_PORT:          10,
   RANCHER_BROWSER_PORT: 20,
   KEYCLOAK_PORT:        30,
   OPENLDAP_PORT:        40,

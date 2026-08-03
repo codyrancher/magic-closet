@@ -30,19 +30,17 @@ describe('sidecar discovery — GET /sidecars', () => {
 
   it('discovers every built-in sidecar', () => {
     const names = list.map((s) => s.name).sort();
-    for (const n of ['figma', 'keycloak', 'openldap', 'rancher', 'rancher-browser', 'vscode']) {
+    for (const n of ['figma', 'keycloak', 'openldap', 'rancher', 'rancher-browser']) {
       assert.ok(names.includes(n), `missing sidecar: ${n}`);
     }
   });
-  it('derives host ports from API_PORT (8300 → vscode 8310, rancher 8344, keycloak 8330)', () => {
+  it('derives host ports from API_PORT (8300 → rancher 8344, keycloak 8330)', () => {
     const by = Object.fromEntries(list.map((s) => [s.name, s]));
-    assert.equal(by.vscode.hostPort, '8310');
     assert.equal(by.rancher.hostPort, '8344');
     assert.equal(by.keycloak.hostPort, '8330');
   });
   it('reports scheme + params + rancherAuth', () => {
     const by = Object.fromEntries(list.map((s) => [s.name, s]));
-    assert.equal(by.vscode.scheme, 'https');
     assert.deepEqual(by.rancher.params.map((p) => p.id), ['tag', 'prime']);
     assert.ok(by.keycloak.rancherAuth, 'keycloak should declare rancherAuth');
   });

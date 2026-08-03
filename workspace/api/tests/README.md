@@ -27,5 +27,4 @@ validation, `.env`/secrets handling, port derivation, closet + custom-sidecar
 file generation — is the real server code.
 
 **Not covered here (needs the live stack):** the actual Rancher/Keycloak/OpenLDAP
-bootstrap, real cluster provisioning, the vscode HTTPS webview fix, and the
-dashboard UI. Those are exercised by running the stack (`docker compose up -d`).
+bootstrap, real cluster provisioning, and the dashboard UI. Those are exercised by running the stack (`docker compose up -d`).

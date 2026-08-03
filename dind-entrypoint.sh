@@ -18,9 +18,11 @@ export MC_DATA_DIR
 # here — enabling controllers from inside a host cgroup ns would touch the host.
 
 # ---------------------------------------------------------------------------
-# 1. Inner dockerd (hosts the nested sidecars)
+# 1. Inner dockerd (hosts the nested sidecars) — data-root lives in the single
+#    persisted data volume (docker/), alongside workspace/, toolchain/, etc.
 # ---------------------------------------------------------------------------
-dockerd >/var/log/dockerd.log 2>&1 &
+mkdir -p "$MC_DATA_DIR/docker"
+dockerd --data-root "$MC_DATA_DIR/docker" >/var/log/dockerd.log 2>&1 &
 DOCKERD_PID=$!
 echo "[mc] waiting for inner dockerd..."
 tries=0
@@ -43,7 +45,7 @@ echo "[mc] inner dockerd ready"
 base=$(grep -E '^API_PORT=' .env 2>/dev/null | head -1 | cut -d= -f2 | sed 's/#.*//' | tr -d '[:space:]')
 : "${base:=8300}"
 export API_PORT="$base"
-for pair in API_HTTPS_PORT:1 DEV_PORT:5 VSCODE_PORT:10 RANCHER_BROWSER_PORT:20 KEYCLOAK_PORT:30 OPENLDAP_PORT:40 RANCHER_PORT:44 FIGMA_PORT:60; do
+for pair in API_HTTPS_PORT:1 DEV_PORT:5 RANCHER_BROWSER_PORT:20 KEYCLOAK_PORT:30 OPENLDAP_PORT:40 RANCHER_PORT:44 FIGMA_PORT:60; do
   var=${pair%:*}; off=${pair#*:}
   grep -qE "^${var}=" .env 2>/dev/null || export "${var}=$((base + off))"
 done
@@ -80,7 +82,7 @@ mkdir -p "$HOME_DIR"; chown "$USER_ID:$GROUP_ID" "$HOME_DIR"
 # /shared -> the repo's shared dir (tools/bin/mc etc.; on PATH via /shared/tools/bin)
 ln -sfn /magic-closet/workspace/shared /shared
 
-# Shared Claude creds under the persisted data dir (same dir the vscode sidecar mounts)
+# Shared Claude creds under the persisted data dir (claude-data/)
 CLAUDE_DIR="$MC_DATA_DIR/claude-data"
 mkdir -p "$CLAUDE_DIR"; chown "$USER_ID:$GROUP_ID" "$CLAUDE_DIR"
 ln -sfn "$CLAUDE_DIR" "$HOME_DIR/.claude"
@@ -117,8 +119,8 @@ exec tmux new-session -s "$SESSION_NAME" -c /workspace bash -c '
 WRAPPER
 chmod +x /usr/local/bin/claude-session
 
-# /workspace -> the persisted workspace dir under the data mount (the same host
-# dir the vscode sidecar mounts). Seed the template scaffold (CLAUDE.md, ...).
+# /workspace -> the persisted workspace dir under the data mount (workspace/).
+# Seed the template scaffold (CLAUDE.md, ...).
 mkdir -p "$MC_DATA_DIR/workspace"
 ln -sfn "$MC_DATA_DIR/workspace" /workspace
 chown "$USER_ID:$GROUP_ID" "$MC_DATA_DIR/workspace"
@@ -127,7 +129,7 @@ if [ -d /magic-closet/workspace/template ]; then
   chown -R "$USER_ID:$GROUP_ID" "$MC_DATA_DIR/workspace" 2>/dev/null || true
 fi
 
-# Shared node toolchain (nvm) under the persisted data dir, shared with vscode.
+# Shared node toolchain (nvm) under the persisted data dir (toolchain/).
 # rm any pre-existing /opt/toolchain dir first, else `ln` nests the link inside it.
 rm -rf /opt/toolchain
 mkdir -p "$MC_DATA_DIR/toolchain"; chown -R "$USER_ID:$GROUP_ID" "$MC_DATA_DIR/toolchain"
