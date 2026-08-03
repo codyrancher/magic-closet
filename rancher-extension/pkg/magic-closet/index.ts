@@ -13,4 +13,12 @@ export default function(plugin: IPlugin): void {
   // explorer routes)
   plugin.addProduct(require('./product'));
 
+  // Override the core /prefs route with a wrapper that renders the original
+  // page plus an "Enable Magic Closet" checkbox (see pages/prefs.vue). Same
+  // name → replaces the built-in route.
+  plugin.addRoute({
+    name:      'prefs',
+    path:      '/prefs',
+    component: () => import('./pages/prefs.vue'),
+  });
 }

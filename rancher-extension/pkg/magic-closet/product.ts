@@ -12,12 +12,30 @@ export const EXPLORER = 'explorer';
 export const CLOSET_TYPE = 'magic-closet.closet';
 export const SECRET_SET_TYPE = 'magic-closet.secret-set';
 
+// User preference (per-user, default off) that gates whether the Magic Closet
+// nav shows in the explorer. The checkbox is rendered by the overridden prefs
+// page (pages/prefs.vue), appended to the Advanced Features section.
+export const NAV_PREF = 'magic-closet-nav';
+
 export function init($plugin: IPlugin, store: any) {
   // spoofedType exists at runtime but is missing from DSLReturnType
   const dsl: any = $plugin.DSL(store, EXPLORER);
   const {
     basicType, configureType, headers, spoofedType, virtualType, weightGroup,
   } = dsl;
+
+  // Register the nav toggle preference (default off) if it isn't already, then
+  // read it. Product init runs once at load, so toggling the checkbox takes
+  // effect on the next page load — enough for a show/hide-the-nav preference.
+  let navEnabled = false;
+
+  try {
+    store.commit('prefs/setDefinition', {
+      name:       NAV_PREF,
+      definition: { default: false, parseJSON: true, asUserPreference: true },
+    });
+    navEnabled = !!store.getters['prefs/get'](NAV_PREF);
+  } catch { /* prefs store shape changed — fail open below */ }
 
   spoofedType({
     label:             'Magic Closets',
@@ -134,27 +152,31 @@ export function init($plugin: IPlugin, store: any) {
     { name: 'keys', label: 'Keys', value: 'keyList', sort: ['keyList'] },
   ]);
 
-  // Both resources live under a "Magic Closet" nav group (sorted last)
-  virtualType({
-    label:      'Closets',
-    namespaced: false,
-    name:       'magic-closet',
-    weight:     10,
-    route:      {
-      name:   'c-cluster-product-resource',
-      params: { product: EXPLORER, resource: CLOSET_TYPE },
-    },
-  });
-  virtualType({
-    label:      'Secret Sets',
-    namespaced: false,
-    name:       'magic-closet-secrets',
-    weight:     9,
-    route:      {
-      name:   'c-cluster-product-resource',
-      params: { product: EXPLORER, resource: SECRET_SET_TYPE },
-    },
-  });
-  weightGroup('magicCloset', -100, true);
-  basicType(['magic-closet', 'magic-closet-secrets'], 'magicCloset');
+  // The nav entries (the only user-visible registration) are gated on the
+  // preference; the spoofed types/routes above stay registered so a direct link
+  // still resolves. Both resources live under a "Magic Closet" nav group.
+  if (navEnabled) {
+    virtualType({
+      label:      'Closets',
+      namespaced: false,
+      name:       'magic-closet',
+      weight:     10,
+      route:      {
+        name:   'c-cluster-product-resource',
+        params: { product: EXPLORER, resource: CLOSET_TYPE },
+      },
+    });
+    virtualType({
+      label:      'Secret Sets',
+      namespaced: false,
+      name:       'magic-closet-secrets',
+      weight:     9,
+      route:      {
+        name:   'c-cluster-product-resource',
+        params: { product: EXPLORER, resource: SECRET_SET_TYPE },
+      },
+    });
+    weightGroup('magicCloset', -100, true);
+    basicType(['magic-closet', 'magic-closet-secrets'], 'magicCloset');
+  }
 }
